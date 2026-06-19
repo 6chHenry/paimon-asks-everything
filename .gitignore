@@ -1,0 +1,16 @@
+.next/
+node_modules/
+.env
+.env.local
+.data/
+coverage/
+*.log
+tsconfig.tsbuildinfo
+
+# Local product/design materials are intentionally not published.
+docs/
+CONTEXT.md
+MinerU_markdown_*.md
+task_plan.md
+findings.md
+progress.md
