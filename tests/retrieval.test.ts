@@ -55,4 +55,19 @@ describe("controlled retrieval", () => {
     expect(result.entries[0]?.summary).toContain("阿兰");
     expect(result.entries[0]?.summary).toContain("造物");
   });
+
+  it("does not retrieve unrelated relationship entries just because the question asks for a relationship", () => {
+    const result = retrieveControlled({
+      question: "雷电将军和雷电影的关系",
+      language: "zh-CN",
+      progress: "inazuma",
+      spoilerPreference: "full",
+      focus: ["story", "character"],
+    });
+
+    expect(
+      result.entries.some((entry) => entry.conceptId === "sandrone-alain-creation"),
+    ).toBe(false);
+    expect(result.entries).toHaveLength(0);
+  });
 });

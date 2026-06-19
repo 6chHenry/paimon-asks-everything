@@ -103,6 +103,115 @@ function matchesRequestedLanguage(answer: string, language: Language) {
   return !containsCjkText(answer);
 }
 
+function salientQuestionTerms(question: string, language: Language) {
+  if (language === "zh-CN" || containsCjkText(question)) {
+    return Array.from(
+      new Set(
+        question
+          .split(
+            /(?:\s+|[，,。.!！?？、；;：:]|和|与|跟|及|同|的|是谁|为什么|怎么|什么|关系|联系|区别|讲了|讲|说|介绍|一下|吗|呢|了)/u,
+          )
+          .map((term) => term.trim())
+          .filter((term) => term.length >= 2),
+      ),
+    );
+  }
+  const stopwords = new Set([
+    "what",
+    "who",
+    "why",
+    "how",
+    "the",
+    "and",
+    "with",
+    "about",
+    "tell",
+    "explain",
+    "relationship",
+    "connection",
+    "between",
+  ]);
+  return Array.from(
+    new Set(
+      question
+        .toLowerCase()
+        .split(/[^a-z0-9'-]+/iu)
+        .map((term) => term.trim())
+        .filter((term) => term.length >= 3 && !stopwords.has(term)),
+    ),
+  );
+}
+
+function isOffTopicAnswer(answer: string, question: string, language: Language) {
+  const terms = salientQuestionTerms(question, language);
+  if (!terms.length) return false;
+  const normalizedAnswer = answer.toLowerCase();
+  return !terms.some((term) => normalizedAnswer.includes(term.toLowerCase()));
+}
+
+function compactEvidenceText(value: string) {
+  return value
+    .replace(/\s+/gu, " ")
+    .replace(/^[。；，、,.!?\s]+/u, "")
+    .trim()
+    .slice(0, 260);
+}
+
+function directExternalEvidenceAnswer({
+  language,
+  external,
+}: {
+  language: Language;
+  external: Citation[];
+}) {
+  const useful = external
+    .filter((citation) => compactEvidenceText(citation.excerpt || citation.title))
+    .slice(0, 3);
+  if (!useful.length) return "";
+
+  const paragraphs = useful.map((citation, index) => {
+    const text = compactEvidenceText(citation.excerpt || citation.title);
+    const sourceNote = `[${citation.id}]`;
+    if (language === "zh-CN") {
+      return index === 0
+        ? `先直接回答：${text}${sourceNote}`
+        : `补充来看：${text}${sourceNote}`;
+    }
+    return index === 0
+      ? `Direct answer: ${text}${sourceNote}`
+      : `Additional context: ${text}${sourceNote}`;
+  });
+
+  const ending =
+    language === "zh-CN"
+      ? "如果还想看更完整的原文、视频或细节，再打开下面的参考来源。"
+      : "Open the references below only if you want the fuller article, video, or extra details.";
+  return [...paragraphs, ending].join("\n\n");
+}
+
+function isLazyOrNonAnswer(answer: string, language: Language) {
+  const normalized = answer.replace(/\s+/gu, "");
+  const patterns =
+    language === "zh-CN"
+      ? [
+          /不用.*补完/u,
+          /来源.*(下面|下方)/u,
+          /参考.*(下面|下方)/u,
+          /先从.+(查起|看起|核对)/u,
+          /只找到外部资料/u,
+          /不能当成官方结论/u,
+        ]
+      : [
+          /do not need every old quest/i,
+          /sources? (are )?(below|at the bottom)/i,
+          /references? (are )?(below|at the bottom)/i,
+          /start with .+/i,
+          /only found external material/i,
+          /not an official conclusion/i,
+        ];
+  return patterns.some((pattern) => pattern.test(normalized));
+}
+
 function buildEvidence(input: {
   entries: KnowledgeEntry[];
   external: Citation[];
@@ -179,15 +288,7 @@ function deterministicAnswer({
     );
   }
   if (external.length) {
-    const firstTitle =
-      language === "en" && containsCjkText(external[0].title)
-        ? "the top returned source"
-        : external[0].title;
-    return t(
-      language,
-      `旅行者，派蒙只找到外部资料，还不能当成官方结论。先从“${external[0].title}”查起吧！`,
-      `Traveler, Paimon only found external material, so it is not an official conclusion. Start with “${firstTitle}.”`,
-    );
+    return directExternalEvidenceAnswer({ language, external });
   }
 
   const first = usableEntries[0];
@@ -306,9 +407,13 @@ export async function generateGroundedAnswer(input: {
     if (structured) {
       if (!validateStructuredAnswer(structured, allowedSourceIds)) return fallback;
       const answer = normalizeStructuredAnswer(structured);
+      if (isLazyOrNonAnswer(answer, input.language)) return fallback;
+      if (isOffTopicAnswer(answer, input.question, input.language)) return fallback;
       return matchesRequestedLanguage(answer, input.language) ? answer : fallback;
     }
     const answer = normalizeKnownTitleConfusions(content);
+    if (isLazyOrNonAnswer(answer, input.language)) return fallback;
+    if (isOffTopicAnswer(answer, input.question, input.language)) return fallback;
     return matchesRequestedLanguage(answer, input.language) ? answer : fallback;
   } catch (error) {
     const cause = error instanceof Error ? error.cause : undefined;
@@ -462,11 +567,7 @@ export async function generateGroundedResponse(input: {
     const searched = await searchWebEvidence(input.question, input.language, {
       emitTrace: input.emitTrace,
     }).catch(() => input.external);
-    const external = searched.filter(
-      (citation) =>
-        citation.credibility === "official" ||
-        citation.credibility === "trusted_wiki",
-    );
+    const external = searched.length ? searched : input.external;
     await emitTrace(input.emitTrace, {
       stage: "generate",
       status: "complete",
@@ -622,18 +723,10 @@ export async function generateGroundedResponse(input: {
       });
     }
 
-    const searchedFactualEvidence = searchedExternal.filter(
-      (citation) =>
-        citation.credibility === "official" ||
-        citation.credibility === "trusted_wiki",
-    );
-    const external = searchedFactualEvidence.length
-      ? searchedFactualEvidence
-      : input.external.filter(
-          (citation) =>
-            citation.credibility === "official" ||
-            citation.credibility === "trusted_wiki",
-        );
+    const external = searchedExternal.length ? searchedExternal : input.external;
+    const evidenceFallback =
+      directExternalEvidenceAnswer({ language: input.language, external }) ||
+      fallback;
     const evidence = buildEvidence({ entries: input.entries, external });
     const allowedSourceIds = new Set(evidence.map((item) => item.id));
     messages.push({
@@ -659,18 +752,44 @@ export async function generateGroundedResponse(input: {
     });
     const content = final?.choices?.[0]?.message?.content?.trim();
     if (!content) {
-      return { answer: fallback, external, citedSourceIds: [], searchPlan };
+      return { answer: evidenceFallback, external, citedSourceIds: [], searchPlan };
     }
     const structured = parseStructuredAnswer(content);
     if (structured && validateStructuredAnswer(structured, allowedSourceIds)) {
       const answer = normalizeStructuredAnswer(structured);
+      if (isLazyOrNonAnswer(answer, input.language)) {
+        await emitTrace(input.emitTrace, {
+          stage: "generate",
+          status: "complete",
+          message: "回答太空，改用证据摘要",
+        });
+        return {
+          answer: evidenceFallback,
+          external,
+          citedSourceIds: external.map((citation) => citation.id).slice(0, 3),
+          searchPlan,
+        };
+      }
+      if (isOffTopicAnswer(answer, input.question, input.language)) {
+        await emitTrace(input.emitTrace, {
+          stage: "generate",
+          status: "complete",
+          message: "回答跑题，改用证据摘要",
+        });
+        return {
+          answer: evidenceFallback,
+          external,
+          citedSourceIds: external.map((citation) => citation.id).slice(0, 3),
+          searchPlan,
+        };
+      }
       if (!matchesRequestedLanguage(answer, input.language)) {
         await emitTrace(input.emitTrace, {
           stage: "generate",
           status: "complete",
           message: "换成正确语言回答",
         });
-        return { answer: fallback, external, citedSourceIds: [], searchPlan };
+        return { answer: evidenceFallback, external, citedSourceIds: [], searchPlan };
       }
       await emitTrace(input.emitTrace, {
         stage: "generate",
@@ -690,7 +809,7 @@ export async function generateGroundedResponse(input: {
       status: "complete",
       message: "引用不够稳，改用保守回答",
     });
-    return { answer: fallback, external, citedSourceIds: [], searchPlan };
+    return { answer: evidenceFallback, external, citedSourceIds: [], searchPlan };
   } catch (error) {
     const cause = error instanceof Error ? error.cause : undefined;
     console.warn("LLM tool generation request errored", {

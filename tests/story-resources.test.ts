@@ -22,7 +22,8 @@ describe("deep story guidance", () => {
 
   it("discovers official character videos from the generic entity plan", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const query = new URL(String(input)).searchParams.get("q") ?? "";
+      const params = new URL(String(input)).searchParams;
+      const query = params.get("q") ?? params.get("p") ?? "";
       const title = query.includes("角色预告")
         ? "原神官方：桑多涅角色预告"
         : "原神官方：桑多涅角色演示";
@@ -48,7 +49,8 @@ describe("deep story guidance", () => {
     expect(resources[0]?.authority).toBe("official");
     expect(resources[0]?.kind).toBe("official_video");
     const queries = fetchMock.mock.calls.map((call) =>
-      new URL(String(call[0])).searchParams.get("q"),
+      new URL(String(call[0])).searchParams.get("q") ??
+      new URL(String(call[0])).searchParams.get("p"),
     );
     expect(queries.every((query) => query?.includes("桑多涅"))).toBe(true);
     expect(

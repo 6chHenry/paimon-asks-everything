@@ -82,6 +82,70 @@ describe("agent workflow", () => {
     expect(result.answer).toContain("造");
   });
 
+  it("does not leak unrelated controlled relationship evidence into another relationship question", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "html.duckduckgo.com" || url.hostname === "search.yahoo.com") {
+          return new Response("", {
+            status: 200,
+            headers: { "Content-Type": "text/html" },
+          });
+        }
+        if (url.searchParams.get("prop") === "extracts") {
+          return new Response(
+            JSON.stringify({
+              query: {
+                pages: {
+                  "1001": {
+                    pageid: 1001,
+                    extract:
+                      "雷电将军是雷电影制造的人偶，用来代替她治理稻妻并追求永恒；雷电影本人是稻妻的雷神。",
+                  },
+                },
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            query: {
+              search: [
+                {
+                  title: "雷电将军",
+                  snippet: "雷电将军与雷电影的关系说明。",
+                  pageid: 1001,
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }),
+    );
+
+    const result = await runAgent(
+      {
+        ...base,
+        progress: "inazuma",
+        spoilerPreference: "full",
+        focus: ["story", "character"],
+        question: "雷电将军和雷电影的关系",
+      },
+      { recordEvent: false },
+    );
+
+    expect(result.status).toBe("answered");
+    expect(result.answer).toContain("雷电");
+    expect(result.answer).not.toContain("桑多涅");
+    expect(result.answer).not.toContain("阿兰");
+    expect(result.citations.some((citation) => citation.title.includes("桑多涅"))).toBe(
+      false,
+    );
+  });
+
   it("answers an English question in English even when UI preference is Chinese", async () => {
     const result = await runAgent(
       {

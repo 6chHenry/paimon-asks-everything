@@ -38,6 +38,25 @@ const aliases: Record<string, string[]> = {
   puzzle: ["解谜", "机关", "提示"],
 };
 
+const genericIntentTerms = new Set([
+  "关系",
+  "联系",
+  "造物",
+  "创造",
+  "relationship",
+  "connection",
+  "created",
+  "creation",
+  "puzzle",
+  "hint",
+  "mechanism",
+  "解谜",
+  "机关",
+  "提示",
+  "卡住",
+  "stuck",
+]);
+
 const stopwords = new Set([
   "a",
   "an",
@@ -81,6 +100,10 @@ function expandedTerms(question: string) {
     }
   }
   return [...base];
+}
+
+function isSpecificTerm(term: string) {
+  return term.length >= 2 && !genericIntentTerms.has(term);
 }
 
 function allowedSpoilerLevel(preference: SpoilerPreference) {
@@ -127,6 +150,7 @@ export function retrieveControlled({
   maxResults?: number;
 }): RetrievalResult {
   const terms = expandedTerms(question);
+  const specificTerms = terms.filter(isSpecificTerm);
   const wantsRelationship = isRelationshipQuestion(question);
   const maxSpoiler = allowHighRisk ? 3 : allowedSpoilerLevel(spoilerPreference);
   const blockedHighRisk: KnowledgeEntry[] = [];
@@ -143,11 +167,20 @@ export function retrieveControlled({
         .join(" ")
         .toLowerCase();
       let score = 0;
+      let specificScore = 0;
       for (const term of terms) {
-        if (haystack.includes(term)) score += term.length > 2 ? 2 : 1;
+        if (haystack.includes(term)) {
+          const increment = term.length > 2 ? 2 : 1;
+          score += increment;
+          if (specificTerms.includes(term)) specificScore += increment;
+        }
         if (entry.aliases.some((alias) => alias.toLowerCase().includes(term))) {
           score += 2;
+          if (specificTerms.includes(term)) specificScore += 2;
         }
+      }
+      if (specificTerms.length && specificScore === 0) {
+        score = 0;
       }
       if (score > 0) {
         if (entry.language === language) score += 1.5;

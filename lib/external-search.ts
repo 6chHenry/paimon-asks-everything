@@ -6,6 +6,7 @@ import type {
   SourceKind,
 } from "@/lib/domain";
 import { emitTrace, type TraceEmitter } from "@/lib/trace";
+import { fetch as undiciFetch, ProxyAgent } from "undici";
 
 interface MediaWikiProvider {
   apiUrl: string;
@@ -13,6 +14,8 @@ interface MediaWikiProvider {
   sourceName: string;
   language: Language | "multi";
 }
+
+const EXTERNAL_FETCH_TIMEOUT_MS = 12_000;
 
 export interface ClassifiedWebSource {
   sourceName: string;
@@ -64,18 +67,24 @@ export function normalizeSearchPlan(
     "official_media",
     "general",
   ];
-  const coreEntities = uniqueSearchValues(value?.coreEntities, 4);
-  const aliases = uniqueSearchValues(value?.aliases, 8).filter(
-    (alias) => !coreEntities.includes(alias),
+  const proposedCoreEntities = uniqueSearchValues(value?.coreEntities, 4);
+  const proposedAliases = uniqueSearchValues(value?.aliases, 8).filter(
+    (alias) => !proposedCoreEntities.includes(alias),
   );
+  const proposedEntityTerms = [...proposedCoreEntities, ...proposedAliases];
+  const fallback = cleanSearchValue(fallbackQuery, 200);
+  const hasQuestionAnchor =
+    !proposedEntityTerms.length ||
+    proposedEntityTerms.some((entity) => includesEntity(fallback, entity));
+  const coreEntities = hasQuestionAnchor ? proposedCoreEntities : [];
+  const aliases = hasQuestionAnchor ? proposedAliases : [];
   const entityTerms = [...coreEntities, ...aliases];
-  const rawQueries = uniqueSearchValues(value?.queries, 4);
+  const rawQueries = hasQuestionAnchor ? uniqueSearchValues(value?.queries, 4) : [];
   const entityBoundQueries = entityTerms.length
     ? rawQueries.filter((query) =>
         entityTerms.some((entity) => includesEntity(query, entity)),
       )
     : rawQueries;
-  const fallback = cleanSearchValue(fallbackQuery, 200);
   const safeFallback =
     coreEntities.length && !includesEntity(fallback, coreEntities[0])
       ? `${coreEntities[0]} ${fallback}`.slice(0, 200)
@@ -120,6 +129,34 @@ const credibilityRank: Record<SourceCredibility, number> = {
   unknown_web: 10,
 };
 
+let proxyAgent: ProxyAgent | undefined;
+
+function getProxyAgent() {
+  if (process.env.NODE_ENV === "test") return undefined;
+  const proxyUrl =
+    process.env.https_proxy ||
+    process.env.HTTPS_PROXY ||
+    process.env.http_proxy ||
+    process.env.HTTP_PROXY;
+  if (!proxyUrl || !/^https?:\/\//i.test(proxyUrl)) return undefined;
+  proxyAgent ??= new ProxyAgent(proxyUrl);
+  return proxyAgent;
+}
+
+async function fetchExternal(
+  input: URL,
+  init: Pick<RequestInit, "headers" | "method" | "signal"> = {},
+) {
+  const agent = getProxyAgent();
+  if (!agent) return fetch(input, init);
+  return undiciFetch(input, {
+    method: init.method,
+    headers: init.headers,
+    signal: init.signal,
+    dispatcher: agent,
+  });
+}
+
 function factStatusForSource(credibility: SourceCredibility): FactStatus {
   if (credibility === "official") return "official_explicit";
   if (credibility === "trusted_wiki") return "trusted_secondary";
@@ -135,13 +172,63 @@ function stripHtml(value: string) {
     .trim();
 }
 
+function normalizeChineseVariants(value: string) {
+  const variants: Record<string, string> = {
+    愛: "爱",
+    國: "国",
+    體: "体",
+    傳: "传",
+    說: "说",
+    務: "务",
+    劇: "剧",
+    關: "关",
+    係: "系",
+    與: "与",
+    眾: "众",
+    執: "执",
+    行: "行",
+    官: "官",
+    歲: "岁",
+    後: "后",
+    風: "风",
+    騎: "骑",
+    團: "团",
+    機: "机",
+    械: "械",
+    釋: "释",
+    資: "资",
+    料: "料",
+    個: "个",
+    這: "这",
+    裡: "里",
+    裏: "里",
+    對: "对",
+    於: "于",
+    無: "无",
+    產: "产",
+    實: "实",
+    認: "认",
+    號: "号",
+    瑪: "玛",
+    麗: "丽",
+    亞: "亚",
+    蘭: "兰",
+  };
+  return value.replace(/[愛國體傳說務劇關係與眾執歲後風騎團機釋資個這裡裏對於無產實認號瑪麗亞蘭]/gu, (char) => variants[char] ?? char);
+}
+
 function decodeHtml(value: string) {
   return stripHtml(value)
     .replace(/&nbsp;/g, " ")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&apos;/g, "'")
-    .replace(/&#8212;/g, "—");
+    .replace(/&#x([0-9a-f]+);/giu, (_match, code) =>
+      String.fromCodePoint(Number.parseInt(code, 16)),
+    )
+    .replace(/&#(\d+);/gu, (_match, code) =>
+      String.fromCodePoint(Number.parseInt(code, 10)),
+    );
 }
 
 function htmlToText(value: string) {
@@ -185,8 +272,8 @@ async function fetchParsedPageExcerpt(
   endpoint.searchParams.set("prop", "text");
   endpoint.searchParams.set("format", "json");
   endpoint.searchParams.set("origin", "*");
-  const response = await fetch(endpoint, {
-    signal: AbortSignal.timeout(5000),
+  const response = await fetchExternal(endpoint, {
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
     headers: { "User-Agent": "PaimonAsksEverythingDemo/0.1" },
   });
   if (!response.ok) return "";
@@ -261,6 +348,12 @@ export function classifyWebSource(url: string): ClassifiedWebSource {
     "reddit.com",
     "weixin.qq.com",
     "mp.weixin.qq.com",
+    "youtube.com",
+    "youtu.be",
+    "gamersky.com",
+    "17173.com",
+    "gamer.com.tw",
+    "douyin.com",
   ];
   if (
     communityHosts.some(
@@ -297,8 +390,8 @@ async function searchMediaWikiProvider(
   endpoint.searchParams.set("format", "json");
   endpoint.searchParams.set("origin", "*");
 
-  const response = await fetch(endpoint, {
-    signal: AbortSignal.timeout(5000),
+  const response = await fetchExternal(endpoint, {
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
     headers: { "User-Agent": "PaimonAsksEverythingDemo/0.1" },
   });
   if (!response.ok) return [];
@@ -319,8 +412,8 @@ async function searchMediaWikiProvider(
     detailEndpoint.searchParams.set("format", "json");
     detailEndpoint.searchParams.set("origin", "*");
     try {
-      const detailResponse = await fetch(detailEndpoint, {
-        signal: AbortSignal.timeout(5000),
+      const detailResponse = await fetchExternal(detailEndpoint, {
+        signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
         headers: { "User-Agent": "PaimonAsksEverythingDemo/0.1" },
       });
       if (detailResponse.ok) {
@@ -379,7 +472,7 @@ async function searchMediaWikiProvider(
 }
 
 function normalizeMatchText(value: string) {
-  return value
+  return normalizeChineseVariants(value)
     .normalize("NFKC")
     .toLowerCase()
     .replace(/[\s·•—–_()[\]（）【】「」『』《》:：,，。.!！?？/\\-]+/gu, "");
@@ -466,6 +559,56 @@ function lexicalRelevanceScore(citation: Citation, plan: SearchPlan) {
   }, matchedTerms * 10);
 }
 
+function expandedQueries(plan: SearchPlan, question: string, language: Language) {
+  const queries = [...plan.queries];
+  const subject = plan.coreEntities[0] || plan.aliases[0];
+  const storyLike =
+    plan.intent === "story" ||
+    /传说任务|劇情|剧情|story\s*quest|quest|walkthrough|全流程/iu.test(
+      question,
+    );
+  if (subject && storyLike) {
+    if (language === "zh-CN") {
+      queries.push(
+        `${subject} 传说任务 珍上至珍 剧情`,
+        `${subject} 香糕塔之章 珍上至珍`,
+        `${subject} 传说任务 全流程剧情`,
+        `${subject} 传说任务 图文攻略`,
+      );
+    } else {
+      queries.push(
+        `${subject} story quest walkthrough`,
+        `${subject} story quest plot`,
+        `${subject} Best of the Best quest`,
+      );
+    }
+  }
+  return Array.from(new Set(queries.map((query) => cleanSearchValue(query)))).slice(
+    0,
+    8,
+  );
+}
+
+function storyIntentScore(citation: Citation, plan: SearchPlan) {
+  if (plan.intent !== "story") return 0;
+  const text = `${citation.title} ${citation.excerpt}`.toLowerCase();
+  const patterns = [
+    /传说任务/u,
+    /傳說任務/u,
+    /剧情/u,
+    /劇情/u,
+    /全流程/u,
+    /图文攻略/u,
+    /圖文攻略/u,
+    /珍上至珍/u,
+    /香糕塔/u,
+    /story quest/i,
+    /walkthrough/i,
+    /quest plot/i,
+  ];
+  return patterns.reduce((score, pattern) => score + (pattern.test(text) ? 25 : 0), 0);
+}
+
 function dedupeAndRank(citations: Citation[], plan: SearchPlan) {
   const deduped = new Map<string, Citation>();
   for (const citation of citations) {
@@ -479,10 +622,22 @@ function dedupeAndRank(citations: Citation[], plan: SearchPlan) {
         entityRelevanceScore(b, plan) - entityRelevanceScore(a, plan);
       const aRank = credibilityRank[a.credibility ?? "unknown_web"];
       const bRank = credibilityRank[b.credibility ?? "unknown_web"];
+      const storyDifference = storyIntentScore(b, plan) - storyIntentScore(a, plan);
+      const lexicalDifference =
+        lexicalRelevanceScore(b, plan) - lexicalRelevanceScore(a, plan);
+      if (plan.intent === "story") {
+        return (
+          storyDifference ||
+          entityDifference ||
+          lexicalDifference ||
+          bRank - aRank ||
+          a.title.localeCompare(b.title)
+        );
+      }
       return (
         entityDifference ||
         bRank - aRank ||
-        lexicalRelevanceScore(b, plan) - lexicalRelevanceScore(a, plan) ||
+        lexicalDifference ||
         a.title.localeCompare(b.title)
       );
     })
@@ -515,17 +670,65 @@ function normalizeResultUrl(rawUrl: string) {
   try {
     const parsed = new URL(rawUrl, "https://duckduckgo.com");
     const redirected = parsed.searchParams.get("uddg");
-    return redirected ? decodeURIComponent(redirected) : parsed.toString();
+    if (redirected) return decodeURIComponent(redirected);
+    if (parsed.hostname === "r.search.yahoo.com") {
+      const match = parsed.pathname.match(/\/RU=([^/]+)\//u);
+      if (match?.[1]) return decodeURIComponent(match[1]);
+    }
+    return parsed.toString();
   } catch {
     return rawUrl;
   }
 }
 
-export async function searchGeneralWeb(query: string): Promise<Citation[]> {
+function makeWebCitation({
+  id,
+  url,
+  title,
+  excerpt,
+}: {
+  id: string;
+  url: string;
+  title: string;
+  excerpt: string;
+}): Citation[] {
+  if (!url || !title) return [];
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    if (
+      hostname === "search.yahoo.com" ||
+      hostname === "images.search.yahoo.com" ||
+      hostname === "video.search.yahoo.com"
+    ) {
+      return [];
+    }
+  } catch {
+    return [];
+  }
+  const classification = classifyWebSource(url);
+  return [
+    {
+      id,
+      title,
+      url,
+      sourceName: classification.sourceName,
+      sourceKind: classification.sourceKind,
+      credibility: classification.credibility,
+      factStatus: factStatusForSource(classification.credibility),
+      excerpt:
+        excerpt ||
+        `General web search matched "${title}". Open the page and verify against primary sources.`,
+      external: true,
+      crossLanguage: false,
+    },
+  ];
+}
+
+async function searchDuckDuckGoWeb(query: string): Promise<Citation[]> {
   const endpoint = new URL("https://html.duckduckgo.com/html/");
   endpoint.searchParams.set("q", query);
-  const response = await fetch(endpoint, {
-    signal: AbortSignal.timeout(5000),
+  const response = await fetchExternal(endpoint, {
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
     headers: { "User-Agent": "PaimonAsksEverythingDemo/0.1" },
   });
   if (!response.ok) return [];
@@ -539,25 +742,44 @@ export async function searchGeneralWeb(query: string): Promise<Citation[]> {
     const rawUrl = normalizeResultUrl(decodeHtml(match[1] ?? ""));
     const title = decodeHtml(match[2] ?? "");
     const excerpt = decodeHtml(match[3] ?? "");
-    if (!rawUrl || !title) return [];
-    const classification = classifyWebSource(rawUrl);
-    return [
-      {
-        id: `web-${index + 1}`,
-        title,
-        url: rawUrl,
-        sourceName: classification.sourceName,
-        sourceKind: classification.sourceKind,
-        credibility: classification.credibility,
-        factStatus: factStatusForSource(classification.credibility),
-        excerpt:
-          excerpt ||
-          `General web search matched "${title}". Open the page and verify against primary sources.`,
-        external: true,
-        crossLanguage: false,
-      } satisfies Citation,
-    ];
+    return makeWebCitation({ id: `web-ddg-${index + 1}`, url: rawUrl, title, excerpt });
   });
+}
+
+async function searchYahooWeb(query: string): Promise<Citation[]> {
+  const endpoint = new URL("https://search.yahoo.com/search");
+  endpoint.searchParams.set("p", query);
+  const response = await fetchExternal(endpoint, {
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.7",
+    },
+  });
+  if (!response.ok) return [];
+  const html = await response.text();
+  const matches = [
+    ...html.matchAll(
+      /<a[^>]*href=["']([^"']+)["'][^>]*>[\s\S]*?<h3[^>]*class=["'][^"']*title[^"']*["'][^>]*>([\s\S]*?)<\/h3>[\s\S]*?<\/a>([\s\S]{0,1800}?)(?=<a[^>]*href=|<li[^>]*class=|<\/ol>|$)/gi,
+    ),
+  ];
+  return matches.slice(0, 4).flatMap((match, index) => {
+    const url = normalizeResultUrl(decodeHtml(match[1] ?? ""));
+    const title = decodeHtml(match[2] ?? "");
+    const snippetMatch = (match[3] ?? "").match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+    const excerpt = decodeHtml(snippetMatch?.[1] ?? "");
+    return makeWebCitation({ id: `web-yahoo-${index + 1}`, url, title, excerpt });
+  });
+}
+
+export async function searchGeneralWeb(query: string): Promise<Citation[]> {
+  const results = await Promise.allSettled([
+    searchDuckDuckGoWeb(query),
+    searchYahooWeb(query),
+  ]);
+  return results.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : [],
+  );
 }
 
 export async function searchWebEvidence(
@@ -573,7 +795,7 @@ export async function searchWebEvidence(
     detail: question,
   });
   const queryResults = await Promise.allSettled(
-    plan.queries.map(async (query) => {
+    expandedQueries(plan, question, language).map(async (query) => {
       await emitTrace(options.emitTrace, {
         stage: "search",
         status: "running",

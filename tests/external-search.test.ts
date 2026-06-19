@@ -99,6 +99,22 @@ describe("whitelisted external search", () => {
     ]);
   });
 
+  it("rejects a model search plan whose selected subject is absent from the user question", () => {
+    const plan = normalizeSearchPlan(
+      {
+        coreEntities: ["桑多涅", "阿兰"],
+        aliases: ["Sandrone", "Alain Guillotin"],
+        intent: "relationship",
+        queries: ["桑多涅 阿兰 关系"],
+      },
+      "雷电将军和雷电影的关系",
+    );
+
+    expect(plan.coreEntities).toEqual([]);
+    expect(plan.aliases).toEqual([]);
+    expect(plan.queries).toEqual(["雷电将军和雷电影的关系"]);
+  });
+
   it("searches Chinese and English wiki providers and ranks trusted evidence", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
@@ -327,6 +343,224 @@ describe("whitelisted external search", () => {
     expect(results.some((result) => result.sourceKind === "community")).toBe(
       true,
     );
+  });
+
+  it("keeps relevant long-tail community video hits when wiki search is empty", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "html.duckduckgo.com") {
+        return new Response(
+          `<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.bilibili.com%2Fvideo%2FBV1escoffier">爱可菲是谁？爱可菲传说任务剧情解析</a>
+           <div class="result__snippet">爱可菲是原神中的角色。资料围绕她的传说任务展开，讲述她的身份背景、相关人物关系，以及传说任务中围绕料理、责任和个人选择展开的剧情。</div>`,
+          { status: 200, headers: { "Content-Type": "text/html" } },
+        );
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(JSON.stringify({ query: { pages: {} } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ query: { search: [] } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence(
+      "爱可菲是谁，她的传说任务讲了什么",
+      "zh-CN",
+      {
+        plan: {
+          coreEntities: ["爱可菲"],
+          aliases: ["Escoffier"],
+          intent: "story",
+          queries: ["爱可菲 原神 传说任务"],
+        },
+      },
+    );
+
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0]?.title).toContain("爱可菲");
+    expect(results[0]?.sourceKind).toBe("community");
+    expect(results[0]?.excerpt).toContain("身份背景");
+  });
+
+  it("matches simplified Chinese questions to traditional Chinese wiki titles", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "html.duckduckgo.com") {
+        return new Response("", { status: 200 });
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(
+          JSON.stringify({
+            query: {
+              pages: {
+                "9036": {
+                  pageid: 9036,
+                  extract: "愛可菲是原神中的角色，相关资料介绍她的身份和传说任务。",
+                },
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          query: {
+            search: [
+              {
+                title: "愛可菲",
+                snippet: "",
+                pageid: 9036,
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence(
+      "爱可菲是谁，她的传说任务讲了什么",
+      "zh-CN",
+      {
+        plan: {
+          coreEntities: ["爱可菲"],
+          aliases: ["Escoffier"],
+          intent: "story",
+          queries: ["爱可菲 原神 角色介绍"],
+        },
+      },
+    );
+
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0]?.title).toBe("愛可菲");
+    expect(results[0]?.sourceKind).toBe("trusted_wiki");
+    expect(results[0]?.excerpt).toContain("传说任务");
+  });
+
+  it("expands story questions and ranks quest plot hits above generic character pages", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "html.duckduckgo.com") {
+        const query = url.searchParams.get("q") ?? "";
+        if (query.includes("珍上至珍")) {
+          return new Response(
+            `<a class="result__a" href="https://www.gamersky.com/handbook/202505/1923179.shtml">《原神》爱可菲传说任务珍上至珍图文攻略</a>
+             <div class="result__snippet">5.6版本新增了爱可菲传说任务“珍上至珍”，期间包含料理对决，任务从德波大饭店和灰河剧情展开。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", { status: 200 });
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(
+          JSON.stringify({
+            query: {
+              pages: {
+                "9036": {
+                  pageid: 9036,
+                  extract: "愛可菲是原神中的角色，来自枫丹，是料理名厨。",
+                },
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          query: {
+            search: [
+              {
+                title: "愛可菲",
+                snippet: "",
+                pageid: 9036,
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence(
+      "爱可菲是谁，她的传说任务讲了什么",
+      "zh-CN",
+      {
+        plan: {
+          coreEntities: ["爱可菲"],
+          aliases: [],
+          intent: "story",
+          queries: ["爱可菲 原神 角色介绍"],
+        },
+      },
+    );
+    const webQueries = fetchMock.mock.calls
+      .map((call) => new URL(String(call[0])))
+      .filter((url) => url.hostname === "html.duckduckgo.com")
+      .map((url) => url.searchParams.get("q"));
+
+    expect(webQueries).toContain("爱可菲 传说任务 珍上至珍 剧情");
+    expect(results[0]?.title).toContain("传说任务珍上至珍");
+    expect(results[0]?.sourceKind).toBe("community");
+    expect(results[0]?.excerpt).toContain("料理对决");
+  });
+
+  it("uses Yahoo web results as a fallback for story quest pages", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "html.duckduckgo.com") {
+        return new Response("", { status: 200 });
+      }
+      if (url.hostname === "search.yahoo.com") {
+        return new Response(
+          `<ol><li class="first"><div class="dd algo algo-sr">
+            <a href="https://r.search.yahoo.com/_ylt=test/RV=2/RE=1/RO=10/RU=https%3a%2f%2fwww.gamersky.com%2fhandbook%2f202505%2f1923179.shtml/RK=2/RS=test">
+              <h3 class="title">&#12298;&#21407;&#31070;&#12299;&#29233;&#21487;&#33778;&#20256;&#35828;&#20219;&#21153;&#29645;&#19978;&#33267;&#29645;&#22270;&#25991;&#25915;&#30053;</h3>
+            </a>
+            <p>解锁任务后，与娜维娅对话开启；之后前往灰河触发剧情，返回德波大饭店，并进入料理对决。</p>
+          </div></li></ol>`,
+          { status: 200, headers: { "Content-Type": "text/html" } },
+        );
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(JSON.stringify({ query: { pages: {} } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ query: { search: [] } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence(
+      "爱可菲是谁，她的传说任务讲了什么",
+      "zh-CN",
+      {
+        plan: {
+          coreEntities: ["爱可菲"],
+          aliases: [],
+          intent: "story",
+          queries: ["爱可菲 传说任务 剧情"],
+        },
+      },
+    );
+
+    expect(results[0]?.title).toContain("爱可菲传说任务珍上至珍");
+    expect(results[0]?.url).toBe(
+      "https://www.gamersky.com/handbook/202505/1923179.shtml",
+    );
+    expect(results[0]?.excerpt).toContain("料理对决");
   });
 
   it("expands Chinese Signora death questions to English quest evidence and parsed page text", async () => {
