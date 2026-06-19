@@ -4,6 +4,7 @@ import type {
   Language,
   Profile,
   Progress,
+  SourceKind,
   SpoilerPreference,
 } from "@/lib/domain";
 
@@ -38,8 +39,18 @@ export const labels = {
   fact: {
     official_explicit: { "zh-CN": "官方明确", en: "Officially explicit" },
     narrative_implied: { "zh-CN": "剧情暗示", en: "Narratively implied" },
+    trusted_secondary: { "zh-CN": "高可信二手资料", en: "Trusted secondary source" },
     community_speculation: { "zh-CN": "社区推测", en: "Community speculation" },
     demo_hypothesis: { "zh-CN": "Demo 假设", en: "Demo hypothesis" },
+  },
+  sourceKind: {
+    official: { "zh-CN": "官方", en: "Official" },
+    game_text: { "zh-CN": "游戏文本", en: "Game text" },
+    wiki: { "zh-CN": "Wiki", en: "Wiki" },
+    trusted_wiki: { "zh-CN": "高可信 Wiki", en: "Trusted wiki" },
+    community: { "zh-CN": "社区", en: "Community" },
+    unknown_web: { "zh-CN": "网页", en: "Web" },
+    demo: { "zh-CN": "Demo", en: "Demo" },
   },
 } satisfies {
   profile: Record<Profile, Record<Language, string>>;
@@ -47,6 +58,7 @@ export const labels = {
   spoiler: Record<SpoilerPreference, Record<Language, string>>;
   focus: Record<Focus, Record<Language, string>>;
   fact: Record<FactStatus, Record<Language, string>>;
+  sourceKind: Record<SourceKind, Record<Language, string>>;
 };
 
 export function t(language: Language, zh: string, en: string) {

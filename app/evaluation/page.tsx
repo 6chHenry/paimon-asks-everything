@@ -25,6 +25,17 @@ interface EvaluationResult {
     passed: boolean;
     checks: Record<string, boolean>;
     status: string;
+    answer: string;
+    checkFailures: string[];
+    citations: Array<{
+      id: string;
+      title: string;
+      sourceName: string;
+      sourceKind: string;
+      factStatus: string;
+      external: boolean;
+      excerpt: string;
+    }>;
     citationCount: number;
     usedExternalSources: boolean;
   }>;
@@ -56,9 +67,8 @@ export default function EvaluationPage() {
     <div className="evaluation-page page-wrap">
       <section className="page-heading evaluation-heading">
         <div>
-          <span className="eyebrow"><FlaskConical size={14} />{t(language, "可重复技术证据", "Repeatable technical evidence")}</span>
-          <h1>{t(language, "把“它应该可以”变成一组可以重跑的检查。", "Turn “it should work” into checks you can rerun.")}</h1>
-          <p>{t(language, "检索命中、引用、白名单、结构和剧透门控使用确定性检查；表达质量仍保留人工审核位置。", "Retrieval hits, citations, source allowlists, structure, and spoiler gates use deterministic checks. Answer quality still reserves a human-review lane.")}</p>
+          <span className="eyebrow"><FlaskConical size={14} />{t(language, "技术评测", "Evaluation")}</span>
+          <h1>{t(language, "运行检查", "Run checks")}</h1>
         </div>
         <button className="primary-button" type="button" onClick={() => void run()} disabled={Boolean(running)}>
           {running === "all" ? <LoaderCircle size={17} className="spin" /> : <Play size={17} />}
@@ -75,7 +85,7 @@ export default function EvaluationPage() {
         <div className="score-ring" style={{ "--score": result ? `${(result.passed / result.total) * 360}deg` : "0deg" } as React.CSSProperties}>
           <span><strong>{result ? result.passed : "—"}</strong>/{result ? result.total : "12"}</span>
         </div>
-        <p>{t(language, "外部搜索用例依赖实时 Wiki 网络；网络不可用时会作为代表性失败保留，而不是伪造通过。", "The external-search case depends on the live wiki. Network failure remains visible as a representative failure instead of being papered over.")}</p>
+        <p>{t(language, "联网用例受实时网络影响。", "Live-search cases depend on the network.")}</p>
       </section>
 
       <section className="eval-list">
@@ -92,14 +102,30 @@ export default function EvaluationPage() {
                 <h2>{testCase.title}</h2>
                 <p>{testCase.question}</p>
                 {caseResult ? (
-                  <div className="check-row">
-                    {Object.entries(caseResult.checks).map(([key, passed]) => (
-                      <span key={key} className={passed ? "ok" : "bad"}>
-                        {passed ? <Check size={12} /> : <CircleX size={12} />}
-                        {key}
-                      </span>
-                    ))}
-                  </div>
+                  <>
+                    <div className="check-row">
+                      {Object.entries(caseResult.checks).map(([key, passed]) => (
+                        <span key={key} className={passed ? "ok" : "bad"}>
+                          {passed ? <Check size={12} /> : <CircleX size={12} />}
+                          {key}
+                        </span>
+                      ))}
+                    </div>
+                    <details className="eval-review">
+                      <summary>{t(language, "查看回答与引用", "Review answer & citations")}</summary>
+                      <p>{caseResult.answer || t(language, "无回答文本", "No answer text")}</p>
+                      <div>
+                        {caseResult.citations.map((citation) => (
+                          <span key={citation.id}>
+                            {citation.id}: {citation.title} · {citation.sourceKind} · {citation.factStatus}
+                          </span>
+                        ))}
+                      </div>
+                      {caseResult.checkFailures.length ? (
+                        <small>{t(language, "失败项：", "Failures: ")}{caseResult.checkFailures.join(", ")}</small>
+                      ) : null}
+                    </details>
+                  </>
                 ) : null}
               </div>
               <div className="eval-action">
@@ -122,7 +148,7 @@ export default function EvaluationPage() {
         <span className="section-index">METHOD</span>
         <div>
           <h2>{t(language, "评测方法边界", "Evaluation boundary")}</h2>
-          <p>{t(language, "确定性检查适合验证“有没有引用”“是否命中白名单”“Level 3 是否被拦截”。回答是否真正解决玩家问题、语气是否自然、本地化差异是否表达准确，仍应由人审核。", "Deterministic checks are suited to citation presence, source allowlists, and Level 3 gating. Whether an answer truly solves the player’s problem, sounds natural, and handles localization nuance still requires human review.")}</p>
+          <p>{t(language, "自动检查结构、引用和门控；内容质量需人工复核。", "Structure, citations, and gates are automated; content quality needs human review.")}</p>
         </div>
       </section>
     </div>

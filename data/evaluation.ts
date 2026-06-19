@@ -148,8 +148,8 @@ export const evaluationCases: EvaluationCase[] = [
   },
   {
     id: "evidence-boundary",
-    title: "关系推测边界",
-    question: "桑多涅和阿兰之间有官方确认的直接关系吗？",
+    title: "桑多涅、阿兰与玛丽安的关系",
+    question: "桑多涅和阿兰的关系是什么？",
     language: "zh-CN",
     profile: "story",
     progress: "fontaine",

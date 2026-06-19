@@ -18,8 +18,22 @@ export type Focus = "story" | "character" | "gameplay" | "overview";
 export type FactStatus =
   | "official_explicit"
   | "narrative_implied"
+  | "trusted_secondary"
   | "community_speculation"
   | "demo_hypothesis";
+export type SourceKind =
+  | "official"
+  | "game_text"
+  | "wiki"
+  | "trusted_wiki"
+  | "community"
+  | "unknown_web"
+  | "demo";
+export type SourceCredibility =
+  | "official"
+  | "trusted_wiki"
+  | "community"
+  | "unknown_web";
 export type QuestionCategory =
   | "story"
   | "character"
@@ -28,6 +42,30 @@ export type QuestionCategory =
   | "community"
   | "safety"
   | "other";
+
+export type ReadingResourceKind =
+  | "official_video"
+  | "official_text"
+  | "story_guide"
+  | "analysis_video"
+  | "discussion";
+
+export type ReadingResourceAuthority =
+  | "official"
+  | "reference"
+  | "community";
+
+export interface ReadingResource {
+  id: string;
+  title: string;
+  url: string;
+  platform: string;
+  kind: ReadingResourceKind;
+  authority: ReadingResourceAuthority;
+  spoilerLevel: 0 | 1 | 2 | 3;
+  reason: string;
+  language: Language | "multi";
+}
 
 export interface Preferences {
   language: Language;
@@ -42,7 +80,7 @@ export interface Source {
   title: string;
   url: string;
   sourceName: string;
-  sourceKind: "official" | "game_text" | "wiki" | "demo";
+  sourceKind: SourceKind;
 }
 
 export interface KnowledgeEntry {
@@ -67,7 +105,8 @@ export interface Citation {
   title: string;
   url: string;
   sourceName: string;
-  sourceKind: Source["sourceKind"];
+  sourceKind: SourceKind;
+  credibility?: SourceCredibility;
   factStatus: FactStatus;
   excerpt: string;
   external: boolean;
@@ -96,6 +135,7 @@ export interface ChatResult {
   answerMode:
     | "minimal_catch_up"
     | "evidence_answer"
+    | "deep_story"
     | "layered_hint"
     | "safe_refusal"
     | "limited_answer";
@@ -110,6 +150,8 @@ export interface ChatResult {
   confirmationToken?: string;
   reason?: string;
   hints?: [string, string, string];
+  deepStory?: boolean;
+  readingRecommendations?: ReadingResource[];
 }
 
 export interface QuestionEvent {

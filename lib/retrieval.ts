@@ -28,6 +28,10 @@ const aliases: Record<string, string[]> = {
   alain: ["阿兰", "阿兰吉约丹"],
   玛丽安: ["mary-ann", "marianne"],
   "mary-ann": ["玛丽安"],
+  关系: ["relationship", "connection"],
+  造物: ["creation", "created", "puppet"],
+  creation: ["造物", "创造"],
+  relationship: ["关系", "联系"],
   解谜: ["puzzle", "hint"],
   机关: ["puzzle", "mechanism", "解谜"],
   卡住: ["stuck", "hint", "解谜"],
@@ -85,6 +89,20 @@ function allowedSpoilerLevel(preference: SpoilerPreference) {
   return 2;
 }
 
+function isRelationshipQuestion(question: string) {
+  const normalized = question.toLowerCase();
+  return [
+    "关系",
+    "联系",
+    "造物",
+    "创造",
+    "relationship",
+    "connection",
+    "created",
+    "creation",
+  ].some((term) => normalized.includes(term));
+}
+
 export interface RetrievalResult {
   entries: Array<KnowledgeEntry & { score: number; crossLanguage: boolean }>;
   blockedHighRisk: KnowledgeEntry[];
@@ -98,6 +116,7 @@ export function retrieveControlled({
   spoilerPreference,
   focus,
   allowHighRisk = false,
+  maxResults = 4,
 }: {
   question: string;
   language: Language;
@@ -105,8 +124,10 @@ export function retrieveControlled({
   spoilerPreference: SpoilerPreference;
   focus: Focus[];
   allowHighRisk?: boolean;
+  maxResults?: number;
 }): RetrievalResult {
   const terms = expandedTerms(question);
+  const wantsRelationship = isRelationshipQuestion(question);
   const maxSpoiler = allowHighRisk ? 3 : allowedSpoilerLevel(spoilerPreference);
   const blockedHighRisk: KnowledgeEntry[] = [];
 
@@ -132,6 +153,12 @@ export function retrieveControlled({
         if (entry.language === language) score += 1.5;
         if (focus.includes(entry.contentType as Focus)) score += 0.75;
         if (
+          wantsRelationship &&
+          (entry.tags.includes("relationship") || entry.tags.includes("creation"))
+        ) {
+          score += 5;
+        }
+        if (
           entry.minimumProgress !== "unknown" &&
           progressRank[progress] < progressRank[entry.minimumProgress]
         ) {
@@ -156,7 +183,7 @@ export function retrieveControlled({
         all.findIndex((candidate) => candidate.conceptId === entry.conceptId) ===
         index,
     )
-    .slice(0, 4);
+    .slice(0, maxResults);
 
   return {
     entries: safe,

@@ -97,3 +97,48 @@ export function isHighRiskSpoilerQuestion(question: string) {
     "twist",
   ].some((term) => normalized.includes(term));
 }
+
+export function isDeepStoryIntent(
+  question: string,
+  category?: QuestionCategory,
+) {
+  if (
+    category === "gameplay" ||
+    category === "safety" ||
+    category === "version_overview"
+  ) {
+    return false;
+  }
+  const normalized = question.toLowerCase();
+  const shortOnly = [
+    "简单说",
+    "简短",
+    "一句话",
+    "不要剧透",
+    "briefly",
+    "short answer",
+    "no spoilers",
+  ].some((term) => normalized.includes(term));
+  if (shortOnly) return false;
+  return [
+    "讲一讲",
+    "讲讲",
+    "完整故事",
+    "完整剧情",
+    "全剧情",
+    "故事线",
+    "时间线",
+    "梳理",
+    "来龙去脉",
+    "发生了什么",
+    "详细说",
+    "介绍一下",
+    "tell me the story",
+    "full story",
+    "storyline",
+    "timeline",
+    "lore explained",
+    "explain the lore",
+    "what happened",
+  ].some((term) => normalized.includes(term));
+}

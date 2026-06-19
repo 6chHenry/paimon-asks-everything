@@ -12,7 +12,9 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import type { ChatResult, Language } from "@/lib/domain";
+import { parseAnswerCitationMarkers } from "@/lib/citation-markers";
 import { labels, t } from "@/lib/i18n";
+import { ReadingAppendix } from "@/components/reading-appendix";
 
 export function AnswerCard({
   result,
@@ -24,6 +26,30 @@ export function AnswerCard({
   onConfirmSpoiler: () => void;
 }) {
   const [feedback, setFeedback] = useState<boolean | null>(null);
+
+  function renderInline(text: string) {
+    return parseAnswerCitationMarkers(text).map((segment, segmentIndex) =>
+      segment.type === "citation" ? (
+        <sup
+          key={`${segment.sourceId}-${segmentIndex}`}
+          className="answer-citation-note"
+          title={segment.sourceId}
+        >
+          [{segment.label}]
+        </sup>
+      ) : (
+        <span key={`text-${segmentIndex}`}>
+          {segment.text.split(/(\*\*[^*]+\*\*)/gu).map((part, partIndex) =>
+            part.startsWith("**") && part.endsWith("**") ? (
+              <strong key={partIndex}>{part.slice(2, -2)}</strong>
+            ) : (
+              <span key={partIndex}>{part}</span>
+            ),
+          )}
+        </span>
+      ),
+    );
+  }
 
   async function sendFeedback(helpful: boolean) {
     setFeedback(helpful);
@@ -42,13 +68,12 @@ export function AnswerCard({
         <div className="spoiler-icon"><ShieldAlert size={25} /></div>
         <div>
           <span className="eyebrow">{t(language, "高风险剧透", "High-risk spoiler")}</span>
-          <h2>{t(language, "派蒙先在这里踩一下刹车", "Paimon is tapping the brakes")}</h2>
+          <h2>{t(language, "再说下去就要剧透啦！", "Careful, Traveler — spoilers ahead!")}</h2>
           <p>{result.reason}</p>
           <div className="spoiler-actions">
             <button className="danger-button" type="button" onClick={onConfirmSpoiler}>
-              {t(language, "仅这一次，继续解释", "Continue for this question")}
+              {t(language, "继续说", "Continue")}
             </button>
-            <span>{t(language, "不会修改你的默认偏好", "Your default preference stays unchanged")}</span>
           </div>
         </div>
       </article>
@@ -58,20 +83,35 @@ export function AnswerCard({
   return (
     <article className={`answer-card status-${result.status}`}>
       <div className="answer-kicker">
-        <span><Sparkles size={15} />{t(language, "派蒙的回答", "Paimon’s answer")}</span>
+        <span><Sparkles size={15} />{t(language, "派蒙找到啦！", "Paimon found it!")}</span>
         <span className={`confidence ${result.confidence}`}>
           {t(language, `置信度：${result.confidence === "high" ? "高" : result.confidence === "medium" ? "中" : "低"}`, `Confidence: ${result.confidence}`)}
         </span>
       </div>
       <div className="answer-text">
-        {result.answer.split("\n").map((paragraph, index) =>
-          paragraph ? <p key={index}>{paragraph}</p> : null,
-        )}
+        {result.answer.split("\n").map((line, index) => {
+          const trimmed = line.trim();
+          if (!trimmed) return null;
+          const heading = trimmed.match(/^#{1,4}\s+(.+)$/u);
+          if (heading) {
+            return <h3 key={index}>{renderInline(heading[1])}</h3>;
+          }
+          const ordered = trimmed.match(/^(\d+)\.\s+(.+)$/u);
+          if (ordered) {
+            return (
+              <div className="answer-list-line" key={index}>
+                <span>{ordered[1]}</span>
+                <p>{renderInline(ordered[2])}</p>
+              </div>
+            );
+          }
+          return <p key={index}>{renderInline(trimmed)}</p>;
+        })}
       </div>
 
       {result.hints ? (
         <section className="hint-stack">
-          <h3>{t(language, "分层提示", "Layered hints")}</h3>
+          <h3>{t(language, "先给你一点提示", "A hint first")}</h3>
           {result.hints.map((hint, index) => (
             <details key={hint} open={index === 0}>
               <summary>
@@ -91,7 +131,7 @@ export function AnswerCard({
 
       {result.claims.length ? (
         <section className="claim-list">
-          <h3>{t(language, "这次回答依据了什么", "What this answer relies on")}</h3>
+          <h3>{t(language, "关键依据", "Key evidence")}</h3>
           {result.claims.map((claim) => (
             <div key={claim.text}>
               <Check size={15} />
@@ -105,7 +145,7 @@ export function AnswerCard({
       {result.citations.length ? (
         <section className="sources">
           <div className="sources-heading">
-            <h3><BookOpen size={18} />{t(language, "来源与证据", "Sources & evidence")}</h3>
+            <h3><BookOpen size={18} />{t(language, "资料来源", "Sources")}</h3>
             {result.usedExternalSources ? (
               <span className="external-badge">{t(language, "外部资料", "External material")}</span>
             ) : null}
@@ -117,7 +157,7 @@ export function AnswerCard({
                 <span>
                   <strong>{citation.title}</strong>
                   <small>
-                    {citation.sourceName} · {labels.fact[citation.factStatus][language]}
+                    {citation.sourceName} · {labels.sourceKind[citation.sourceKind][language]} · {labels.fact[citation.factStatus][language]}
                     {citation.crossLanguage ? ` · ${t(language, "跨语言回退", "cross-language fallback")}` : ""}
                   </small>
                 </span>
@@ -133,12 +173,12 @@ export function AnswerCard({
         </section>
       ) : null}
 
+      <ReadingAppendix
+        resources={result.readingRecommendations ?? []}
+        language={language}
+      />
+
       <div className="answer-footer">
-        <span>
-          {result.eventRecorded
-            ? t(language, "已写入匿名问题事件", "Anonymous event recorded")
-            : t(language, "回答可用，但事件写入失败", "Answer available; event recording failed")}
-        </span>
         <div>
           {feedback === null ? (
             <>
@@ -151,7 +191,7 @@ export function AnswerCard({
               </button>
             </>
           ) : (
-            <span>{t(language, "谢谢，收到啦。", "Thanks — noted.")}</span>
+            <span>{t(language, "收到！", "Got it!")}</span>
           )}
         </div>
       </div>

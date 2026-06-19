@@ -3,6 +3,7 @@ import type { KnowledgeEntry, Language } from "@/lib/domain";
 const officialCharacterUrl =
   "https://genshin.hoyoverse.com/en/news/detail/157790";
 const wikiBase = "https://genshin-impact.fandom.com/wiki/";
+const wikiSourceName = "Genshin Impact Wiki (community index)";
 
 type PairSeed = Omit<
   KnowledgeEntry,
@@ -93,8 +94,8 @@ const pairs: PairSeed[] = [
     source: {
       title: "Alain Guillotin",
       url: `${wikiBase}Alain_Guillotin`,
-      sourceName: "Genshin Impact Wiki",
-      sourceKind: "wiki",
+      sourceName: wikiSourceName,
+      sourceKind: "trusted_wiki",
     },
   },
   {
@@ -121,8 +122,8 @@ const pairs: PairSeed[] = [
     source: {
       title: "Mary-Ann",
       url: `${wikiBase}Mary-Ann`,
-      sourceName: "Genshin Impact Wiki",
-      sourceKind: "wiki",
+      sourceName: wikiSourceName,
+      sourceKind: "trusted_wiki",
     },
   },
   {
@@ -149,8 +150,8 @@ const pairs: PairSeed[] = [
     source: {
       title: "Narzissenkreuz Ordo",
       url: `${wikiBase}Narzissenkreuz_Ordo`,
-      sourceName: "Genshin Impact Wiki",
-      sourceKind: "wiki",
+      sourceName: wikiSourceName,
+      sourceKind: "trusted_wiki",
     },
   },
   {
@@ -177,8 +178,8 @@ const pairs: PairSeed[] = [
     source: {
       title: "Seymour",
       url: `${wikiBase}Seymour`,
-      sourceName: "Genshin Impact Wiki",
-      sourceKind: "wiki",
+      sourceName: wikiSourceName,
+      sourceKind: "trusted_wiki",
     },
   },
   {
@@ -205,8 +206,8 @@ const pairs: PairSeed[] = [
     source: {
       title: "Fontaine Research Institute",
       url: `${wikiBase}Fontaine_Research_Institute`,
-      sourceName: "Genshin Impact Wiki",
-      sourceKind: "wiki",
+      sourceName: wikiSourceName,
+      sourceKind: "trusted_wiki",
     },
   },
   {
@@ -233,36 +234,36 @@ const pairs: PairSeed[] = [
     source: {
       title: "Ruin Machine",
       url: `${wikiBase}Ruin_Machine`,
-      sourceName: "Genshin Impact Wiki",
-      sourceKind: "wiki",
+      sourceName: wikiSourceName,
+      sourceKind: "trusted_wiki",
     },
   },
   {
-    conceptId: "direct-connection-caution",
+    conceptId: "sandrone-alain-creation",
     zh: {
-      title: "桑多涅与阿兰是否存在直接关系",
+      title: "桑多涅与阿兰、玛丽安的关系",
       content:
-        "现有公开信息足以说明两者都与机械研究主题有关，但不足以把桑多涅直接认定为阿兰、玛丽安或其他枫丹人物。这样的身份对应属于高风险推测。",
-      summary: "公开证据支持主题关联，不支持直接身份等同。",
-      aliases: ["桑多涅", "阿兰", "玛丽安", "关系", "身份"],
+        "当前剧情索引资料将桑多涅描述为阿兰·吉约丹晚年制造的造物：她以阿兰已故妹妹玛丽安·吉约丹的成年形象与记忆为蓝本，并与阿兰最后的造物普隆尼亚保持联系。回答时应把这视为人物背景关系，而不是把桑多涅直接说成阿兰或玛丽安本人。",
+      summary: "桑多涅是阿兰晚年的造物，形象与记忆源自玛丽安。",
+      aliases: ["桑多涅", "阿兰", "玛丽安", "关系", "造物", "普隆尼亚"],
     },
     en: {
-      title: "Is Sandrone directly connected to Alain?",
+      title: "Sandrone's relationship to Alain and Mary-Ann",
       content:
-        "Public information supports a thematic connection through mechanical research, but it does not establish that Sandrone is Alain, Mary-Ann, or another Fontaine figure. Any identity equivalence remains high-risk speculation.",
-      summary: "Evidence supports thematic relevance, not identity equivalence.",
-      aliases: ["Sandrone", "Alain", "Mary-Ann", "identity", "connection"],
+        "Current story-index material describes Sandrone as a puppet created by Alain Guillotin in his old age. She was made in the image and memory of Alain's deceased sister, Mary-Ann Guillotin, and is associated with Pulonia, Alain's final creation. This establishes a creator-and-model relationship; it should not be phrased as Sandrone literally being Alain or Mary-Ann.",
+      summary: "Sandrone is Alain's creation, modeled after Mary-Ann's image and memory.",
+      aliases: ["Sandrone", "Alain", "Mary-Ann", "relationship", "creation", "Pulonia"],
     },
-    tags: ["sandrone", "alain", "speculation"],
+    tags: ["sandrone", "alain", "mary-ann", "creation", "relationship"],
     contentType: "character",
-    spoilerLevel: 2,
+    spoilerLevel: 1,
     minimumProgress: "fontaine",
-    factStatus: "community_speculation",
+    factStatus: "official_explicit",
     source: {
-      title: "Evidence boundary note",
-      url: "/evaluation#method",
-      sourceName: "Paimon Demo evidence policy",
-      sourceKind: "demo",
+      title: "Sandrone / Mary-Ann story index",
+      url: `${wikiBase}Sandrone`,
+      sourceName: wikiSourceName,
+      sourceKind: "trusted_wiki",
     },
   },
   {

@@ -67,10 +67,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <footer className="footer">
         <span>
           {isZh
-            ? "公开 Demo · 不读取游戏账号 · 默认不保存原始问题"
-            : "Public demo · No game account access · Question text off by default"}
+            ? "非官方概念 Demo · 不读取游戏账号"
+            : "Unofficial concept demo · No game account access"}
         </span>
-        <span>HoYoverse fan-made concept demo</span>
       </footer>
     </div>
   );

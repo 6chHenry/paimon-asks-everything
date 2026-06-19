@@ -5,8 +5,10 @@ import { ArrowUp, CircleAlert, LoaderCircle, Send, Stars } from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
 import { StatusBar } from "@/components/status-bar";
+import { TraceTimeline } from "@/components/trace-timeline";
 import type { ChatResult } from "@/lib/domain";
 import { t } from "@/lib/i18n";
+import type { TraceEvent } from "@/lib/trace";
 
 const questions = {
   "zh-CN": [
@@ -31,8 +33,78 @@ export default function AskPage() {
   const [question, setQuestion] = useState("");
   const [lastQuestion, setLastQuestion] = useState("");
   const [result, setResult] = useState<ChatResult | null>(null);
+  const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
+  const [traceCollapsed, setTraceCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  async function submitRegularRequest(text: string, confirmationToken?: string) {
+    const response = await fetch(
+      confirmationToken ? "/api/chat/confirm-spoiler" : "/api/chat",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: text,
+          ...preferences,
+          sessionId,
+          ...(confirmationToken ? { confirmationToken } : {}),
+        }),
+      },
+    );
+    if (!response.ok) throw new Error("request_failed");
+    setResult((await response.json()) as ChatResult);
+  }
+
+  async function submitStreamingRequest(text: string) {
+    const response = await fetch("/api/chat/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: text,
+        ...preferences,
+        sessionId,
+      }),
+    });
+    if (!response.ok || !response.body) throw new Error("stream_failed");
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    function consumeBlock(block: string) {
+      const eventLine = block
+        .split("\n")
+        .find((line) => line.startsWith("event: "));
+      const dataLines = block
+        .split("\n")
+        .filter((line) => line.startsWith("data: "))
+        .map((line) => line.slice(6));
+      if (!eventLine || !dataLines.length) return;
+      const eventName = eventLine.slice(7).trim();
+      const payload = JSON.parse(dataLines.join("\n")) as unknown;
+      if (eventName === "trace") {
+        setTraceEvents((current) => [...current, payload as TraceEvent].slice(-18));
+      }
+      if (eventName === "result") {
+        setResult(payload as ChatResult);
+        setTraceCollapsed(true);
+      }
+      if (eventName === "error") {
+        throw new Error("stream_event_error");
+      }
+    }
+
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const blocks = buffer.split("\n\n");
+      buffer = blocks.pop() ?? "";
+      for (const block of blocks) consumeBlock(block);
+    }
+    if (buffer.trim()) consumeBlock(buffer);
+  }
 
   async function submitQuestion(
     text: string,
@@ -43,31 +115,23 @@ export default function AskPage() {
     setError("");
     if (!confirmationToken) {
       setResult(null);
+      setTraceEvents([]);
+      setTraceCollapsed(false);
       setLastQuestion(text);
     }
     try {
-      const response = await fetch(
-        confirmationToken ? "/api/chat/confirm-spoiler" : "/api/chat",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            question: text,
-            ...preferences,
-            sessionId,
-            ...(confirmationToken ? { confirmationToken } : {}),
-          }),
-        },
-      );
-      if (!response.ok) throw new Error("request_failed");
-      setResult((await response.json()) as ChatResult);
+      if (confirmationToken) {
+        await submitRegularRequest(text, confirmationToken);
+      } else {
+        await submitStreamingRequest(text);
+      }
       setQuestion("");
     } catch {
       setError(
         t(
           language,
-          "这次连接没有成功。请稍后重试；你的原始问题没有因此被保存。",
-          "The request did not complete. Try again in a moment; your question text was not stored because of this failure.",
+          "哎呀，连接断了。再试一次吧！这次问题没有保存。",
+          "Oops, the connection dropped. Try again — this question was not saved.",
         ),
       );
     } finally {
@@ -84,9 +148,8 @@ export default function AskPage() {
     <div className="ask-page page-wrap">
       <section className="ask-intro">
         <div>
-          <span className="eyebrow"><Stars size={14} />{t(language, "自由提问 · 证据可追溯", "Ask freely · Trace the evidence")}</span>
-          <h1>{t(language, "把你卡住的那一小段，交给派蒙。", "Give Paimon the one part that’s blocking you.")}</h1>
-          <p>{t(language, "不需要写成标准问题。说你记得什么、担心什么，或者只想知道到哪一步就够了。", "It does not need to be a perfect prompt. Say what you remember, what you worry about, or how much context is enough.")}</p>
+          <span className="eyebrow"><Stars size={14} />{t(language, "有问题就问派蒙！", "Ask Paimon!")}</span>
+          <h1>{t(language, "旅行者，哪里没看懂？", "What’s confusing, Traveler?")}</h1>
         </div>
         <StatusBar />
       </section>
@@ -96,19 +159,25 @@ export default function AskPage() {
           {!result && !loading ? (
             <div className="empty-conversation">
               <img src="/compass-mark.svg" alt="" />
-              <h2>{t(language, "先从一个真实困惑开始", "Start with a real point of confusion")}</h2>
-              <p>{t(language, "受控语料会优先回答；覆盖不到时才去白名单 Wiki 寻找外部资料。", "Controlled knowledge answers first. Only long-tail gaps fall back to the whitelisted wiki.")}</p>
+              <h2>{t(language, "派蒙在这儿！", "Paimon’s here!")}</h2>
+              <p>{t(language, "选一个问题，或者直接问吧。", "Pick a question, or ask your own.")}</p>
             </div>
           ) : null}
           {loading ? (
-            <div className="loading-card" role="status">
-              <LoaderCircle className="spin" size={28} />
-              <div>
-                <strong>{t(language, "派蒙正在整理证据", "Paimon is arranging the evidence")}</strong>
-                <span>{t(language, "检索、检查剧透边界、绑定来源……", "Retrieving, checking spoiler boundaries, binding sources…")}</span>
+            traceEvents.length ? null : (
+              <div className="loading-card" role="status">
+                <LoaderCircle className="spin" size={28} />
+                <div>
+                  <strong>{t(language, "派蒙正在查资料！", "Paimon is checking!")}</strong>
+                </div>
               </div>
-            </div>
+            )
           ) : null}
+          <TraceTimeline
+            events={traceEvents}
+            language={language}
+            collapsed={traceCollapsed}
+          />
           {error ? (
             <div className="error-card"><CircleAlert size={20} /><span>{error}</span></div>
           ) : null}
@@ -128,7 +197,7 @@ export default function AskPage() {
             <textarea
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
-              placeholder={t(language, "例如：我停在枫丹，现在还看得懂吗？", "For example: I stopped after Fontaine — can I still follow?")}
+              placeholder={t(language, "旅行者，想问什么？", "What do you want to ask, Traveler?")}
               rows={3}
               maxLength={800}
               onKeyDown={(event) => {
@@ -156,7 +225,7 @@ export default function AskPage() {
         <aside className="suggestions-panel">
           <div className="aside-heading">
             <span>FIELD NOTES</span>
-            <h2>{t(language, "试试这些问法", "Try one of these")}</h2>
+            <h2>{t(language, "不知道问什么？", "Need an idea?")}</h2>
           </div>
           <div className="suggestion-list">
             {questions[language].map((item, index) => (
@@ -175,8 +244,8 @@ export default function AskPage() {
             ))}
           </div>
           <div className="privacy-note">
-            <strong>{t(language, "数据最小化", "Data minimization")}</strong>
-            <p>{t(language, "默认只记录语言、画像、类别、困惑主题和回答状态。不会记录 UID、账号、IP 或完整会话。", "By default we only record language, profile, category, confusion topic, and response status — never UID, account, IP, or full conversations.")}</p>
+            <strong>{t(language, "隐私提示", "Privacy")}</strong>
+            <p>{t(language, "只记录匿名分类；不记录账号、UID 或完整会话。", "Only anonymous categories are recorded — never accounts, UID, or full chats.")}</p>
           </div>
         </aside>
       </div>

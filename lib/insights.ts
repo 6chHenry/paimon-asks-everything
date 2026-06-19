@@ -40,6 +40,139 @@ export interface Recommendation {
   status: "draft";
 }
 
+export interface InsightBriefingCard {
+  id: string;
+  topic: string;
+  titleZh: string;
+  titleEn: string;
+  plainSummaryZh: string;
+  plainSummaryEn: string;
+  playerNeedZh: string;
+  playerNeedEn: string;
+  strategyZh: string;
+  strategyEn: string;
+  affectedPlayers: string;
+  priority: "high" | "medium";
+  evidenceItems: string[];
+}
+
+const topicPlaybook: Record<
+  string,
+  {
+    labelZh: string;
+    labelEn: string;
+    needZh: string;
+    needEn: string;
+    strategyZh: string;
+    strategyEn: string;
+  }
+> = {
+  fontaine_catch_up: {
+    labelZh: "枫丹回归补课",
+    labelEn: "Fontaine catch-up",
+    needZh: "玩家不是想补完全部旧内容，而是想知道进入新版本前最低需要理解哪几件事。",
+    needEn:
+      "Players are not asking to replay everything; they want the minimum context needed before entering the new release.",
+    strategyZh:
+      "做一页按进度展开的“最小必要背景”：先给 3 个必须知道的剧情点，再把可跳过内容折叠到次级区域。",
+    strategyEn:
+      "Create a progress-aware minimum-context page: lead with three must-know story points and move optional catch-up into expandable sections.",
+  },
+  sandrone_identity: {
+    labelZh: "桑多涅身份与关系",
+    labelEn: "Sandrone identity and relationships",
+    needZh: "剧情型玩家在追问角色关系链，尤其是机械研究、阿兰、玛丽安与执行官身份之间的联系。",
+    needEn:
+      "Lore-focused players are trying to connect character relationships, especially machinery research, Alain, Mary-Ann, and Harbinger identity clues.",
+    strategyZh:
+      "准备带剧透层级的角色关系图：公共信息、剧情暗示、社区推测分层展示，避免社媒物料把推测写成定论。",
+    strategyEn:
+      "Prepare a spoiler-layered relationship map: separate public facts, narrative implications, and community theories so social copy does not present theory as fact.",
+  },
+  layered_puzzle_help: {
+    labelZh: "分层解谜提示",
+    labelEn: "Layered puzzle help",
+    needZh: "探索玩家想要提示，但不想一上来被完整解法剥夺解谜体验。",
+    needEn:
+      "Exploration players want hints without having the full solution revealed immediately.",
+    strategyZh:
+      "把攻略内容改成三段式：观察线索、关键机制、完整步骤，并在标题里明确“无剧透提示”。",
+    strategyEn:
+      "Convert guides into three layers: what to observe, the key mechanism, and the full steps. Label the first layer as spoiler-light.",
+  },
+  terminology: {
+    labelZh: "术语理解",
+    labelEn: "Terminology",
+    needZh: "新玩家卡在名词和阵营关系上，问题本身通常不是剧情深度，而是入口解释不够低门槛。",
+    needEn:
+      "New players are blocked by terms and faction relationships; the issue is often onboarding clarity rather than deep lore.",
+    strategyZh:
+      "补一套跨语言术语小抄：每个词只用一句话解释，并附“什么时候需要知道它”。",
+    strategyEn:
+      "Add a cross-language terminology cheat sheet: one plain sentence per term plus when the player actually needs it.",
+  },
+};
+
+function playbookFor(topic: string) {
+  return (
+    topicPlaybook[topic] ?? {
+      labelZh: topic.replaceAll("_", " "),
+      labelEn: topic.replaceAll("_", " "),
+      needZh: "玩家在这个主题上反复追问，说明当前内容没有把关键上下文放在足够显眼的位置。",
+      needEn:
+        "Repeated questions on this topic suggest the key context is not visible enough in the current content.",
+      strategyZh:
+        "把该主题整理成短 FAQ：先回答一句结论，再列必要背景、来源和剧透边界。",
+      strategyEn:
+        "Turn this topic into a short FAQ: start with a one-sentence answer, then list required context, sources, and spoiler boundaries.",
+    }
+  );
+}
+
+function buildBriefingCards(events: QuestionEvent[]) {
+  const topics = countBy(events, (event) => event.confusionTopic);
+  return topics.slice(0, 4).map((topic) => {
+    const group = events.filter((event) => event.confusionTopic === topic.key);
+    const profiles = countBy<Profile>(group, (event) => event.playerProfile);
+    const languages = countBy<Language>(group, (event) => event.language);
+    const categories = countBy<QuestionCategory>(
+      group,
+      (event) => event.questionCategory,
+    );
+    const playbook = playbookFor(topic.key);
+    const share = Math.round((topic.count / Math.max(1, events.length)) * 100);
+    const leadingProfile = profiles[0]?.key ?? "unknown";
+    const languageText = languages
+      .map((item) => `${item.key}: ${item.count}`)
+      .join(" / ");
+    const categoryText = categories
+      .slice(0, 2)
+      .map((item) => item.key.replaceAll("_", " "))
+      .join(", ");
+
+    return {
+      id: `brief-${topic.key}`,
+      topic: topic.key,
+      titleZh: `玩家在问：${playbook.labelZh}`,
+      titleEn: `Players are asking about ${playbook.labelEn}`,
+      plainSummaryZh: `这个困惑出现了 ${topic.count} 次，占全部问题 ${share}%。主要来自 ${leadingProfile} 玩家，说明它已经不是零散长尾。`,
+      plainSummaryEn: `This confusion appeared ${topic.count} times, ${share}% of all questions. It is led by ${leadingProfile} players, so it is more than a one-off long tail.`,
+      playerNeedZh: playbook.needZh,
+      playerNeedEn: playbook.needEn,
+      strategyZh: playbook.strategyZh,
+      strategyEn: playbook.strategyEn,
+      affectedPlayers: `${topic.count} events · ${leadingProfile} · ${languageText}`,
+      priority: topic.count >= 12 || share >= 20 ? "high" : "medium",
+      evidenceItems: [
+        `topic=${topic.key}`,
+        `category=${categoryText || "unknown"}`,
+        `languages=${languageText || "unknown"}`,
+        `share=${share}%`,
+      ],
+    } satisfies InsightBriefingCard;
+  });
+}
+
 export function aggregateInsights(events: QuestionEvent[]) {
   const languages = countBy<Language>(events, (event) => event.language);
   const profiles = countBy<Profile>(events, (event) => event.playerProfile);
@@ -156,6 +289,7 @@ export function aggregateInsights(events: QuestionEvent[]) {
     total: events.length,
     liveCount,
     lastUpdated,
+    briefingCards: buildBriefingCards(events),
     languages,
     profiles,
     categories,

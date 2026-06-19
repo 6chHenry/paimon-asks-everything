@@ -41,4 +41,18 @@ describe("controlled retrieval", () => {
     expect(result.entries).toHaveLength(0);
     expect(result.topScore).toBe(0);
   });
+
+  it("prioritizes the current Sandrone-Alain creation relationship", () => {
+    const result = retrieveControlled({
+      question: "桑多涅和阿兰的关系",
+      language: "zh-CN",
+      progress: "fontaine",
+      spoilerPreference: "low",
+      focus: ["story", "character"],
+    });
+
+    expect(result.entries[0]?.conceptId).toBe("sandrone-alain-creation");
+    expect(result.entries[0]?.summary).toContain("阿兰");
+    expect(result.entries[0]?.summary).toContain("造物");
+  });
 });

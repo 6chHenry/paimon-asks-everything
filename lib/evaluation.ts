@@ -1,6 +1,12 @@
 import { evaluationCases } from "@/data/evaluation";
 import { runAgent } from "@/lib/agent";
-import { isWhitelistedUrl } from "@/lib/external-search";
+
+const allowedExternalSourceKinds = new Set([
+  "official",
+  "trusted_wiki",
+  "community",
+  "unknown_web",
+]);
 
 export async function runEvaluation(caseId?: string) {
   const selected = caseId
@@ -40,8 +46,9 @@ export async function runEvaluation(caseId?: string) {
         !testCase.expected.category ||
         result.eventClassification.questionCategory ===
           testCase.expected.category,
-      whitelist: result.citations.every(
-        (citation) => !citation.external || isWhitelistedUrl(citation.url),
+      sourceClassified: result.citations.every(
+        (citation) =>
+          !citation.external || allowedExternalSourceKinds.has(citation.sourceKind),
       ),
       structured:
         Boolean(result.language) &&
@@ -59,7 +66,20 @@ export async function runEvaluation(caseId?: string) {
       question: testCase.question,
       passed: Object.values(checks).every(Boolean),
       checks,
+      checkFailures: Object.entries(checks)
+        .filter(([, passed]) => !passed)
+        .map(([key]) => key),
       status: result.status,
+      answer: result.answer,
+      citations: result.citations.map((citation) => ({
+        id: citation.id,
+        title: citation.title,
+        sourceName: citation.sourceName,
+        sourceKind: citation.sourceKind,
+        factStatus: citation.factStatus,
+        external: citation.external,
+        excerpt: citation.excerpt,
+      })),
       citationCount: result.citations.length,
       usedExternalSources: result.usedExternalSources,
     });

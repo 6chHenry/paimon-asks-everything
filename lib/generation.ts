@@ -1,44 +1,208 @@
-import OpenAI from "openai";
+import { fetch as undiciFetch, ProxyAgent } from "undici";
 import type {
   Citation,
   KnowledgeEntry,
   Language,
   Profile,
 } from "@/lib/domain";
+import {
+  normalizeSearchPlan,
+  searchWebEvidence,
+  type SearchPlan,
+} from "@/lib/external-search";
 import { t } from "@/lib/i18n";
+import { releaseContextPrompt } from "@/lib/release-context";
+import { emitTrace, type TraceEmitter } from "@/lib/trace";
+
+let proxyAgent: ProxyAgent | undefined;
+
+function getProxyAgent() {
+  const proxyUrl =
+    process.env.https_proxy ||
+    process.env.HTTPS_PROXY ||
+    process.env.http_proxy ||
+    process.env.HTTP_PROXY;
+  if (!proxyUrl || !/^https?:\/\//i.test(proxyUrl)) return undefined;
+  proxyAgent ??= new ProxyAgent(proxyUrl);
+  return proxyAgent;
+}
+
+function parseStructuredAnswer(content: string) {
+  const trimmed = content.trim();
+  const jsonText = trimmed.startsWith("```")
+    ? trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "")
+    : trimmed;
+  try {
+    const parsed = JSON.parse(jsonText) as {
+      answer?: unknown;
+      citedSourceIds?: unknown;
+    };
+    if (typeof parsed.answer !== "string") return null;
+    if (
+      parsed.citedSourceIds !== undefined &&
+      (!Array.isArray(parsed.citedSourceIds) ||
+        !parsed.citedSourceIds.every((id) => typeof id === "string"))
+    ) {
+      return null;
+    }
+    return {
+      answer: parsed.answer.trim(),
+      citedSourceIds: (parsed.citedSourceIds ?? []) as string[],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function validateStructuredAnswer(
+  structured: { answer: string; citedSourceIds: string[] },
+  allowedSourceIds: Set<string>,
+) {
+  if (!structured.answer) return false;
+  if (!allowedSourceIds.size) return true;
+  if (!structured.citedSourceIds.length) return false;
+  return structured.citedSourceIds.every((id) => allowedSourceIds.has(id));
+}
+
+function containsCjkText(value: string) {
+  return /[\u3400-\u9fff]/u.test(value);
+}
+
+function hasInlineCitationMarker(answer: string) {
+  return /(?:[（(]\s*(?:来源|source)\s*[:：]\s*(?:external|source)-\d+\s*[)）])|(?:\^\[(?:external|source)-\d+\])|(?:\[(?:external|source)-\d+\])/iu.test(
+    answer,
+  );
+}
+
+function normalizeKnownTitleConfusions(answer: string) {
+  return answer
+    .replace(/女士（愚人众执行官「仆人」）/gu, "愚人众执行官「女士」")
+    .replace(/女士（「仆人」）/gu, "「女士」");
+}
+
+function normalizeStructuredAnswer(structured: {
+  answer: string;
+  citedSourceIds: string[];
+}) {
+  const answer = normalizeKnownTitleConfusions(structured.answer);
+  if (!structured.citedSourceIds.length || hasInlineCitationMarker(answer)) {
+    return answer;
+  }
+
+  const notes = structured.citedSourceIds
+    .slice(0, 3)
+    .map((id) => `[${id}]`)
+    .join("");
+  const trailingWhitespace = answer.match(/(\s*)$/u)?.[1] ?? "";
+  const body = answer.slice(0, answer.length - trailingWhitespace.length);
+  return `${body}${notes}${trailingWhitespace}`;
+}
+
+function matchesRequestedLanguage(answer: string, language: Language) {
+  if (language === "zh-CN") return true;
+  return !containsCjkText(answer);
+}
+
+function buildEvidence(input: {
+  entries: KnowledgeEntry[];
+  external: Citation[];
+}) {
+  const controlledEvidence = input.entries.map((entry, index) => ({
+    id: `source-${index + 1}`,
+    title: entry.title,
+    summary: entry.summary,
+    excerpt: entry.content,
+    sourceName: entry.source.sourceName,
+    sourceKind: entry.source.sourceKind,
+    factStatus: entry.factStatus,
+    external: false,
+  }));
+  const externalEvidence = input.external.map((citation) => ({
+    id: citation.id,
+    title: citation.title,
+    summary: citation.excerpt,
+    excerpt: citation.excerpt,
+    sourceName: citation.sourceName,
+    sourceKind: citation.sourceKind,
+    credibility: citation.credibility,
+    factStatus: citation.factStatus,
+    external: true,
+  }));
+  return [...controlledEvidence, ...externalEvidence];
+}
 
 function deterministicAnswer({
   language,
   profile,
   entries,
   external,
+  deepStory,
 }: {
   language: Language;
   profile: Profile;
   entries: KnowledgeEntry[];
   external: Citation[];
+  deepStory?: boolean;
 }) {
-  if (external.length) {
+  const sameLanguageEntries = entries.filter((entry) => entry.language === language);
+  const usableEntries = sameLanguageEntries.length
+    ? sameLanguageEntries
+    : language === "en"
+      ? entries.filter(
+          (entry) => !containsCjkText(`${entry.summary} ${entry.content}`),
+        )
+      : entries;
+  if (deepStory && usableEntries.length) {
+    const storyEntries = usableEntries.slice(0, 5);
+    const sections =
+      language === "zh-CN"
+        ? [
+            ["故事起点", storyEntries[0]],
+            ["关键人物", storyEntries[1]],
+            ["故事脉络", storyEntries[2]],
+            ["核心主题", storyEntries[3]],
+          ]
+        : [
+            ["Where it begins", storyEntries[0]],
+            ["Key people", storyEntries[1]],
+            ["Story thread", storyEntries[2]],
+            ["Core themes", storyEntries[3]],
+          ];
+    const body = sections
+      .filter((item): item is [string, KnowledgeEntry] => Boolean(item[1]))
+      .map(([heading, entry]) => `## ${heading}\n${entry.content}`)
+      .join("\n\n");
     return t(
       language,
-      `受控语料暂时没有覆盖这个问题。我查到了 ${external.length} 条白名单 Wiki 结果，但它们属于外部社区资料，不能自动视为官方事实。你可以先从“${external[0].title}”开始核对；下面的来源卡保留了可追溯链接。`,
-      `The controlled corpus does not cover this question yet. I found ${external.length} result(s) from the whitelisted community wiki, but they are external material rather than automatically official facts. “${external[0].title}” is the best place to begin, and the source cards preserve the traceable links.`,
+      `旅行者，这条故事线很长，派蒙按顺序讲清楚！\n\n${body}\n\n来源和延伸阅读都放在下面啦。`,
+      `Traveler, this story is a long one, so Paimon will take it in order!\n\n${body}\n\nSources and further reading are below.`,
+    );
+  }
+  if (external.length) {
+    const firstTitle =
+      language === "en" && containsCjkText(external[0].title)
+        ? "the top returned source"
+        : external[0].title;
+    return t(
+      language,
+      `旅行者，派蒙只找到外部资料，还不能当成官方结论。先从“${external[0].title}”查起吧！`,
+      `Traveler, Paimon only found external material, so it is not an official conclusion. Start with “${firstTitle}.”`,
     );
   }
 
-  const first = entries[0];
-  const supporting = entries.slice(1, 3);
+  const first = usableEntries[0];
+  const supporting = usableEntries.slice(1, 3);
   const opening =
     profile === "returning"
       ? t(
           language,
-          "可以，不用先把旧内容全部补完。",
-          "Yes — you do not need to clear every old quest first.",
+          "可以！不用把旧内容全部补完。",
+          "Yes! You do not need every old quest.",
         )
       : t(
           language,
-          "先给你结论：可以从与当前问题最相关的背景开始。",
-          "Short answer: start with only the background that serves this question.",
+          "先说结论！看这几条背景就够了。",
+          "Short answer, Traveler: these points are enough.",
         );
   const details = [first, ...supporting]
     .filter(Boolean)
@@ -51,13 +215,13 @@ function deterministicAnswer({
   )
     ? t(
         language,
-        "其中推测与 Demo 假设已单独标记，不会冒充官方剧情结论。",
-        "Theories and demo hypotheses are labeled separately and are not presented as official plot facts.",
+        "推测和演示假设都标出来啦。",
+        "Theories and demo hypotheses are labeled.",
       )
     : t(
         language,
-        "我把每个关键点的来源和事实状态放在下方，方便你自己核对。",
-        "Each key point keeps its source and fact status below so you can verify it.",
+        "来源都放在下面啦。",
+        "The sources are below.",
       );
   return `${opening}\n\n${details}\n\n${boundary}`;
 }
@@ -68,47 +232,485 @@ export async function generateGroundedAnswer(input: {
   profile: Profile;
   entries: KnowledgeEntry[];
   external: Citation[];
+  deepStory?: boolean;
 }) {
   const fallback = deterministicAnswer(input);
   const apiKey = process.env.LLM_API_KEY;
-  if (!apiKey || input.external.length) return fallback;
-
-  const client = new OpenAI({
-    apiKey,
-    baseURL: process.env.LLM_BASE_URL || undefined,
-  });
-  const evidence = input.entries.map((entry, index) => ({
-    id: `source-${index + 1}`,
-    summary: entry.summary,
-    factStatus: entry.factStatus,
-  }));
+  if (!apiKey) return fallback;
+  const baseURL = process.env.LLM_BASE_URL || "https://api.deepseek.com";
+  const evidence = buildEvidence(input);
+  const allowedSourceIds = new Set(evidence.map((item) => item.id));
+  const messages = [
+    {
+      role: "system",
+      content:
+        `You are Paimon, a concise game-version guide. ${releaseContextPrompt()} In Chinese, use short, lively sentences, occasionally call the user 旅行者, answer first, and sound helpful rather than theatrical. In English, use short lively Paimon-style sentences and occasionally call the user Traveler. Do not pile on catchphrases. Evidence, privacy, safety, and uncertainty wording must stay plain and precise. Answer only in the requested language. For language=en, use English only and do not include Chinese wording except inside source ids. Answer only from supplied evidence. Preserve spoiler boundaries, never recommend spending or pulling, and do not expose internal reasoning. External wiki evidence is useful for orientation but must not be presented as official fact. If evidence is thin, return a cautious boundary answer instead of an empty answer.`,
+    },
+    {
+      role: "user",
+      content: JSON.stringify({
+        language: input.language,
+        playerProfile: input.profile,
+        question: input.question,
+        evidence,
+        instruction:
+          "Return strict JSON only with shape {\"answer\":\"...\",\"citedSourceIds\":[\"source-1\"]}. Treat demo_hypothesis and community_speculation as explicitly uncertain. Treat trusted_secondary as useful corroborating evidence, but do not call it official. Include only supplied source ids in citedSourceIds. If you use inline source notes, use the full source id form like [source-1] or [external-1], without a caret. If the evidence only supports a search hit or page title, say that the reliable answer is limited to where the user can start verifying.",
+      }),
+    },
+  ];
   try {
-    const completion = await client.chat.completions.create({
+    const endpoint = new URL("/chat/completions", baseURL);
+    const body = JSON.stringify({
       model: process.env.LLM_MODEL || "deepseek-v4-flash",
       temperature: 0.2,
-      max_tokens: 500,
-      messages: [
+      max_tokens: 800,
+      messages,
+    });
+    const headers = {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    };
+    const requestOptions: RequestInit = {
+      method: "POST",
+      signal: AbortSignal.timeout(45_000),
+      headers,
+      body,
+    };
+    const agent = getProxyAgent();
+    const response = agent
+      ? await undiciFetch(endpoint, {
+          method: "POST",
+          signal: AbortSignal.timeout(45_000),
+          headers,
+          body,
+          dispatcher: agent,
+        })
+      : await fetch(endpoint, requestOptions);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn("LLM generation request failed", {
+        status: response.status,
+        body: errorText.slice(0, 500),
+      });
+      return fallback;
+    }
+    const completion = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = completion.choices?.[0]?.message?.content?.trim();
+    if (!content) {
+      console.warn("LLM generation returned empty content");
+      return fallback;
+    }
+    const structured = parseStructuredAnswer(content);
+    if (structured) {
+      if (!validateStructuredAnswer(structured, allowedSourceIds)) return fallback;
+      const answer = normalizeStructuredAnswer(structured);
+      return matchesRequestedLanguage(answer, input.language) ? answer : fallback;
+    }
+    const answer = normalizeKnownTitleConfusions(content);
+    return matchesRequestedLanguage(answer, input.language) ? answer : fallback;
+  } catch (error) {
+    const cause = error instanceof Error ? error.cause : undefined;
+    console.warn("LLM generation request errored", {
+      message: error instanceof Error ? error.message : String(error),
+      cause:
+        cause && typeof cause === "object" && "code" in cause
+          ? String(cause.code)
+          : undefined,
+    });
+    return fallback;
+  }
+}
+
+export interface GroundedGenerationResult {
+  answer: string;
+  external: Citation[];
+  citedSourceIds: string[];
+  searchPlan: SearchPlan;
+}
+
+type ChatMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_call_id?: string;
+  tool_calls?: Array<{
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+  }>;
+};
+
+async function postChatCompletion(
+  baseURL: string,
+  apiKey: string,
+  body: Record<string, unknown>,
+) {
+  const endpoint = new URL("/chat/completions", baseURL);
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  const serialized = JSON.stringify(body);
+  const agent = getProxyAgent();
+  const response = agent
+    ? await undiciFetch(endpoint, {
+        method: "POST",
+        signal: AbortSignal.timeout(45_000),
+        headers,
+        body: serialized,
+        dispatcher: agent,
+      })
+    : await fetch(endpoint, {
+        method: "POST",
+        signal: AbortSignal.timeout(45_000),
+        headers,
+        body: serialized,
+      });
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.warn("LLM generation request failed", {
+      status: response.status,
+      body: errorText.slice(0, 500),
+    });
+    return null;
+  }
+  return (await response.json()) as {
+    choices?: Array<{
+      finish_reason?: string;
+      message?: {
+        content?: string | null;
+        tool_calls?: ChatMessage["tool_calls"];
+      };
+    }>;
+  };
+}
+
+function parseSearchArguments(
+  rawArguments: string,
+  fallback: { question: string; language: Language },
+) {
+  try {
+    const parsed = JSON.parse(rawArguments) as {
+      query?: unknown;
+      coreEntities?: unknown;
+      aliases?: unknown;
+      intent?: unknown;
+      queries?: unknown;
+      language?: unknown;
+    };
+    const legacyQuery =
+      typeof parsed.query === "string" && parsed.query.trim()
+        ? parsed.query.trim()
+        : fallback.question;
+    return {
+      plan: normalizeSearchPlan(
         {
-          role: "system",
-          content:
-            "You are a concise bilingual game-version understanding assistant. Answer only from supplied evidence. Lead with the answer, preserve spoiler boundaries, never recommend spending or pulling, and do not expose internal reasoning.",
+          coreEntities: Array.isArray(parsed.coreEntities)
+            ? parsed.coreEntities.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+          aliases: Array.isArray(parsed.aliases)
+            ? parsed.aliases.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+          intent:
+            typeof parsed.intent === "string"
+              ? (parsed.intent as SearchPlan["intent"])
+              : "general",
+          queries: Array.isArray(parsed.queries)
+            ? parsed.queries.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [legacyQuery],
         },
+        fallback.question,
+      ),
+      language:
+        parsed.language === "zh-CN" || parsed.language === "en"
+          ? parsed.language
+          : fallback.language,
+    };
+  } catch {
+    return {
+      plan: normalizeSearchPlan(undefined, fallback.question),
+      language: fallback.language,
+    };
+  }
+}
+
+export async function generateGroundedResponse(input: {
+  question: string;
+  language: Language;
+  profile: Profile;
+  entries: KnowledgeEntry[];
+  external: Citation[];
+  deepStory?: boolean;
+  emitTrace?: TraceEmitter;
+}): Promise<GroundedGenerationResult> {
+  const fallback = deterministicAnswer(input);
+  const fallbackSearchPlan = normalizeSearchPlan(undefined, input.question);
+  await emitTrace(input.emitTrace, {
+    stage: "generate",
+    status: "running",
+    message: "正在整理回答",
+  });
+  const apiKey = process.env.LLM_API_KEY;
+  if (!apiKey) {
+    const searched = await searchWebEvidence(input.question, input.language, {
+      emitTrace: input.emitTrace,
+    }).catch(() => input.external);
+    const external = searched.filter(
+      (citation) =>
+        citation.credibility === "official" ||
+        citation.credibility === "trusted_wiki",
+    );
+    await emitTrace(input.emitTrace, {
+      stage: "generate",
+      status: "complete",
+      message: "先用现有资料回答",
+      detail: external.length ? `使用 ${external.length} 条外部来源` : undefined,
+    });
+    return {
+      answer: deterministicAnswer({ ...input, external }),
+      external,
+      citedSourceIds: [],
+      searchPlan: fallbackSearchPlan,
+    };
+  }
+
+  const baseURL = process.env.LLM_BASE_URL || "https://api.deepseek.com";
+  const model = process.env.LLM_MODEL || "deepseek-v4-flash";
+  const initialEvidence = buildEvidence(input);
+  const messages: ChatMessage[] = [
+    {
+      role: "system",
+      content:
+        `You are Paimon, a game-version evidence guide. ${releaseContextPrompt()} Use lively, clear language and occasionally call the user 旅行者 or Traveler, but keep evidence and uncertainty wording precise. Do not overuse catchphrases. For deep story requests, give a substantial chronological explanation with clear sections for setup, key people, major developments, and themes; do not collapse the answer into a short summary. Answer only in the requested language. For language=en, use English only and do not include Chinese wording except inside source ids. You must use the search_web_evidence tool to plan a current, entity-grounded search. Final factual claims must cite supplied evidence only. Trusted wiki sources are high-value community indexes, not official sources.`,
+    },
+    {
+      role: "user",
+      content: JSON.stringify({
+        language: input.language,
+        playerProfile: input.profile,
+        question: input.question,
+        controlledEvidence: initialEvidence,
+        deepStory: Boolean(input.deepStory),
+        instruction:
+          input.deepStory
+            ? "Call search_web_evidence once. Extract the exact core entity or entities, same-entity aliases only, the story intent, and 2-4 focused queries that all retain a core entity. Then write a complete chronological guide. Preserve spoiler gates. Do not answer from model memory."
+            : "Call search_web_evidence once. Extract the exact core entity or entities, same-entity aliases only, the intent, and 2-4 focused queries that all retain a core entity. Never broaden to merely related characters. Do not answer from model memory.",
+      }),
+    },
+  ];
+
+  try {
+    const first = await postChatCompletion(baseURL, apiKey, {
+      model,
+      thinking: { type: "disabled" },
+      temperature: 0.1,
+      max_tokens: input.deepStory ? 800 : 500,
+      messages,
+      tool_choice: "required",
+      tools: [
         {
-          role: "user",
-          content: JSON.stringify({
-            language: input.language,
-            playerProfile: input.profile,
-            question: input.question,
-            evidence,
-            instruction:
-              "Return a concise answer in the requested language. Treat demo_hypothesis and community_speculation as explicitly uncertain.",
-          }),
+          type: "function",
+          function: {
+            name: "search_web_evidence",
+            description:
+              "Plan and search current Genshin Impact evidence. Identify the exact subject first; every query must retain a core entity. Results are entity-filtered before authority ranking.",
+            parameters: {
+              type: "object",
+              properties: {
+                coreEntities: {
+                  type: "array",
+                  items: { type: "string" },
+                  description:
+                    "One to four exact entities that are the direct subject of the question.",
+                },
+                aliases: {
+                  type: "array",
+                  items: { type: "string" },
+                  description:
+                    "Only alternate names that refer to the same core entities.",
+                },
+                intent: {
+                  type: "string",
+                  enum: [
+                    "identity",
+                    "relationship",
+                    "story",
+                    "current_status",
+                    "official_media",
+                    "general",
+                  ],
+                },
+                queries: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 4,
+                  items: { type: "string" },
+                  description:
+                    "Focused current-search queries. Every query must contain a core entity or exact alias.",
+                },
+                language: {
+                  type: "string",
+                  enum: ["zh-CN", "en"],
+                  description: "Preferred search language.",
+                },
+              },
+              required: [
+                "coreEntities",
+                "aliases",
+                "intent",
+                "queries",
+                "language",
+              ],
+              additionalProperties: false,
+            },
+          },
         },
       ],
     });
-    return completion.choices[0]?.message.content?.trim() || fallback;
-  } catch {
-    return fallback;
+    const assistantMessage = first?.choices?.[0]?.message;
+    const toolCalls = assistantMessage?.tool_calls ?? [];
+    const toolCall = toolCalls.find(
+      (call) => call.function.name === "search_web_evidence",
+    );
+    let searchedExternal: Citation[] = [];
+    let searchPlan = fallbackSearchPlan;
+    if (toolCall) {
+      await emitTrace(input.emitTrace, {
+        stage: "tool",
+        status: "running",
+        message: "还要再查一下",
+        detail: "search_web_evidence",
+      });
+      messages.push({
+        role: "assistant",
+        content: assistantMessage?.content ?? null,
+        tool_calls: toolCalls,
+      });
+      const args = parseSearchArguments(toolCall.function.arguments, {
+        question: input.question,
+        language: input.language,
+      });
+      searchPlan = args.plan;
+      searchedExternal = await searchWebEvidence(input.question, args.language, {
+        emitTrace: input.emitTrace,
+        plan: searchPlan,
+      });
+      await emitTrace(input.emitTrace, {
+        stage: "tool",
+        status: "complete",
+        message: "新资料找到了",
+        detail: `${searchedExternal.length} 条来源`,
+      });
+      messages.push({
+        role: "tool",
+        tool_call_id: toolCall.id,
+        content: JSON.stringify({
+          citations: searchedExternal,
+        }),
+      });
+    } else {
+      searchedExternal = await searchWebEvidence(input.question, input.language, {
+        emitTrace: input.emitTrace,
+        plan: fallbackSearchPlan,
+      });
+    }
+
+    const searchedFactualEvidence = searchedExternal.filter(
+      (citation) =>
+        citation.credibility === "official" ||
+        citation.credibility === "trusted_wiki",
+    );
+    const external = searchedFactualEvidence.length
+      ? searchedFactualEvidence
+      : input.external.filter(
+          (citation) =>
+            citation.credibility === "official" ||
+            citation.credibility === "trusted_wiki",
+        );
+    const evidence = buildEvidence({ entries: input.entries, external });
+    const allowedSourceIds = new Set(evidence.map((item) => item.id));
+    messages.push({
+      role: "user",
+      content: JSON.stringify({
+        language: input.language,
+        question: input.question,
+        evidence,
+        deepStory: Boolean(input.deepStory),
+        instruction:
+          input.deepStory
+            ? "Return strict JSON only with shape {\"answer\":\"...\",\"citedSourceIds\":[\"source-1\",\"external-1\"],\"confidence\":\"high|medium|low\"}. First re-check that every citation is actually about the requested core entities; ignore any drifted result. The answer must be a substantial chronological story guide with short section labels for setup, key people, major developments, and themes. Every factual sentence must be supported by supplied evidence. Do not add etymology, symbolism, chronology, organization founders, quest names, or character relationships unless they are explicit in the supplied evidence. Cite only supplied source ids. Preserve uncertainty and spoiler boundaries. In Chinese call yourself 派蒙, never Paimon. If you add inline source notes, use [source-1] or [external-1], without a caret."
+            : "Return strict JSON only with shape {\"answer\":\"...\",\"citedSourceIds\":[\"source-1\",\"external-1\"],\"confidence\":\"high|medium|low\"}. First re-check that every citation is actually about the requested core entities; ignore any drifted result. Cite only supplied source ids. Use trusted_secondary evidence for normal answers when it directly supports the claim, but do not call trusted_wiki or community evidence official. If you add inline source notes, use the full supplied source id form like [source-1] or [external-1], without a caret; the UI will render it as a compact numeric note. Never write parentheticals such as （来源：external-4）.",
+      }),
+    });
+
+    const final = await postChatCompletion(baseURL, apiKey, {
+      model,
+      thinking: { type: "disabled" },
+      temperature: 0.2,
+      max_tokens: input.deepStory ? 1600 : 800,
+      messages,
+    });
+    const content = final?.choices?.[0]?.message?.content?.trim();
+    if (!content) {
+      return { answer: fallback, external, citedSourceIds: [], searchPlan };
+    }
+    const structured = parseStructuredAnswer(content);
+    if (structured && validateStructuredAnswer(structured, allowedSourceIds)) {
+      const answer = normalizeStructuredAnswer(structured);
+      if (!matchesRequestedLanguage(answer, input.language)) {
+        await emitTrace(input.emitTrace, {
+          stage: "generate",
+          status: "complete",
+          message: "换成正确语言回答",
+        });
+        return { answer: fallback, external, citedSourceIds: [], searchPlan };
+      }
+      await emitTrace(input.emitTrace, {
+        stage: "generate",
+        status: "complete",
+        message: "引用检查完成",
+        detail: `${structured.citedSourceIds.length} 个引用`,
+      });
+      return {
+        answer,
+        external,
+        citedSourceIds: structured.citedSourceIds,
+        searchPlan,
+      };
+    }
+    await emitTrace(input.emitTrace, {
+      stage: "generate",
+      status: "complete",
+      message: "引用不够稳，改用保守回答",
+    });
+    return { answer: fallback, external, citedSourceIds: [], searchPlan };
+  } catch (error) {
+    const cause = error instanceof Error ? error.cause : undefined;
+    console.warn("LLM tool generation request errored", {
+      message: error instanceof Error ? error.message : String(error),
+      cause:
+        cause && typeof cause === "object" && "code" in cause
+          ? String(cause.code)
+          : undefined,
+    });
+    await emitTrace(input.emitTrace, {
+      stage: "generate",
+      status: "error",
+      message: "生成出错，改用保守回答",
+    });
+    return {
+      answer: fallback,
+      external: input.external,
+      citedSourceIds: [],
+      searchPlan: fallbackSearchPlan,
+    };
   }
 }
 

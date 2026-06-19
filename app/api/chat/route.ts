@@ -1,11 +1,23 @@
 import { NextResponse } from "next/server";
 import { runAgent } from "@/lib/agent";
+import { checkRateLimit, getRequestRateLimitKey } from "@/lib/rate-limit";
 import { chatRequestSchema } from "@/lib/schemas";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
+    const rateLimit = checkRateLimit({
+      key: `chat:${getRequestRateLimitKey(request)}`,
+      limit: 30,
+      windowMs: 60_000,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "rate_limited", resetAt: rateLimit.resetAt },
+        { status: 429 },
+      );
+    }
     const body = await request.json();
     const parsed = chatRequestSchema.safeParse(body);
     if (!parsed.success) {

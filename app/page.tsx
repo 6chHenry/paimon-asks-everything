@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
-  BookOpenText,
   Compass,
   Feather,
   LockKeyhole,
@@ -71,17 +70,17 @@ export default function HomePage() {
         <div className="hero-copy reveal">
           <span className="eyebrow">
             <Feather size={14} />
-            {t(language, "旅行者的版本理解手帐", "A traveler’s version field guide")}
+            {t(language, "旅行者，准备出发！", "Ready, Traveler?")}
           </span>
           <h1>
-            {t(language, "不是补完所有过去，", "You don’t need every old quest.")}
-            <em>{t(language, "而是找回恰好的上下文。", "Just the right context.")}</em>
+            {t(language, "旧故事太多？", "Too much story to catch up on?")}
+            <em>{t(language, "派蒙帮你挑重点！", "Paimon will find the important bits!")}</em>
           </h1>
           <p>
             {t(
               language,
-              "派蒙会按你的进度、兴趣和剧透边界解释版本内容；每个关键说法都保留来源，让“我记得好像”变成“这里可以核对”。",
-              "Paimon explains a version around your progress, interests, and spoiler boundaries. Important claims keep their sources, turning “I vaguely remember” into something you can verify.",
+              "选好进度和剧透偏好，我们马上开始！",
+              "Pick your progress and spoiler limit, then let’s go!",
             )}
           </p>
           <div className="hero-principles">
@@ -104,9 +103,8 @@ export default function HomePage() {
         <div className="setup-heading">
           <div>
             <span className="section-index">01</span>
-            <h2>{t(language, "先告诉派蒙，你从哪里出发", "Tell Paimon where you’re starting")}</h2>
+            <h2>{t(language, "旅行者，先选一下！", "A few quick choices, Traveler!")}</h2>
           </div>
-          <p>{t(language, "四步完成设置，之后都能随时修改。", "Four quick choices. Change them anytime.")}</p>
         </div>
 
         <Field label={t(language, "你更像哪类玩家？", "What kind of player are you?")}>
@@ -185,37 +183,17 @@ export default function HomePage() {
             />
             <span className="switch" />
             <span>
-              <strong>{t(language, "允许保存原始问题以改进 FAQ", "Allow question text for FAQ improvement")}</strong>
-              <small>{t(language, "默认关闭；不保存回答、账号或身份信息。", "Off by default; answers and identity are never stored.")}</small>
+              <strong>{t(language, "保存这次问题", "Save this question")}</strong>
+              <small>{t(language, "关闭时只记录匿名分类。", "When off, only anonymous categories are recorded.")}</small>
             </span>
           </label>
           <button className="primary-button" type="button" onClick={() => router.push("/ask")}>
-            {t(language, "开始提问", "Start asking")}
+            {t(language, "出发！", "Let’s go!")}
             <ArrowRight size={18} />
           </button>
         </div>
       </section>
 
-      <section className="story-strip">
-        <article>
-          <BookOpenText size={23} />
-          <span>01</span>
-          <h3>{t(language, "理解玩家", "Understand the player")}</h3>
-          <p>{t(language, "显式偏好，不猜测你是谁。", "Explicit preferences, no hidden profiling.")}</p>
-        </article>
-        <article>
-          <Compass size={23} />
-          <span>02</span>
-          <h3>{t(language, "组织证据", "Organize evidence")}</h3>
-          <p>{t(language, "同语言优先，事实与推测分开。", "Same-language first; fact and theory stay separate.")}</p>
-        </article>
-        <article>
-          <Radar size={23} />
-          <span>03</span>
-          <h3>{t(language, "形成行动", "Shape action")}</h3>
-          <p>{t(language, "匿名问题聚合为可追溯建议。", "Anonymous questions become traceable drafts.")}</p>
-        </article>
-      </section>
     </div>
   );
 }

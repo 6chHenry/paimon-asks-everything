@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  ArrowUpRight,
   BarChart3,
   FileSearch,
+  Globe2,
   Languages,
   LoaderCircle,
   RefreshCw,
@@ -12,7 +12,11 @@ import {
   UsersRound,
 } from "lucide-react";
 import { usePreferences } from "@/components/preferences-provider";
-import type { InsightSignal, Recommendation } from "@/lib/insights";
+import type {
+  InsightBriefingCard,
+  InsightSignal,
+  Recommendation,
+} from "@/lib/insights";
 import { t } from "@/lib/i18n";
 
 interface InsightPayload {
@@ -23,6 +27,10 @@ interface InsightPayload {
   profiles: Array<{ key: string; count: number }>;
   categories: Array<{ key: string; count: number }>;
   topics: Array<{ key: string; count: number }>;
+  briefingCards: InsightBriefingCard[];
+  insightsMode: "ai" | "rules_fallback";
+  aiGeneratedAt?: string;
+  aiError?: string;
   signals: InsightSignal[];
   recommendations: Recommendation[];
   consentedSamples: Array<{
@@ -81,9 +89,8 @@ export default function InsightsPage() {
     <div className="insights-page page-wrap">
       <section className="page-heading">
         <div>
-          <span className="eyebrow"><Signal size={14} />{t(language, "玩家问题 → 发行行动", "Player questions → Release action")}</span>
-          <h1>{t(language, "不是聊天日志，是可回溯的理解断点。", "Not chat logs — traceable comprehension gaps.")}</h1>
-          <p>{t(language, "确定性规则先判断信号是否成立，建议只在信号成立后起草，并始终保持“待审核”。", "Deterministic rules establish a signal first. Recommendations are drafted only afterward and always remain pending review.")}</p>
+          <span className="eyebrow"><Signal size={14} />{t(language, "发行洞察", "Release insights")}</span>
+          <h1>{t(language, "玩家卡在哪里？", "Where are players getting stuck?")}</h1>
         </div>
         <button className="secondary-button" type="button" onClick={() => void load()}>
           <RefreshCw size={16} className={loading ? "spin" : ""} />
@@ -103,7 +110,6 @@ export default function InsightsPage() {
             <article>
               <span><Languages size={17} />{t(language, "语言分布", "Language split")}</span>
               <strong>{data.languages.map((item) => `${item.key === "zh-CN" ? "中" : "EN"} ${item.count}`).join(" / ")}</strong>
-              <small>{t(language, "分别归类，不先翻成单一语言", "Classified separately, not normalized into one language")}</small>
             </article>
             <article>
               <span><UsersRound size={17} />{t(language, "主要画像", "Leading profile")}</span>
@@ -117,11 +123,54 @@ export default function InsightsPage() {
             </article>
           </section>
 
+          <section className="briefing-section">
+            <div className="section-title">
+              <div><span className="section-index">01</span><h2>{t(language, "行动简报", "Action brief")}</h2></div>
+              <p>
+                <span className={`insight-mode ${data.insightsMode}`}>
+                  {data.insightsMode === "ai"
+                    ? t(language, "AI 归纳", "AI generated")
+                    : t(language, "规则回退", "Rules fallback")}
+                </span>
+              </p>
+            </div>
+            <div className="briefing-grid">
+              {data.briefingCards.map((card) => (
+                <article key={card.id}>
+                  <div className="briefing-top">
+                    <span className={`signal-strength ${card.priority}`}>{card.priority}</span>
+                    <small><Globe2 size={13} />{card.affectedPlayers}</small>
+                  </div>
+                  <h3>{isZh ? card.titleZh : card.titleEn}</h3>
+                  <p>{isZh ? card.plainSummaryZh : card.plainSummaryEn}</p>
+                  <div className="briefing-body">
+                    <div>
+                      <strong>{t(language, "玩家需求", "Player need")}</strong>
+                      <span>{isZh ? card.playerNeedZh : card.playerNeedEn}</span>
+                    </div>
+                    <div>
+                      <strong>{t(language, "建议动作", "Recommended action")}</strong>
+                      <span>{isZh ? card.strategyZh : card.strategyEn}</span>
+                    </div>
+                  </div>
+                  <details>
+                    <summary><FileSearch size={15} />{t(language, "查看聚合证据", "View aggregate evidence")}</summary>
+                    <ul>
+                      {card.evidenceItems.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </details>
+                </article>
+              ))}
+            </div>
+          </section>
+
           <section className="insight-grid">
             <article className="panel chart-panel">
               <div className="panel-heading">
-                <span>01</span>
-                <div><h2>{t(language, "困惑主题排行", "Confusion topics")}</h2><p>{t(language, "历史样本 + 现场增量", "Seed samples + live increments")}</p></div>
+                <span>02</span>
+                <div><h2>{t(language, "困惑主题排行", "Confusion topics")}</h2></div>
               </div>
               <div className="bar-list">
                 {data.topics.slice(0, 6).map((item, index) => (
@@ -136,8 +185,8 @@ export default function InsightsPage() {
 
             <article className="panel category-panel">
               <div className="panel-heading">
-                <span>02</span>
-                <div><h2>{t(language, "高频问题类别", "Question categories")}</h2><p>{t(language, "看见“哪里没讲清楚”", "See what was not explained clearly")}</p></div>
+                <span>03</span>
+                <div><h2>{t(language, "高频问题类别", "Question categories")}</h2></div>
               </div>
               <div className="category-cloud">
                 {data.categories.map((item, index) => (
@@ -153,8 +202,7 @@ export default function InsightsPage() {
 
           <section className="signal-section">
             <div className="section-title">
-              <div><span className="section-index">03</span><h2>{t(language, "发行机会信号", "Release opportunity signals")}</h2></div>
-              <p>{t(language, "规则先于结论", "Rules before conclusions")}</p>
+              <div><span className="section-index">04</span><h2>{t(language, "发行机会信号", "Release opportunity signals")}</h2></div>
             </div>
             <div className="signal-list">
               {data.signals.map((signal) => (
@@ -173,8 +221,7 @@ export default function InsightsPage() {
 
           <section className="recommendation-section">
             <div className="section-title">
-              <div><span className="section-index">04</span><h2>{t(language, "FAQ / 内容调整建议", "FAQ / content recommendations")}</h2></div>
-              <p>{t(language, "模型可起草，人必须审核", "AI may draft; humans must review")}</p>
+              <div><span className="section-index">05</span><h2>{t(language, "FAQ / 内容调整建议", "FAQ / content recommendations")}</h2></div>
             </div>
             <div className="recommendation-grid">
               {data.recommendations.map((recommendation) => {
@@ -202,10 +249,10 @@ export default function InsightsPage() {
 
           <section className="evidence-drawer">
             <div>
-              <span className="section-index">05</span>
+              <span className="section-index">06</span>
               <div>
                 <h2>{t(language, "已授权问题样本", "Consented question samples")}</h2>
-                <p>{t(language, "只有用户主动开启授权后，原始问题才会出现在这里。", "Question text appears here only after explicit consent.")}</p>
+                <p>{t(language, "仅显示已授权文本。", "Consented text only.")}</p>
               </div>
             </div>
             <div className="sample-list">
