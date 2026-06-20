@@ -88,6 +88,38 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="home-progress-card reveal delay-2">
+        <div>
+          <Compass size={20} />
+          <span>{t(language, "最新完成主线", "Latest completed main quest")}</span>
+          <strong>{labels.progress[preferences.progress][language]}</strong>
+        </div>
+        <label>
+          <span>
+            {t(
+              language,
+              "选择你最新完成的地区主线",
+              "Choose the latest region main quest you completed",
+            )}
+          </span>
+          <select
+            value={preferences.progress}
+            onChange={(event) =>
+              setPreferences((current) => ({
+                ...current,
+                progress: event.target.value as Progress,
+              }))
+            }
+          >
+            {progressItems.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
       <section className="note-stage reveal delay-2">
         <PreheatNote
           topic={topic}
@@ -106,8 +138,8 @@ export default function HomePage() {
           <p>
             {t(
               language,
-              "是否展开某国剧情，只看你是否完成该国主线；完整考据仅增加武器、圣遗物、物品和大世界文本，不会越过进度锁。",
-              "A nation's story opens only after you finish that nation's main quest. Research adds weapon, artifact, item, and world text, but never bypasses progress locks.",
+              "3 分钟会按上方主线进度锁定后续地区；完整考据是主动完整剧透，会展开已实装的后续内容。",
+              "3 min locks later regions by the progress above. Research is an explicit full-spoiler mode and opens released later content.",
             )}
           </p>
         </aside>
@@ -139,34 +171,6 @@ export default function HomePage() {
               }
               columns={5}
             />
-          </Field>
-          <Field
-            label={t(
-              language,
-              "你最新完成了哪个地区的主线？",
-              "Which region's main quest have you most recently completed?",
-            )}
-            hint={t(
-              language,
-              "后续地区的事件节点将保持锁定",
-              "Later-region event nodes remain locked",
-            )}
-          >
-            <select
-              value={preferences.progress}
-              onChange={(event) =>
-                setPreferences((current) => ({
-                  ...current,
-                  progress: event.target.value as Progress,
-                }))
-              }
-            >
-              {progressItems.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
           </Field>
           <Field
             label={t(language, "回答更关注什么？", "What should answers emphasize?")}

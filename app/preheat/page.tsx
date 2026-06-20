@@ -197,7 +197,11 @@ export default function PreheatPage() {
                 <span>01</span>
                 <div>
                   <h2>{t(language, "事件链", "Event chain")}</h2>
-                  <p>{t(language, "只放确定事件", "Confirmed events only")}</p>
+                  <p>
+                    {depth === "guided"
+                      ? t(language, "只放确定事件", "Confirmed events only")
+                      : t(language, "含后续地区线索", "Includes later-region clues")}
+                  </p>
                 </div>
               </div>
               <GnosisTimeline
@@ -222,7 +226,9 @@ export default function PreheatPage() {
               </div>
               <article className="narration-card">
                 <BookOpenCheck size={22} />
-                <p className="narration-lead">{data.narration.lead}</p>
+                {data.narration.lead ? (
+                  <p className="narration-lead">{data.narration.lead}</p>
+                ) : null}
                 <ol>
                   {data.narration.points.map((point) => (
                     <li key={point}>{point}</li>
@@ -243,8 +249,8 @@ export default function PreheatPage() {
                     <p>
                       {t(
                         language,
-                        "这个节点超过当前主线进度。将剧透偏好改为“可完整解释”后再展开详情。",
-                        "This node is beyond your current progress. Switch spoiler preference to full context to open the details.",
+                        "这个节点超过首页选择的主线进度。切换到“完整考据”会展示完整剧透；也可以回首页更新进度。",
+                        "This node is beyond the progress selected on the home page. Switch to Research for full spoilers, or return home to update progress.",
                       )}
                     </p>
                   ) : (

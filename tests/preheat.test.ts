@@ -36,7 +36,7 @@ describe("preheat orchestration", () => {
     expect(research.evidence.some((entry) => entry.factStatus === "narrative_implied")).toBe(true);
   });
 
-  it("protects nodes beyond the latest completed region in both depth modes", () => {
+  it("keeps guided mode progress-gated while research mode opens released later regions", () => {
     const guided = getPreheatView({ ...base, depth: "guided" });
     expect(
       guided.timeline.find((node) => node.id === "natlan-gnosis")?.locked,
@@ -52,10 +52,10 @@ describe("preheat orchestration", () => {
     });
     expect(
       research.timeline.find((node) => node.id === "natlan-gnosis")?.locked,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       research.timeline.find((node) => node.id === "nodkrai-gnosis")?.locked,
-    ).toBe(true);
+    ).toBe(false);
 
     const nodkraiComplete = getPreheatView({
       ...base,
@@ -67,6 +67,20 @@ describe("preheat orchestration", () => {
       nodkraiComplete.timeline.find((node) => node.id === "nodkrai-gnosis")
         ?.locked,
     ).toBe(false);
+  });
+
+  it("keeps depth guidance at the page level instead of inside the narration card", () => {
+    const guided = getPreheatView({ ...base, depth: "guided" });
+    const research = getPreheatView({
+      ...base,
+      depth: "research",
+      spoilerPreference: "full",
+    });
+
+    expect(guided.narration.lead).toBe("");
+    expect(research.narration.lead).toBe("");
+    expect(guided.contentNotice).toContain("3 分钟");
+    expect(research.contentNotice).toContain("完整考据");
   });
 
   it("validates event targets against the selected topic catalog", () => {

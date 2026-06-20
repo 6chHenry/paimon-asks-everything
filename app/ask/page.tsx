@@ -5,28 +5,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { ArrowLeft, ArrowUp, CircleAlert, LoaderCircle, Send, Stars } from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
-import { StatusBar } from "@/components/status-bar";
 import { TraceTimeline } from "@/components/trace-timeline";
 import type { ChatResult } from "@/lib/domain";
 import { t } from "@/lib/i18n";
+import { suggestedQuestions } from "@/lib/suggested-questions";
 import type { TraceEvent } from "@/lib/trace";
-
-const questions = {
-  "zh-CN": [
-    "我停在枫丹，现在还能看懂目标版本吗？",
-    "桑多涅目前有哪些已经公开的信息？",
-    "桑多涅和阿兰之间有官方确认的直接关系吗？",
-    "这个机械机关我卡住了，先给一点提示。",
-    "直接告诉我桑多涅是不是阿兰，她的真身到底是谁？",
-  ],
-  en: [
-    "I stopped after Fontaine. What context do I actually need?",
-    "What is officially known about Sandrone?",
-    "Is there a confirmed link between Sandrone and Alain?",
-    "I am stuck on this mechanical puzzle. Give me a small hint first.",
-    "Is Sandrone really Alain? Tell me her true identity.",
-  ],
-};
 
 export default function AskPage() {
   const { preferences, sessionId } = usePreferences();
@@ -162,7 +145,6 @@ export default function AskPage() {
           <span className="eyebrow"><Stars size={14} />{t(language, "有问题就问派蒙！", "Ask Paimon!")}</span>
           <h1>{t(language, "旅行者，哪里没看懂？", "What’s confusing, Traveler?")}</h1>
         </div>
-        <StatusBar />
       </section>
 
       {sourceTopicId ? (
@@ -253,7 +235,7 @@ export default function AskPage() {
             <h2>{t(language, "不知道问什么？", "Need an idea?")}</h2>
           </div>
           <div className="suggestion-list">
-            {questions[language].map((item, index) => (
+            {suggestedQuestions[language].map((item, index) => (
               <button
                 type="button"
                 key={item}

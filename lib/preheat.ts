@@ -56,7 +56,9 @@ function localizedEntry(conceptId: string, language: Language) {
 function entryVisible(
   entry: KnowledgeEntry,
   query: Pick<PreheatQuery, "progress">,
+  options: { allowFutureRegions?: boolean } = {},
 ) {
+  if (options.allowFutureRegions) return true;
   if (entry.minimumProgress === "unknown") return true;
   if (query.progress === "unknown") return false;
   return progressRank[entry.minimumProgress] <= progressRank[query.progress];
@@ -87,11 +89,12 @@ function localizeGraph(
   graph: RelationGraph,
   language: Language,
   query: Pick<PreheatQuery, "progress">,
+  options: { allowFutureRegions?: boolean } = {},
 ) {
   const visibleEdges = graph.edges.filter((edge) =>
     edge.conceptIds.some((conceptId) => {
       const entry = localizedEntry(conceptId, language);
-      return entry ? entryVisible(entry, query) : false;
+      return entry ? entryVisible(entry, query, options) : false;
     }),
   );
   const visibleNodeIds = new Set(
@@ -119,18 +122,19 @@ function localizeTimelineNode(
   node: TimelineNode,
   query: PreheatQuery,
   includeImplications: boolean,
+  options: { allowFutureRegions?: boolean } = {},
 ) {
   const eventEntries = node.eventConceptIds
     .map((id) => localizedEntry(id, query.language))
     .filter((entry): entry is KnowledgeEntry => Boolean(entry));
   const visibleEvents = eventEntries.filter((entry) =>
-    entryVisible(entry, query),
+    entryVisible(entry, query, options),
   );
   const implications = includeImplications
     ? node.implicationConceptIds
         .map((id) => localizedEntry(id, query.language))
         .filter((entry): entry is KnowledgeEntry => Boolean(entry))
-        .filter((entry) => entryVisible(entry, query))
+        .filter((entry) => entryVisible(entry, query, options))
     : [];
   const locked = visibleEvents.length === 0;
   return {
@@ -157,21 +161,13 @@ function buildNarration(
   entries: KnowledgeEntry[],
 ) {
   const visible = entries.slice(0, depth === "guided" ? 8 : 10);
-  const lead =
-    language === "zh-CN"
-      ? depth === "guided"
-        ? "先沿着已经确认的事件走一遍，再把“发生了什么”和“为什么发生”分开。"
-        : "完整考据会把确定事件与文本暗示分层，也不会越过你尚未完成的地区主线。"
-      : depth === "guided"
-        ? "Follow the confirmed events first, then separate what happened from why it happened."
-        : "The research view separates confirmed events from textual implications and never bypasses unfinished regional main quests.";
   return {
-    lead,
+    lead: "",
     points: visible.map((entry) => entry.summary),
     factBoundary:
       language === "zh-CN"
-        ? `当前主题由 ${topic.depthConceptIds[depth].length} 个受控概念编排；没有模型密钥也会返回同一事实结构。`
-        : `This topic is orchestrated from ${topic.depthConceptIds[depth].length} controlled concepts; the fact structure stays deterministic without a model key.`,
+        ? `证据边界：${topic.depthConceptIds[depth].length} 个受控概念；确定事件、文本暗示和社区观点会分开标注。`
+        : `Evidence boundary: ${topic.depthConceptIds[depth].length} controlled concepts; confirmed events, textual implications, and community views are labeled separately.`,
   };
 }
 
@@ -251,13 +247,14 @@ export function isValidPreheatTarget(
 }
 
 export function getPreheatView(query: PreheatQuery) {
+  const allowFutureRegions = query.depth === "research";
   const topic =
     preheatTopics.find((item) => item.id === query.topicId) ??
     preheatTopics.find((item) => item.id === defaultPreheatTopicId)!;
   const entries = topic.depthConceptIds[query.depth]
     .map((conceptId) => localizedEntry(conceptId, query.language))
     .filter((entry): entry is KnowledgeEntry => Boolean(entry))
-    .filter((entry) => entryVisible(entry, query))
+    .filter((entry) => entryVisible(entry, query, { allowFutureRegions }))
     .filter(
       (entry) =>
         query.depth === "research" ||
@@ -267,7 +264,9 @@ export function getPreheatView(query: PreheatQuery) {
     .map((id) => gnosisTimeline.find((node) => node.id === id))
     .filter((node): node is TimelineNode => Boolean(node))
     .map((node) =>
-      localizeTimelineNode(node, query, query.depth === "research"),
+      localizeTimelineNode(node, query, query.depth === "research", {
+        allowFutureRegions,
+      }),
     );
   const graph = relationGraphs.find(
     (item) => item.id === topic.relationGraphId,
@@ -290,17 +289,26 @@ export function getPreheatView(query: PreheatQuery) {
     narration: buildNarration(topic, query.depth, query.language, entries),
     evidence: entries,
     timeline,
-    relationGraph: localizeGraph(graph, query.language, query),
+    relationGraph: localizeGraph(graph, query.language, query, {
+      allowFutureRegions,
+    }),
     availableRelationGraphs: Object.fromEntries(
       [graph.id, ...timeline.map((node) => node.relationGraphId)].map((id) => {
         const target = relationGraphs.find((item) => item.id === id)!;
-        return [id, localizeGraph(target, query.language, query)];
+        return [
+          id,
+          localizeGraph(target, query.language, query, { allowFutureRegions }),
+        ];
       }),
     ),
     contentNotice:
       query.language === "zh-CN"
-        ? "至冬预热题设 · 只使用已实装内容 · 地区剧情按主线完成状态解锁"
-        : "Snezhnaya preheat scenario · Released content only · Regional story unlocks by main-quest completion",
+        ? query.depth === "guided"
+          ? "3 分钟：按首页选择的主线进度锁定后续地区，只放确定事件。"
+          : "完整考据：完整剧透模式，会展开已实装后续地区、文本暗示与争议边界。"
+        : query.depth === "guided"
+          ? "3 min: later regions stay locked by the home-page progress setting; confirmed events only."
+          : "Research: full-spoiler mode with released later regions, textual implications, and disputed boundaries.",
   };
 }
 
