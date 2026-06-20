@@ -591,8 +591,8 @@ function lexicalRelevanceScore(citation: Citation, plan: SearchPlan) {
 function expandedQueries(plan: SearchPlan, question: string, language: Language) {
   const queries = [...plan.queries];
   const subject = plan.coreEntities[0] || plan.aliases[0];
+  const latinAlias = plan.aliases.find((alias) => /[a-z]/iu.test(alias));
   if (subject) {
-    const latinAlias = plan.aliases.find((alias) => /[a-z]/iu.test(alias));
     const identityLike =
       plan.intent === "identity" ||
       /是谁|身份|是什么人|外星人|来自哪里|提瓦特之外|星海|who is|identity|alien|outside teyvat|origin/iu.test(
@@ -649,6 +649,7 @@ function expandedQueries(plan: SearchPlan, question: string, language: Language)
   if (subject && storyLike) {
     if (language === "zh-CN") {
       queries.push(
+        `${subject} 传说任务`,
         `${subject} 传说任务 剧情文本`,
         `${subject} 角色故事 游戏内文本`,
         `${subject} 传说任务 剧情梳理`,
@@ -656,10 +657,14 @@ function expandedQueries(plan: SearchPlan, question: string, language: Language)
       );
     } else {
       queries.push(
+        `${subject} story quest`,
         `${subject} story quest transcript`,
         `${subject} story quest plot`,
         `${subject} character story in-game text`,
       );
+    }
+    if (latinAlias) {
+      queries.push(`${latinAlias} story quest`);
     }
   }
   return Array.from(new Set(queries.map((query) => cleanSearchValue(query)))).slice(
@@ -1161,11 +1166,8 @@ export async function searchWebEvidence(
           plan.intent === "identity" ||
           plan.intent === "current_status" ||
           plan.intent === "relationship" ||
-          plan.intent === "general" ||
-          (plan.intent === "story" &&
-            /剧情文本|任务对白|角色故事|story quest|transcript|quest plot|duel before the throne/iu.test(
-              query,
-            )));
+          plan.intent === "story" ||
+          plan.intent === "general");
       const [wikiResults, webResults] = await Promise.allSettled([
         !wikiEligible
           ? Promise.resolve([] as Citation[])
