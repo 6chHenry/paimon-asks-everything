@@ -1,31 +1,20 @@
 # 派蒙三千问 · Paimon Asks Everything
 
-一个面向《原神》国际化发行场景的中英文版本理解 Agent Demo。它按玩家显式选择的进度、兴趣和剧透偏好组织回答，同时将最小化匿名问题事件沉淀为可回溯的 FAQ 与内容调整建议。
+面向《原神》国际化发行场景的 AI Agent Demo —— 为玩家提供证据约束的中英文问答，同时为运营团队沉淀匿名洞察与发行建议。
 
-## 5–7 分钟第二阶段演示
+## 功能概览
 
-1. 首页阅读“今日派蒙小纸条”，保持默认主题“愚人众为什么收集神之心？”。
-2. 选择“3 分钟轻剧透”，进入版本预热。
-3. 沿蒙德至挪德卡莱事件链切换节点，观察局部关系图同步变化。
-4. 展开枫丹或须弥节点，查看确定事件、来源与证据状态。
-5. 点击建议追问，进入“问派蒙”，确认预热来源上下文和引用链。
-6. 打开发行洞察，比较历史匿名基线与本次现场增量，并区分“兴趣”与“理解断点”。
-7. 如需展示治理边界，切到“完整考据”，查看游戏内物品/圣遗物暗示和社区推测分层。
-
-完整口播与备用路径见 [`SECOND_STAGE_DEMO_SCRIPT.md`](SECOND_STAGE_DEMO_SCRIPT.md)。
-
-## 原问答能力快速体验
-
-1. 打开首页，选择“回归玩家 / 枫丹 / 轻度剧透”。
-2. 进入“问派蒙”，点击“我停在枫丹，现在还能看懂目标版本吗？”。
-3. 展开来源，查看事实状态、双语受控语料和证据片段。
-4. 点击高风险身份问题，观察一次性剧透二次确认。
-5. 打开发行洞察，刷新并查看现场匿名事件如何改变统计。
-6. 打开技术评测，运行单题或全部 12 项确定性检查。
+| 页面 | 功能 |
+|------|------|
+| 首页 | 策划主题选择、剧透偏好（无剧透 / 轻度 / 完整考据）、玩家档案（回归 / 新玩家 / 活跃） |
+| 版本预热 | 蒙德至挪德卡莱事件链的时间线可视化与局部关系图 |
+| 问派蒙 | 基于受控语料 + 白名单 Wiki 搜索的证据约束问答，支持来源引用与双语检索 |
+| 发行洞察 | 匿名问题事件的兴趣聚类、理解断点与内容调整建议 |
+| 技术评测 | 固定问题集的确定性检查与人工复核 |
 
 ## 本地运行
 
-要求：Node.js 20+。
+**要求：** Node.js 20+
 
 ```bash
 npm install
@@ -34,7 +23,7 @@ npm run dev
 
 访问 `http://localhost:3000`。
 
-生产构建：
+**生产构建：**
 
 ```bash
 npm run typecheck
@@ -43,7 +32,7 @@ npm run build
 npm start
 ```
 
-## 可选环境变量
+## 环境变量
 
 复制 `.env.example` 为 `.env.local`：
 
@@ -56,95 +45,91 @@ NEXT_PUBLIC_SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-- 未配置模型密钥时，系统使用证据约束的确定性回答生成器，完整核心流程仍可运行。
-- 未配置 Supabase 时，问题事件写入 `.data/events.json`，预热互动写入 `.data/preheat-events.json`；生产环境依次执行两份 migration 后切换到 Supabase REST。
-- 模型密钥和 Supabase service role 只在服务端使用。
-- 服务端在存在 `HTTP_PROXY` / `HTTPS_PROXY` 时会通过代理访问 OpenAI-compatible 模型接口；公开部署环境可直接出站时无需代理。
+- **未配置模型密钥**：使用证据约束的确定性回答生成器，核心流程仍可完整运行。
+- **未配置 Supabase**：问题事件写入 `.data/events.json`，预热互动写入 `.data/preheat-events.json`；生产环境依次执行 migration 后切换到 Supabase。
+- 模型密钥和 Supabase service role 仅在服务端使用。
+- 存在 `HTTP_PROXY` / `HTTPS_PROXY` 时通过代理访问模型接口。
 
 ## 核心架构
 
-```text
-玩家偏好
-  → 策划主题与两档讲解编排
-  → 神之心确定事件链 / 局部关系图
-  → 匿名兴趣互动
-  → 安全与问题分类
-  → 双语受控词法检索
-  → 剧透过滤 / 一次性确认
-  → 低置信度白名单 Wiki 搜索
-  → 证据约束回答与引用
-  → 最小化匿名事件
-  → 聚合规则信号
-  → 待人工审核的发行建议
+```
+用户偏好（进度 / 剧透 / 语言）
+  → 策划主题编排
+  → 双语受控词法检索（同语言优先 + 别名扩展）
+  → 剧透门控（Level 3 身份反转需二次确认）
+  → 外部白名单 Wiki 搜索（Fandom / BWIKI / HoYoWiki / 观测枢）
+  → 通用网页搜索（DuckDuckGo / Yahoo）
+  → 来源治理（official / trusted_wiki / community / unknown_web）
+  → 证据约束回答生成 + 结构化引用
+  → 最小化匿名事件写入
+  → 聚合规则信号 → 发行洞察与建议草稿
 ```
 
-主要边界：
+### 关键模块
 
-- `lib/retrieval.ts`：别名扩展、同语言优先、词法排序和剧透过滤。
-- `lib/agent.ts`：单 Agent 工作流、安全拒答、外部搜索与事件编排。
-- `lib/generation.ts`：DeepSeek / OpenAI-compatible Chat Completions 调用、tool calling 搜索循环、结构化回答解析和 citation id 校验。
-- `lib/event-store.ts`：Supabase / 本地 JSON 存储适配。
-- `lib/preheat.ts`：三个策划主题、两档深度、按地区主线完成状态锁定的时间线与关系图编排。
-- `lib/preheat-event-store.ts`：独立保存最小化预热互动，不与问题事件混淆。
-- `lib/rate-limit.ts`：面向公开 Demo 的轻量服务端请求限流。
-- `lib/insights.ts`：兴趣、理解断点、高频困惑、画像集中和语言差异规则。
-- `lib/evaluation.ts`：固定问题集与确定性检查。
-- `data/gnosis-knowledge.ts`：12 个概念、24 条“愚人众与神之心”中英文受控知识条目。
-- `data/knowledge.ts`：合并神之心预热语料与既有枫丹—桑多涅语料，继续供问答检索使用。
+| 模块 | 职责 |
+|------|------|
+| `lib/retrieval.ts` | 别名扩展、同语言优先、词法排序与剧透过滤 |
+| `lib/agent.ts` | 单 Agent 工作流：安全拒答 → 搜索编排 → 生成 |
+| `lib/generation.ts` | OpenAI-compatible Chat Completions、tool calling 搜索循环、结构化回答解析与 citation 校验 |
+| `lib/external-search.ts` | 多 Wiki provider 搜索、通用网页搜索、来源评估与引用排序 |
+| `lib/source-governance.ts` | 来源可信度分级、发布者身份识别、平台分类 |
+| `lib/preheat.ts` | 策划主题、两档深度、按主线进度解锁的时间线与关系图 |
+| `lib/insights.ts` | 兴趣聚类、理解断点、高频困惑与语言差异分析 |
+| `lib/evaluation.ts` | 固定问题集与确定性评测 |
+| `lib/event-store.ts` | Supabase / 本地 JSON 存储适配 |
+| `lib/rate-limit.ts` | 面向公开 Demo 的服务端请求限流 |
+| `lib/answer-prompt.ts` | 结构化回答 prompt 模板（中英文） |
+| `lib/question-understanding.ts` | 问题意图分类与实体抽取 |
+| `data/gnosis-knowledge.ts` | 愚人众与神之心中英文受控知识条目 |
 
-## DeepSeek 与联网工具
+## 搜索与证据策略
 
-- DeepSeek API 支持 OpenAI-compatible `tools` / function calling；模型可以返回要调用的函数名和参数。
-- DeepSeek 不会替应用执行函数；搜索、页面抓取、来源分级和工具结果回填由本应用实现。
-- 当前版本使用 DeepSeek tool calling loop：安全与剧透门控后，模型必须先调用 `search_web_evidence`，应用执行联网搜索，再把证据交给 DeepSeek 生成。
-- 联网搜索包含英文 Fandom、中文 Fandom、BWiki 等 Wiki provider，并通过轻量通用网页搜索纳入白名单外结果；贴吧、知乎、NGA、公众号等会按 `community` 低权重处理。
-- 生产环境建议把轻量 HTML 搜索替换为稳定搜索 API，以获得更好的速率、摘要质量和可观测性。
-- 来源等级区分为 `official`、`trusted_wiki`、`community`、`unknown_web`。白名单 Wiki 是高可信社区索引，不会被展示成官方。
+- **Wiki 搜索**：英文 Fandom、中文 Fandom、BWIKI、HoYoWiki、观测枢 —— 通过 MediaWiki API 获取页面摘要与全文解析。
+- **通用网页搜索**：DuckDuckGo HTML + Yahoo Search，自动抓取结果页正文并提取相关段落。
+- **来源分级**：
+  - `official` — 米哈游 / HoYoverse 官方渠道
+  - `trusted_wiki` — 白名单 Wiki（作为社区索引，不标为官方）
+  - `community` — 贴吧、知乎、NGA 等社区平台
+  - `unknown_web` — 其他网页
+- **身份声明搜索**：对身份/来历类问题自动扩展搜索词（传说任务文本、星海、世界边界等），优先匹配剧情原文。
+- 受控知识条目区分 `confirmed`、`narrative_implication`、`community_speculation` 与 `demo_hypothesis`。
 
-## 隐私与证据策略
+## 隐私
 
-- 默认不保存原始问题、回答、完整会话、账号、UID、邮箱或 IP。
-- 预热只记录主题、深度、时间线节点或关系节点等枚举字段，不记录停留时长、鼠标轨迹或页面浏览历史。
-- 用户主动开启授权后，才保存该问题文本用于 FAQ 改进。
-- 来源类型与事实状态分别展示。
-- Wiki 来源在页面中标为 `trusted_wiki` / 高可信 Wiki；它可以承载已核验事实，但不会被展示成官方站点本身。
-- 桑多涅、阿兰与玛丽安关系已作为受控双语条目维护：桑多涅是阿兰晚年的造物，形象与记忆源自玛丽安；它不是“无直接关系”的推测边界。
-- `demo_hypothesis`、社区推测和官方明确内容不会混为一类。
-- Level 3 身份反转或结局信息始终要求当前问题的一次性确认。
-- 评测运行不会写入现场洞察事件。
+- 默认不保存原始问题、回答、账号、UID、邮箱或 IP。
+- 预热只记录主题、深度、节点枚举，不记录浏览行为。
+- 用户主动授权后才保存问题文本用于 FAQ 改进。
+- 评测运行不写入洞察事件。
 
 ## 测试
 
 ```bash
-npm run typecheck
-npm test
-npm run build
-npm audit --audit-level=low
+npm run typecheck   # TypeScript 类型检查
+npm test            # Vitest 单元测试
+npm run build       # 生产构建验证
 ```
 
-当前自动化覆盖：
+自动化覆盖：
 
-- 同语言受控检索与跨语言边界；
-- Level 3 剧透过滤和一次性 token；
-- 高风险剧透意图的独立二次确认；
-- 外部 Wiki 搜索结果正文摘要抓取；
-- OpenAI-compatible 结构化生成、citation id 校验和降级；
-- 技术评测的回答、引用和失败项输出；
-- API 限流核心逻辑；
-- 安全拒答；
-- 匿名事件写入；
-- 预热主题引用、关系边和时间线证据审计；
-- 预热 GET / 互动 POST API 参数与目标校验；
-- 历史基线、现场兴趣和问题困惑的独立聚合；
-- 洞察信号和草稿建议；
-- 12 条中英文产品内评测用例。
+- 同语言受控检索与跨语言边界
+- Level 3 剧透过滤与一次性 token
+- 高风险剧透意图的二次确认
+- 外部 Wiki 搜索结果与页面解析
+- 通用网页搜索的正文提取与来源评估
+- 身份声明查询的搜索扩展与证据排序
+- OpenAI-compatible 结构化生成与 citation 校验
+- API 限流、安全拒答、匿名事件写入
+- 预热主题引用、关系边、时间线证据审计
+- 洞察信号聚合与草稿建议
+- 技术评测的回答、引用与失败项输出
 
 ## 已知限制
 
-- 受控语料覆盖“愚人众与神之心”预热线和“枫丹—桑多涅”桥接案例，不代表完整游戏百科。
-- 神之心主时间线纳入蒙德至挪德卡莱月之七的已实装确定事件；月之八尚未实装，后续正式剧情变化需要重新进行内容审计。
-- 白名单 Wiki 搜索会抓取搜索结果与页面摘要；它仍是社区索引资料，失败时会明确降级而不是补写确定事实。
-- API 已有进程内轻量限流；多实例公开部署仍建议接入平台级限流或边缘网关。
-- 本地 JSON 存储只适合单实例 Demo；公开部署应配置 Supabase。
-- 版本边界由服务端发布上下文维护；当前已实装内容与官方前瞻会明确区分，泄露和未公开测试信息不进入回答。
+- 受控语料覆盖愚人众神之心主线与枫丹—桑多涅桥接案例，不代表完整游戏百科。
+- 神之心时间线纳入蒙德至挪德卡莱月之七的已实装确定事件；月之八尚未实装。
+- 白名单 Wiki 搜索仍是社区索引，失败时明确降级而不补写确定事实。
+- API 有进程内轻量限流；多实例部署建议接入平台级限流或边缘网关。
+- 本地 JSON 存储仅适合单实例 Demo；公开部署应配置 Supabase。
+- 版本边界由服务端发布上下文维护；已实装内容与官方前瞻明确区分，泄露/未公开信息不进入回答。
 - 建议均为待审核草稿，不会自动发布或替代团队决策。
