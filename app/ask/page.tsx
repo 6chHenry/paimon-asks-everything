@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, CircleAlert, LoaderCircle, Send, Stars } from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
@@ -20,9 +20,11 @@ export default function AskPage() {
   const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
   const [traceCollapsed, setTraceCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resourcesLoading, setResourcesLoading] = useState(false);
   const [error, setError] = useState("");
   const [sourceTopicId, setSourceTopicId] = useState("");
   const [sourceTimelineNodeId, setSourceTimelineNodeId] = useState("");
+  const activeRequestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -31,6 +33,13 @@ export default function AskPage() {
     setSourceTopicId(params.get("topicId") ?? "");
     setSourceTimelineNodeId(params.get("timelineNodeId") ?? "");
   }, []);
+
+  useEffect(
+    () => () => {
+      activeRequestRef.current?.abort();
+    },
+    [],
+  );
 
   async function submitRegularRequest(text: string, confirmationToken?: string) {
     const response = await fetch(
@@ -50,7 +59,7 @@ export default function AskPage() {
     setResult((await response.json()) as ChatResult);
   }
 
-  async function submitStreamingRequest(text: string) {
+  async function submitStreamingRequest(text: string, controller: AbortController) {
     const response = await fetch("/api/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -59,6 +68,7 @@ export default function AskPage() {
         ...preferences,
         sessionId,
       }),
+      signal: controller.signal,
     });
     if (!response.ok || !response.body) throw new Error("stream_failed");
 
@@ -80,9 +90,27 @@ export default function AskPage() {
       if (eventName === "trace") {
         setTraceEvents((current) => [...current, payload as TraceEvent].slice(-18));
       }
-      if (eventName === "result") {
+      if (eventName === "answer" || eventName === "result") {
         setResult(payload as ChatResult);
         setTraceCollapsed(true);
+        setLoading(false);
+        setResourcesLoading(eventName === "answer");
+        setQuestion("");
+      }
+      if (eventName === "resources") {
+        setResult((current) =>
+          current
+            ? {
+                ...current,
+                readingRecommendations:
+                  payload as ChatResult["readingRecommendations"],
+              }
+            : current,
+        );
+        setResourcesLoading(false);
+      }
+      if (eventName === "done") {
+        setResourcesLoading(false);
       }
       if (eventName === "error") {
         throw new Error("stream_event_error");
@@ -105,7 +133,11 @@ export default function AskPage() {
     confirmationToken?: string,
   ) {
     if (!text.trim()) return;
+    activeRequestRef.current?.abort();
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
     setLoading(true);
+    setResourcesLoading(false);
     setError("");
     if (!confirmationToken) {
       setResult(null);
@@ -117,10 +149,16 @@ export default function AskPage() {
       if (confirmationToken) {
         await submitRegularRequest(text, confirmationToken);
       } else {
-        await submitStreamingRequest(text);
+        await submitStreamingRequest(text, controller);
       }
       setQuestion("");
-    } catch {
+    } catch (requestError) {
+      if (
+        requestError instanceof DOMException &&
+        requestError.name === "AbortError"
+      ) {
+        return;
+      }
       setError(
         t(
           language,
@@ -129,7 +167,10 @@ export default function AskPage() {
         ),
       );
     } finally {
-      setLoading(false);
+      if (activeRequestRef.current === controller) {
+        activeRequestRef.current = null;
+        setLoading(false);
+      }
     }
   }
 
@@ -198,6 +239,18 @@ export default function AskPage() {
                   : undefined
               }
             />
+          ) : null}
+          {result && resourcesLoading ? (
+            <div className="resource-loading" role="status">
+              <LoaderCircle className="spin" size={16} />
+              <span>
+                {t(
+                  language,
+                  "派蒙还在整理相关资料……",
+                  "Paimon is still organizing related resources…",
+                )}
+              </span>
+            </div>
           ) : null}
 
           <form className="composer" onSubmit={handleSubmit}>

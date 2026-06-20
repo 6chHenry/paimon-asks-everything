@@ -14,6 +14,7 @@ import type {
 import { recordEvent } from "@/lib/event-store";
 import { buildHints, generateGroundedResponse } from "@/lib/generation";
 import { t } from "@/lib/i18n";
+import { understandQuestion } from "@/lib/question-understanding";
 import { retrieveControlled } from "@/lib/retrieval";
 import type { ChatRequest } from "@/lib/schemas";
 import { createSpoilerToken } from "@/lib/spoiler-token";
@@ -125,6 +126,11 @@ export async function runAgent(
     confirmedHighRisk?: boolean;
     recordEvent?: boolean;
     emitTrace?: TraceEmitter;
+    emitAnswer?: (result: ChatResult) => void | Promise<void>;
+    emitResources?: (
+      resources: NonNullable<ChatResult["readingRecommendations"]>,
+    ) => void | Promise<void>;
+    signal?: AbortSignal;
   } = {},
 ): Promise<ChatResult> {
   const finish = (result: ChatResult) =>
@@ -132,20 +138,7 @@ export async function runAgent(
       ? Promise.resolve(result)
       : persistResult(request, result);
   const language = inferQuestionLanguage(request.question, request.language);
-  const eventClassification = classifyQuestion(
-    request.question,
-    language,
-  );
-  const deepStory = isDeepStoryIntent(
-    request.question,
-    eventClassification.questionCategory,
-  );
-  await emitTrace(options.emitTrace, {
-    stage: "classify",
-    status: "complete",
-    message: "看懂问题啦",
-    detail: eventClassification.questionCategory,
-  });
+  const preliminaryClassification = classifyQuestion(request.question, language);
 
   if (isProhibited(request.question)) {
     return finish({
@@ -162,10 +155,27 @@ export async function runAgent(
       spoilerAction: "none",
       usedExternalSources: false,
       confidence: "high",
-      eventClassification,
+      eventClassification: preliminaryClassification,
       eventRecorded: false,
     });
   }
+
+  const questionUnderstanding = await understandQuestion(request.question, language);
+  const eventClassification = questionUnderstanding.classification;
+  const deepStory = isDeepStoryIntent(
+    request.question,
+    eventClassification.questionCategory,
+  );
+  await emitTrace(options.emitTrace, {
+    stage: "classify",
+    status: "complete",
+    message: "看懂问题啦",
+    detail: questionUnderstanding.entities.length
+      ? `${eventClassification.questionCategory} / ${questionUnderstanding.entities
+          .map((entity) => entity.canonical)
+          .join(", ")}`
+      : eventClassification.questionCategory,
+  });
 
   const retrieval = retrieveControlled({
     question: request.question,
@@ -226,6 +236,7 @@ export async function runAgent(
     external: [],
     deepStory,
     emitTrace: options.emitTrace,
+    understanding: questionUnderstanding,
   });
   const controlledCitations = toCitations(entries);
   const citations = [...controlledCitations, ...generated.external];
@@ -259,22 +270,10 @@ export async function runAgent(
     recommendationIntent === "identity" ||
     recommendationIntent === "current_status" ||
     recommendationIntent === "official_media";
-  const readingRecommendations =
-    shouldRecommendReading
-      ? await recommendStoryResources(request.question, language, {
-          liveSearch:
-            deepStory ||
-            eventClassification.questionCategory === "character" ||
-            recommendationIntent === "identity" ||
-            recommendationIntent === "current_status" ||
-            recommendationIntent === "official_media",
-          searchPlan: generated.searchPlan,
-        }).catch(() => [])
-      : [];
-
-  const result = {
+  const baseResult = {
     status: "answered",
     answer: generated.answer,
+    answerParagraphs: generated.answerParagraphs,
     language,
     answerMode: deepStory
       ? "deep_story"
@@ -301,6 +300,29 @@ export async function runAgent(
     eventRecorded: false,
     hints: isGameplay ? buildHints(language) : undefined,
     deepStory,
+    readingRecommendations: [],
+  } satisfies ChatResult;
+  const persistedBaseResult = await finish(baseResult);
+  await options.emitAnswer?.(persistedBaseResult);
+  if (options.signal?.aborted) return persistedBaseResult;
+
+  const readingRecommendations =
+    shouldRecommendReading
+      ? await recommendStoryResources(request.question, language, {
+          liveSearch:
+            deepStory ||
+            eventClassification.questionCategory === "character" ||
+            recommendationIntent === "identity" ||
+            recommendationIntent === "current_status" ||
+            recommendationIntent === "official_media",
+          searchPlan: generated.searchPlan,
+          citations: generated.external,
+          signal: options.signal,
+        }).catch(() => [])
+      : [];
+  await options.emitResources?.(readingRecommendations);
+  const result = {
+    ...persistedBaseResult,
     readingRecommendations,
   } satisfies ChatResult;
   await emitTrace(options.emitTrace, {
@@ -309,5 +331,5 @@ export async function runAgent(
     message: "回答整理好啦",
     detail: `${citations.length} 条来源`,
   });
-  return finish(result);
+  return result;
 }

@@ -12,6 +12,7 @@ import {
   searchGeneralWeb,
   type SearchPlan,
 } from "@/lib/external-search";
+import { assessSourceRule } from "@/lib/source-governance";
 
 function normalizedText(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ");
@@ -37,14 +38,34 @@ function resourceMeta(citation: Citation): {
     const hostname = new URL(citation.url).hostname
       .replace(/^www\./, "")
       .toLowerCase();
-    const descriptor = `${citation.title} ${citation.excerpt}`;
-    const officialMarker =
-      /原神官方|米哈游|mihoyo|hoyoverse|genshin impact/iu.test(descriptor);
+    const assessment =
+      citation.assessment ??
+      assessSourceRule({
+        url: citation.url,
+        title: citation.title,
+        excerpt: citation.excerpt,
+      });
     const officialVideo =
-      officialMarker &&
-      /角色\s*(?:pv|演示|预告)|幕间\s*pv|teaser|demo|trailer/iu.test(
-        descriptor,
-      );
+      assessment.publisherKind === "genshin_official" &&
+      (assessment.contentKind === "character_profile" ||
+        assessment.contentKind === "announcement");
+    if (assessment.platformKind === "official_site") {
+      return {
+        platform: "原神官方",
+        kind: "official_text",
+        authority: "official",
+      };
+    }
+    if (
+      assessment.platformKind === "official_operated_wiki" ||
+      assessment.authority === "curated_reference"
+    ) {
+      return {
+        platform: citation.sourceName,
+        kind: "story_guide",
+        authority: "reference",
+      };
+    }
     if (hostname === "youtube.com" || hostname === "youtu.be") {
       return {
         platform: "YouTube",
@@ -84,6 +105,15 @@ function resourceMeta(citation: Citation): {
   return null;
 }
 
+function stableReadingResourceId(url: string) {
+  const normalized = url.trim().toLowerCase();
+  let hash = 0;
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash = (hash * 31 + normalized.charCodeAt(index)) >>> 0;
+  }
+  return `reading-${hash.toString(36)}`;
+}
+
 function fromCitation(
   citation: Citation,
   language: Language,
@@ -91,7 +121,7 @@ function fromCitation(
   const meta = resourceMeta(citation);
   if (!meta) return null;
   return {
-    id: `reading-${citation.id}`,
+    id: stableReadingResourceId(citation.url),
     title: citation.title,
     url: citation.url,
     platform: meta.platform,
@@ -148,15 +178,33 @@ export function readingQueries(
 export async function recommendStoryResources(
   question: string,
   language: Language,
-  options: { liveSearch?: boolean; searchPlan?: Partial<SearchPlan> } = {},
+  options: {
+    liveSearch?: boolean;
+    searchPlan?: Partial<SearchPlan>;
+    citations?: Citation[];
+    minimumBeforeLiveSearch?: number;
+    signal?: AbortSignal;
+  } = {},
 ) {
   const curated = curatedMatches(question, language);
   const searchPlan = normalizeSearchPlan(options.searchPlan, question);
+  const reused = (options.citations ?? [])
+    .filter(
+      (citation) =>
+        !searchPlan.coreEntities.length ||
+        entityRelevanceScore(citation, searchPlan) > 0,
+    )
+    .map((citation) => fromCitation(citation, language))
+    .filter((resource): resource is ReadingResource => Boolean(resource));
+  const minimumBeforeLiveSearch = options.minimumBeforeLiveSearch ?? 2;
   let live: ReadingResource[] = [];
-  if (options.liveSearch) {
+  if (
+    options.liveSearch &&
+    curated.length + reused.length < minimumBeforeLiveSearch
+  ) {
     const results = await Promise.allSettled(
       readingQueries(question, language, searchPlan).map((query) =>
-        searchGeneralWeb(query),
+        searchGeneralWeb(query, { signal: options.signal }),
       ),
     );
     live = results
@@ -173,7 +221,7 @@ export async function recommendStoryResources(
   }
 
   const deduped = new Map<string, ReadingResource>();
-  for (const resource of [...curated, ...live]) {
+  for (const resource of [...curated, ...reused, ...live]) {
     const key = resource.url.toLowerCase();
     if (!deduped.has(key)) deduped.set(key, resource);
   }

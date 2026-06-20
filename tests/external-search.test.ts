@@ -76,6 +76,24 @@ describe("whitelisted external search", () => {
       sourceKind: "trusted_wiki",
       credibility: "trusted_wiki",
     });
+    expect(
+      classifyWebSource("https://baike.mihoyo.com/ys/obc/content/1/detail"),
+    ).toMatchObject({
+      sourceKind: "trusted_wiki",
+      credibility: "trusted_wiki",
+    });
+    expect(
+      classifyWebSource("https://wiki.hoyolab.com/pc/genshin/entry/1"),
+    ).toMatchObject({
+      sourceKind: "trusted_wiki",
+      credibility: "trusted_wiki",
+    });
+    expect(
+      classifyWebSource("https://www.miyoushe.com/ys/article/1"),
+    ).toMatchObject({
+      sourceKind: "community",
+      credibility: "community",
+    });
     expect(classifyWebSource("https://tieba.baidu.com/f?kw=原神")).toMatchObject({
       sourceKind: "community",
       credibility: "community",
@@ -194,7 +212,7 @@ describe("whitelisted external search", () => {
         });
       }
       const query = url.searchParams.get("srsearch");
-      if (query === "法尔伽 原神 身份") {
+      if (query === "法尔伽" || query === "Varka") {
         return new Response(
           JSON.stringify({
             query: {
@@ -239,7 +257,8 @@ describe("whitelisted external search", () => {
       new URL(String(call[0])).searchParams.get("srsearch"),
     );
 
-    expect(searchedQueries).toContain("法尔伽 原神 身份");
+    expect(searchedQueries).toContain("法尔伽");
+    expect(searchedQueries).toContain("Varka");
     expect(searchedQueries).not.toContain("巴尔");
     expect(searchedQueries).not.toContain("欧洛伦");
     expect(results.length).toBeGreaterThan(0);
@@ -444,15 +463,15 @@ describe("whitelisted external search", () => {
     expect(results[0]?.excerpt).toContain("传说任务");
   });
 
-  it("expands story questions and ranks quest plot hits above generic character pages", async () => {
+  it("expands story questions toward neutral story text instead of gameplay guides", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       if (url.hostname === "html.duckduckgo.com") {
         const query = url.searchParams.get("q") ?? "";
-        if (query.includes("珍上至珍")) {
+        if (query.includes("剧情文本")) {
           return new Response(
-            `<a class="result__a" href="https://www.gamersky.com/handbook/202505/1923179.shtml">《原神》爱可菲传说任务珍上至珍图文攻略</a>
-             <div class="result__snippet">5.6版本新增了爱可菲传说任务“珍上至珍”，期间包含料理对决，任务从德波大饭店和灰河剧情展开。</div>`,
+            `<a class="result__a" href="https://baike.mihoyo.com/ys/obc/content/999/detail">爱可菲传说任务剧情文本</a>
+             <div class="result__snippet">爱可菲的传说任务围绕德波大饭店、灰河与料理对决展开，整理任务对白与剧情事件。</div>`,
             { status: 200, headers: { "Content-Type": "text/html" } },
           );
         }
@@ -507,13 +526,17 @@ describe("whitelisted external search", () => {
       .filter((url) => url.hostname === "html.duckduckgo.com")
       .map((url) => url.searchParams.get("q"));
 
-    expect(webQueries).toContain("爱可菲 传说任务 珍上至珍 剧情");
-    expect(results[0]?.title).toContain("传说任务珍上至珍");
-    expect(results[0]?.sourceKind).toBe("community");
+    expect(webQueries).toContain("爱可菲 传说任务 剧情文本");
+    expect(webQueries.some((query) => query?.includes("图文攻略"))).toBe(false);
+    expect(results[0]?.title).toContain("传说任务剧情文本");
+    expect(results[0]?.sourceKind).toBe("trusted_wiki");
+    expect(results[0]?.assessment?.platformKind).toBe(
+      "official_operated_wiki",
+    );
     expect(results[0]?.excerpt).toContain("料理对决");
   });
 
-  it("uses Yahoo web results as a fallback for story quest pages", async () => {
+  it("blocks Yahoo gameplay-guide fallbacks for story questions", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       if (url.hostname === "html.duckduckgo.com") {
@@ -556,11 +579,11 @@ describe("whitelisted external search", () => {
       },
     );
 
-    expect(results[0]?.title).toContain("爱可菲传说任务珍上至珍");
-    expect(results[0]?.url).toBe(
-      "https://www.gamersky.com/handbook/202505/1923179.shtml",
-    );
-    expect(results[0]?.excerpt).toContain("料理对决");
+    expect(
+      results.some((result) =>
+        result.url.includes("gamersky.com/handbook/202505/1923179.shtml"),
+      ),
+    ).toBe(false);
   });
 
   it("expands Chinese Signora death questions to English quest evidence and parsed page text", async () => {

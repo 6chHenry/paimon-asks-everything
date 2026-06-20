@@ -26,17 +26,77 @@ export function AnswerCard({
   onConfirmSpoiler: () => void;
 }) {
   const [feedback, setFeedback] = useState<boolean | null>(null);
+  const validCitationIds = new Set(result.citations.map((citation) => citation.id));
 
-  function renderInline(text: string) {
+  function renderInline(text: string, citationIds: string[] = []) {
+    const inline = parseAnswerCitationMarkers(text).map(
+      (segment, segmentIndex) =>
+        segment.type === "citation" ? (
+          validCitationIds.has(segment.sourceId) ? (
+            <sup
+              key={`${segment.sourceId}-${segmentIndex}`}
+              className="answer-citation-note"
+              title={segment.sourceId}
+            >
+              [{segment.label}]
+            </sup>
+          ) : null
+        ) : (
+          <span key={`text-${segmentIndex}`}>
+            {segment.text.split(/(\*\*[^*]+\*\*)/gu).map((part, partIndex) =>
+              part.startsWith("**") && part.endsWith("**") ? (
+                <strong key={partIndex}>{part.slice(2, -2)}</strong>
+              ) : (
+                <span key={partIndex}>{part}</span>
+              ),
+            )}
+          </span>
+        ),
+    );
+    const structured = citationIds
+      .filter((id) => validCitationIds.has(id))
+      .map((id, index) => (
+        <sup
+          key={`${id}-structured-${index}`}
+          className="answer-citation-note"
+          title={id}
+        >
+          [{id.replace(/\D/g, "") || id}]
+        </sup>
+      ));
+    return [...inline, ...structured];
+  }
+
+  function renderParagraph(text: string, citationIds: string[], index: number) {
+    const trimmed = text.trim();
+    const heading = trimmed.match(/^#{1,4}\s+(.+)$/u);
+    if (heading) {
+      return <h3 key={index}>{renderInline(heading[1], citationIds)}</h3>;
+    }
+    const ordered = trimmed.match(/^(\d+)\.\s+(.+)$/u);
+    if (ordered) {
+      return (
+        <div className="answer-list-line" key={index}>
+          <span>{ordered[1]}</span>
+          <p>{renderInline(ordered[2], citationIds)}</p>
+        </div>
+      );
+    }
+    return <p key={index}>{renderInline(trimmed, citationIds)}</p>;
+  }
+
+  function renderLegacyInline(text: string) {
     return parseAnswerCitationMarkers(text).map((segment, segmentIndex) =>
       segment.type === "citation" ? (
-        <sup
-          key={`${segment.sourceId}-${segmentIndex}`}
-          className="answer-citation-note"
-          title={segment.sourceId}
-        >
-          [{segment.label}]
-        </sup>
+        validCitationIds.has(segment.sourceId) ? (
+          <sup
+            key={`${segment.sourceId}-${segmentIndex}`}
+            className="answer-citation-note"
+            title={segment.sourceId}
+          >
+            [{segment.label}]
+          </sup>
+        ) : null
       ) : (
         <span key={`text-${segmentIndex}`}>
           {segment.text.split(/(\*\*[^*]+\*\*)/gu).map((part, partIndex) =>
@@ -89,23 +149,27 @@ export function AnswerCard({
         </span>
       </div>
       <div className="answer-text">
-        {result.answer.split("\n").map((line, index) => {
+        {result.answerParagraphs?.length
+          ? result.answerParagraphs.map((paragraph, index) =>
+              renderParagraph(paragraph.text, paragraph.citationIds, index),
+            )
+          : result.answer.split("\n").map((line, index) => {
           const trimmed = line.trim();
           if (!trimmed) return null;
           const heading = trimmed.match(/^#{1,4}\s+(.+)$/u);
           if (heading) {
-            return <h3 key={index}>{renderInline(heading[1])}</h3>;
+            return <h3 key={index}>{renderLegacyInline(heading[1])}</h3>;
           }
           const ordered = trimmed.match(/^(\d+)\.\s+(.+)$/u);
           if (ordered) {
             return (
               <div className="answer-list-line" key={index}>
                 <span>{ordered[1]}</span>
-                <p>{renderInline(ordered[2])}</p>
+                <p>{renderLegacyInline(ordered[2])}</p>
               </div>
             );
           }
-          return <p key={index}>{renderInline(trimmed)}</p>;
+          return <p key={index}>{renderLegacyInline(trimmed)}</p>;
         })}
       </div>
 

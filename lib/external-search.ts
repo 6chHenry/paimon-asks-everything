@@ -7,6 +7,16 @@ import type {
 } from "@/lib/domain";
 import { emitTrace, type TraceEmitter } from "@/lib/trace";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
+import {
+  assessSourceRule,
+  assessSources,
+  extractPublisherIdentity,
+  legacySourceFields,
+  platformForUrl,
+  sourceAllowedForQuestion,
+  sourceGovernanceScore,
+} from "@/lib/source-governance";
+import { TtlCache } from "@/lib/ttl-cache";
 
 interface MediaWikiProvider {
   apiUrl: string;
@@ -15,7 +25,14 @@ interface MediaWikiProvider {
   language: Language | "multi";
 }
 
-const EXTERNAL_FETCH_TIMEOUT_MS = 12_000;
+const EXTERNAL_FETCH_TIMEOUT_MS = 5_500;
+const generalSearchCache = new TtlCache<Citation[]>(10 * 60 * 1000);
+const pageEnrichmentCache = new TtlCache<Citation>(30 * 60 * 1000);
+
+function boundedSignal(signal: AbortSignal | undefined, timeoutMs: number) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
 
 export interface ClassifiedWebSource {
   sourceName: string;
@@ -284,7 +301,9 @@ async function fetchParsedPageExcerpt(
 }
 
 export function classifyWebSource(url: string): ClassifiedWebSource {
-  let hostname = "";
+  const assessment = assessSourceRule({ url, title: "", excerpt: "" });
+  const legacy = legacySourceFields(assessment);
+  let hostname = "Unknown web";
   let pathname = "";
   try {
     const parsed = new URL(url);
@@ -292,87 +311,33 @@ export function classifyWebSource(url: string): ClassifiedWebSource {
     pathname = parsed.pathname.toLowerCase();
   } catch {
     return {
-      sourceName: "Unknown web",
+      sourceName: hostname,
       sourceKind: "unknown_web",
       credibility: "unknown_web",
       rank: credibilityRank.unknown_web,
     };
   }
-
-  const officialHosts = [
-    "hoyoverse.com",
-    "genshin.hoyoverse.com",
-    "act.hoyoverse.com",
-    "baike.mihoyo.com",
-    "ys.mihoyo.com",
-    "webstatic.mihoyo.com",
-  ];
-  if (
-    officialHosts.some(
-      (host) => hostname === host || hostname.endsWith(`.${host}`),
-    )
-  ) {
-    return {
-      sourceName: hostname.includes("mihoyo") ? "HoYoWiki" : "HoYoverse",
-      sourceKind: "official",
-      credibility: "official",
-      rank: credibilityRank.official,
-    };
-  }
-
-  if (
-    hostname === "genshin-impact.fandom.com" ||
+  const sourceName =
     hostname === "wiki.biligame.com"
-  ) {
-    return {
-      sourceName:
-        hostname === "wiki.biligame.com"
-          ? "原神WIKI_BWIKI"
-          : pathname.startsWith("/zh/")
-            ? "Genshin Impact Wiki 中文"
-            : "Genshin Impact Wiki",
-      sourceKind: "trusted_wiki",
-      credibility: "trusted_wiki",
-      rank: credibilityRank.trusted_wiki,
-    };
-  }
-
-  const communityHosts = [
-    "bilibili.com",
-    "hoyolab.com",
-    "miyoushe.com",
-    "tieba.baidu.com",
-    "zhihu.com",
-    "nga.178.com",
-    "bbs.nga.cn",
-    "reddit.com",
-    "weixin.qq.com",
-    "mp.weixin.qq.com",
-    "youtube.com",
-    "youtu.be",
-    "gamersky.com",
-    "17173.com",
-    "gamer.com.tw",
-    "douyin.com",
-  ];
-  if (
-    communityHosts.some(
-      (host) => hostname === host || hostname.endsWith(`.${host}`),
-    )
-  ) {
-    return {
-      sourceName: hostname,
-      sourceKind: "community",
-      credibility: "community",
-      rank: credibilityRank.community,
-    };
-  }
-
+      ? "原神WIKI_BWIKI"
+      : hostname === "genshin-impact.fandom.com"
+        ? pathname.startsWith("/zh/")
+          ? "Genshin Impact Wiki 中文"
+          : "Genshin Impact Wiki"
+        : hostname === "baike.mihoyo.com"
+          ? "观测枢"
+          : hostname === "wiki.hoyolab.com"
+            ? "HoYoWiki"
+            : assessment.platformKind === "official_site"
+              ? hostname.includes("mihoyo")
+                ? "米哈游《原神》官网"
+                : "HoYoverse"
+              : hostname;
   return {
-    sourceName: hostname || "Unknown web",
-    sourceKind: "unknown_web",
-    credibility: "unknown_web",
-    rank: credibilityRank.unknown_web,
+    sourceName,
+    sourceKind: legacy.sourceKind,
+    credibility: legacy.credibility,
+    rank: legacy.rank,
   };
 }
 
@@ -449,15 +414,22 @@ async function searchMediaWikiProvider(
     const url = `${provider.pageBaseUrl}${encodeURIComponent(
       item.title.replace(/ /g, "_"),
     )}`;
-    const classification = classifyWebSource(url);
+    const assessment = assessSourceRule({
+      url,
+      title: item.title,
+      excerpt:
+        extracts.get(item.pageid) ||
+        stripHtml(item.snippet),
+    });
+    const legacy = legacySourceFields(assessment);
     return {
       id: `${idPrefix}-${index + 1}`,
       title: item.title,
       url,
       sourceName: provider.sourceName,
-      sourceKind: classification.sourceKind,
-      credibility: classification.credibility,
-      factStatus: factStatusForSource(classification.credibility),
+      sourceKind: legacy.sourceKind,
+      credibility: legacy.credibility,
+      factStatus: legacy.factStatus,
       excerpt:
         extracts.get(item.pageid) ||
         stripHtml(item.snippet) ||
@@ -467,6 +439,7 @@ async function searchMediaWikiProvider(
       external: true,
       crossLanguage:
         provider.language !== "multi" && provider.language !== language,
+      assessment,
     } satisfies Citation;
   });
 }
@@ -529,7 +502,7 @@ export function entityRelevanceScore(citation: Citation, plan: SearchPlan) {
 
 function passesEntityGate(citation: Citation, plan: SearchPlan) {
   if (!plan.coreEntities.length) return true;
-  const titleOrUrlMatch = plan.coreEntities.some(
+  const titleOrUrlMatch = [...plan.coreEntities, ...plan.aliases].some(
     (entity) =>
       includesEntity(citation.title, entity) ||
       includesEntity(citation.url, entity),
@@ -562,6 +535,21 @@ function lexicalRelevanceScore(citation: Citation, plan: SearchPlan) {
 function expandedQueries(plan: SearchPlan, question: string, language: Language) {
   const queries = [...plan.queries];
   const subject = plan.coreEntities[0] || plan.aliases[0];
+  if (subject) {
+    queries.push(
+      language === "zh-CN"
+        ? `site:baike.mihoyo.com/ys/obc ${subject}`
+        : `site:wiki.hoyolab.com/pc/genshin ${subject}`,
+    );
+    if (language === "zh-CN") {
+      queries.push(`site:wiki.hoyolab.com/pc/genshin ${subject}`);
+    }
+    queries.push(
+      language === "zh-CN"
+        ? `site:genshin.hoyoverse.com ${subject} 角色介绍`
+        : `site:genshin.hoyoverse.com/en/news ${subject}`,
+    );
+  }
   const storyLike =
     plan.intent === "story" ||
     /传说任务|劇情|剧情|story\s*quest|quest|walkthrough|全流程/iu.test(
@@ -570,16 +558,16 @@ function expandedQueries(plan: SearchPlan, question: string, language: Language)
   if (subject && storyLike) {
     if (language === "zh-CN") {
       queries.push(
-        `${subject} 传说任务 珍上至珍 剧情`,
-        `${subject} 香糕塔之章 珍上至珍`,
-        `${subject} 传说任务 全流程剧情`,
-        `${subject} 传说任务 图文攻略`,
+        `${subject} 传说任务 剧情文本`,
+        `${subject} 角色故事 游戏内文本`,
+        `${subject} 传说任务 剧情梳理`,
+        `${subject} 任务对白`,
       );
     } else {
       queries.push(
-        `${subject} story quest walkthrough`,
+        `${subject} story quest transcript`,
         `${subject} story quest plot`,
-        `${subject} Best of the Best quest`,
+        `${subject} character story in-game text`,
       );
     }
   }
@@ -597,19 +585,23 @@ function storyIntentScore(citation: Citation, plan: SearchPlan) {
     /傳說任務/u,
     /剧情/u,
     /劇情/u,
-    /全流程/u,
-    /图文攻略/u,
-    /圖文攻略/u,
+    /剧情文本/u,
+    /任务对白/u,
+    /角色故事/u,
     /珍上至珍/u,
     /香糕塔/u,
     /story quest/i,
-    /walkthrough/i,
+    /transcript/i,
     /quest plot/i,
   ];
   return patterns.reduce((score, pattern) => score + (pattern.test(text) ? 25 : 0), 0);
 }
 
-function dedupeAndRank(citations: Citation[], plan: SearchPlan) {
+function dedupeAndRank(
+  citations: Citation[],
+  plan: SearchPlan,
+  question: string,
+) {
   const deduped = new Map<string, Citation>();
   for (const citation of citations) {
     const key = `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`;
@@ -617,7 +609,13 @@ function dedupeAndRank(citations: Citation[], plan: SearchPlan) {
   }
   return [...deduped.values()]
     .filter((citation) => passesEntityGate(citation, plan))
+    .filter((citation) =>
+      sourceAllowedForQuestion(citation, { question, plan }),
+    )
     .sort((a, b) => {
+      const governanceDifference =
+        sourceGovernanceScore(b, { question, plan }) -
+        sourceGovernanceScore(a, { question, plan });
       const entityDifference =
         entityRelevanceScore(b, plan) - entityRelevanceScore(a, plan);
       const aRank = credibilityRank[a.credibility ?? "unknown_web"];
@@ -627,6 +625,7 @@ function dedupeAndRank(citations: Citation[], plan: SearchPlan) {
         lexicalRelevanceScore(b, plan) - lexicalRelevanceScore(a, plan);
       if (plan.intent === "story") {
         return (
+          governanceDifference ||
           storyDifference ||
           entityDifference ||
           lexicalDifference ||
@@ -635,6 +634,7 @@ function dedupeAndRank(citations: Citation[], plan: SearchPlan) {
         );
       }
       return (
+        governanceDifference ||
         entityDifference ||
         bRank - aRank ||
         lexicalDifference ||
@@ -655,7 +655,16 @@ async function searchProviders(
       : [EN_FANDOM_PROVIDER, ...MEDIAWIKI_PROVIDERS.filter((p) => p.language === "zh-CN")];
   const results = await Promise.allSettled(
     providers.map((provider, index) =>
-      searchMediaWikiProvider(provider, query, language, `external-${index + 1}`),
+      searchMediaWikiProvider(
+        provider,
+        provider.language === "en"
+          ? /[a-z]/iu.test(query)
+            ? query
+            : plan.aliases.find((alias) => /[a-z]/iu.test(alias)) ?? query
+          : query,
+        language,
+        `external-${index + 1}`,
+      ),
     ),
   );
   return dedupeAndRank(
@@ -663,6 +672,7 @@ async function searchProviders(
       result.status === "fulfilled" ? result.value : [],
     ),
     plan,
+    query,
   ).slice(0, 6);
 }
 
@@ -706,29 +716,131 @@ function makeWebCitation({
     return [];
   }
   const classification = classifyWebSource(url);
+  const fallbackExcerpt =
+    excerpt ||
+    `General web search matched "${title}". Open the page and verify against primary sources.`;
+  const assessment = assessSourceRule({
+    url,
+    title,
+    excerpt: fallbackExcerpt,
+  });
+  const legacy = legacySourceFields(assessment);
   return [
     {
       id,
       title,
       url,
       sourceName: classification.sourceName,
-      sourceKind: classification.sourceKind,
-      credibility: classification.credibility,
-      factStatus: factStatusForSource(classification.credibility),
-      excerpt:
-        excerpt ||
-        `General web search matched "${title}". Open the page and verify against primary sources.`,
+      sourceKind: legacy.sourceKind,
+      credibility: legacy.credibility,
+      factStatus: legacy.factStatus,
+      excerpt: fallbackExcerpt,
       external: true,
       crossLanguage: false,
+      assessment,
     },
   ];
 }
 
-async function searchDuckDuckGoWeb(query: string): Promise<Citation[]> {
+async function enrichWebCitationUncached(
+  citation: Citation,
+  signal?: AbortSignal,
+) {
+  let platform = platformForUrl(citation.url);
+  const hostname = (() => {
+    try {
+      return new URL(citation.url).hostname.replace(/^www\./, "").toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
+  const shortLink = hostname === "hoyo.link";
+  if (
+    !shortLink &&
+    (!platform.platform ||
+      (platform.platform !== "bilibili" &&
+        platform.platform !== "youtube" &&
+        platform.platform !== "miyoushe" &&
+        platform.platform !== "hoyolab"))
+  ) {
+    return citation;
+  }
+  try {
+    const response = await fetchExternal(new URL(citation.url), {
+      signal: boundedSignal(signal, 6_000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 PaimonAsksEverythingDemo/0.1",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.7",
+      },
+    });
+    if (!response.ok) return citation;
+    const html = (await response.text()).slice(0, 800_000);
+    const finalUrl = response.url || citation.url;
+    platform = platformForUrl(finalUrl);
+    const identity = extractPublisherIdentity(finalUrl, html);
+    const assessment = assessSourceRule({
+      url: finalUrl,
+      title: citation.title,
+      excerpt: citation.excerpt,
+      pageHtml: html,
+    });
+    const legacy = legacySourceFields(assessment);
+    return {
+      ...citation,
+      url: finalUrl,
+      sourceName:
+        assessment.platformKind === "official_site"
+          ? finalUrl.includes("mihoyo.com")
+            ? "米哈游《原神》官网"
+            : "HoYoverse"
+          : assessment.publisherKind === "genshin_official"
+          ? platform.platform === "bilibili"
+            ? "原神官方 · Bilibili"
+            : platform.platform === "youtube"
+              ? "Genshin Impact · YouTube"
+              : platform.platform === "miyoushe"
+                ? "原神官方 · 米游社"
+                : "Genshin Impact · HoYoLAB"
+          : citation.sourceName,
+      sourceKind: legacy.sourceKind,
+      credibility: legacy.credibility,
+      factStatus: legacy.factStatus,
+      assessment: {
+        ...assessment,
+        signals: Array.from(
+          new Set([
+            ...assessment.signals,
+            ...identity.signals,
+            ...(finalUrl !== citation.url ? ["resolved-final-url"] : []),
+          ]),
+        ),
+      },
+    };
+  } catch {
+    return citation;
+  }
+}
+
+async function enrichWebCitation(citation: Citation, signal?: AbortSignal) {
+  if (process.env.NODE_ENV === "test") {
+    return enrichWebCitationUncached(citation, signal);
+  }
+  const cacheKey = citation.url.trim().toLowerCase();
+  const cached = pageEnrichmentCache.get(cacheKey);
+  if (cached) return { ...cached, id: citation.id };
+  const enriched = await enrichWebCitationUncached(citation, signal);
+  pageEnrichmentCache.set(cacheKey, enriched);
+  return enriched;
+}
+
+async function searchDuckDuckGoWeb(
+  query: string,
+  signal?: AbortSignal,
+): Promise<Citation[]> {
   const endpoint = new URL("https://html.duckduckgo.com/html/");
   endpoint.searchParams.set("q", query);
   const response = await fetchExternal(endpoint, {
-    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    signal: boundedSignal(signal, EXTERNAL_FETCH_TIMEOUT_MS),
     headers: { "User-Agent": "PaimonAsksEverythingDemo/0.1" },
   });
   if (!response.ok) return [];
@@ -746,11 +858,14 @@ async function searchDuckDuckGoWeb(query: string): Promise<Citation[]> {
   });
 }
 
-async function searchYahooWeb(query: string): Promise<Citation[]> {
+async function searchYahooWeb(
+  query: string,
+  signal?: AbortSignal,
+): Promise<Citation[]> {
   const endpoint = new URL("https://search.yahoo.com/search");
   endpoint.searchParams.set("p", query);
   const response = await fetchExternal(endpoint, {
-    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    signal: boundedSignal(signal, EXTERNAL_FETCH_TIMEOUT_MS),
     headers: {
       "User-Agent": "Mozilla/5.0",
       "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.7",
@@ -772,14 +887,72 @@ async function searchYahooWeb(query: string): Promise<Citation[]> {
   });
 }
 
-export async function searchGeneralWeb(query: string): Promise<Citation[]> {
+export async function searchGeneralWeb(
+  query: string,
+  options: { enrich?: boolean; signal?: AbortSignal } = {},
+): Promise<Citation[]> {
+  const cacheKey = `${options.enrich === false ? "raw" : "enriched"}:${query
+    .trim()
+    .toLowerCase()}`;
+  if (process.env.NODE_ENV !== "test") {
+    const cached = generalSearchCache.get(cacheKey);
+    if (cached) return cached;
+  }
   const results = await Promise.allSettled([
-    searchDuckDuckGoWeb(query),
-    searchYahooWeb(query),
+    searchDuckDuckGoWeb(query, options.signal),
+    searchYahooWeb(query, options.signal),
   ]);
-  return results.flatMap((result) =>
+  const citations = results.flatMap((result) =>
     result.status === "fulfilled" ? result.value : [],
   );
+  if (options.enrich === false) {
+    if (process.env.NODE_ENV !== "test") {
+      generalSearchCache.set(cacheKey, citations);
+    }
+    return citations;
+  }
+  const enriched = await Promise.allSettled(
+    citations
+      .slice(0, 8)
+      .map((citation) => enrichWebCitation(citation, options.signal)),
+  );
+  const output = enriched.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value] : [],
+  );
+  if (process.env.NODE_ENV !== "test") {
+    generalSearchCache.set(cacheKey, output);
+  }
+  return output;
+}
+
+function tieredQueries(plan: SearchPlan, question: string, language: Language) {
+  const all = expandedQueries(plan, question, language);
+  const entityLookup = plan.coreEntities.join(" ").trim();
+  const officialWiki = all.find((query) =>
+    /site:(?:baike\.mihoyo\.com|wiki\.hoyolab\.com)/iu.test(query),
+  );
+  const primaryQuery =
+    plan.intent === "story"
+      ? plan.queries[1] ?? plan.queries[0]
+      : plan.queries[0];
+  const first = Array.from(
+    new Set(
+      [entityLookup, primaryQuery, officialWiki].filter(Boolean) as string[],
+    ),
+  ).slice(0, 3);
+  const remaining = all.filter((query) => !first.includes(query));
+  const second =
+    plan.intent === "story"
+      ? [
+          ...remaining.filter((query) =>
+            /剧情文本|任务对白|角色故事|story quest|transcript|quest plot/iu.test(
+              query,
+            ),
+          ),
+          ...remaining,
+        ].filter((query, index, values) => values.indexOf(query) === index)
+      : remaining;
+  return { first, second: second.slice(0, 2), entityLookup };
 }
 
 export async function searchWebEvidence(
@@ -794,30 +967,97 @@ export async function searchWebEvidence(
     message: "去网上找找资料",
     detail: question,
   });
-  const queryResults = await Promise.allSettled(
-    expandedQueries(plan, question, language).map(async (query) => {
+  const tiers = tieredQueries(plan, question, language);
+  const runQueries = async (queries: string[]) =>
+    Promise.allSettled(
+      queries.map(async (query) => {
       await emitTrace(options.emitTrace, {
         stage: "search",
         status: "running",
         message: "正在查看网页和 Wiki",
         detail: query,
       });
+      const siteRestricted = /^site:/iu.test(query);
+      const wikiEligible =
+        !siteRestricted &&
+        (!tiers.entityLookup ||
+          query === tiers.entityLookup ||
+          (plan.intent === "story" &&
+            /剧情文本|任务对白|角色故事|story quest|transcript|quest plot|duel before the throne/iu.test(
+              query,
+            )));
       const [wikiResults, webResults] = await Promise.allSettled([
-        searchProviders(query, language, plan),
-        searchGeneralWeb(query),
+        !wikiEligible
+          ? Promise.resolve([] as Citation[])
+          : searchProviders(query, language, plan),
+        searchGeneralWeb(query, { enrich: false }),
       ]);
       return [
         ...(wikiResults.status === "fulfilled" ? wikiResults.value : []),
         ...(webResults.status === "fulfilled" ? webResults.value : []),
       ];
-    }),
-  );
-  const ranked = dedupeAndRank(
+      }),
+    );
+  const collectCandidates = (
+    queryResults: Awaited<ReturnType<typeof runQueries>>,
+  ) =>
     queryResults.flatMap((result) =>
       result.status === "fulfilled" ? result.value : [],
+    );
+  const assessCandidates = async (
+    candidates: Citation[],
+    useModel: boolean,
+    enrich: boolean,
+  ) => {
+  const uniqueCandidates = new Map<string, Citation>();
+  for (const citation of candidates) {
+    const key = `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`;
+    if (!uniqueCandidates.has(key)) uniqueCandidates.set(key, citation);
+  }
+  const selectedCandidates = [...uniqueCandidates.values()].slice(0, 8);
+  const enrichedCandidates = enrich
+    ? await Promise.allSettled(
+        selectedCandidates.map((citation) => enrichWebCitation(citation)),
+      )
+    : selectedCandidates.map(
+        (citation) =>
+          ({ status: "fulfilled", value: citation }) as PromiseFulfilledResult<Citation>,
+      );
+  return assessSources(
+    enrichedCandidates.flatMap((result) =>
+      result.status === "fulfilled" ? [result.value] : [],
     ),
-    plan,
-  ).slice(0, 8);
+    { question, plan, useModel },
+  );
+  };
+  const enoughEvidence = (ranked: Citation[]) => {
+    const authoritative = ranked.filter(
+      (citation) =>
+        citation.assessment?.authority === "official" ||
+        citation.assessment?.authority === "curated_reference",
+    );
+    if (
+      plan.intent === "story" &&
+      !ranked.some((citation) => storyIntentScore(citation, plan) > 0)
+    ) {
+      return false;
+    }
+    if (authoritative.some((citation) => citation.assessment?.authority === "official")) {
+      return true;
+    }
+    return ranked.length >= 3 && authoritative.length >= 2;
+  };
+  const firstResults = await runQueries(tiers.first);
+  let candidates = collectCandidates(firstResults);
+  let assessed = await assessCandidates(candidates, false, false);
+  let ranked = dedupeAndRank(assessed, plan, question).slice(0, 8);
+  const firstRoundEnough = enoughEvidence(ranked);
+  if (!firstRoundEnough && tiers.second.length) {
+    const secondResults = await runQueries(tiers.second);
+    candidates = [...candidates, ...collectCandidates(secondResults)];
+    assessed = await assessCandidates(candidates, true, true);
+    ranked = dedupeAndRank(assessed, plan, question).slice(0, 8);
+  }
   await emitTrace(options.emitTrace, {
     stage: "search",
     status: ranked.length ? "complete" : "skipped",

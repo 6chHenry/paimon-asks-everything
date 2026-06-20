@@ -42,6 +42,7 @@ export async function POST(request: Request) {
   }
 
   void (async () => {
+    let answerSent = false;
     try {
       await send(
         "trace",
@@ -53,9 +54,15 @@ export async function POST(request: Request) {
       );
       const result = await runAgent(parsed.data, {
         emitTrace: (event) => send("trace", event),
+        emitAnswer: async (answer) => {
+          answerSent = true;
+          await send("answer", answer);
+        },
+        emitResources: (resources) => send("resources", resources),
+        signal: request.signal,
       });
-      await send("result", result);
-      await send("done", { ok: true });
+      if (!answerSent) await send("answer", result);
+      await send("done", { ok: true, resources: "complete" });
     } catch {
       await send(
         "error",

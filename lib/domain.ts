@@ -25,6 +25,7 @@ export type FactStatus =
   | "official_explicit"
   | "narrative_implied"
   | "trusted_secondary"
+  | "community_analysis"
   | "community_speculation"
   | "demo_hypothesis";
 export type SourceKind =
@@ -40,6 +41,30 @@ export type SourceCredibility =
   | "trusted_wiki"
   | "community"
   | "unknown_web";
+export type PlatformKind =
+  | "official_site"
+  | "official_operated_wiki"
+  | "community"
+  | "video_platform"
+  | "general_web";
+export type PublisherKind =
+  | "genshin_official"
+  | "verified_aggregator"
+  | "user"
+  | "unknown";
+export type ContentKind =
+  | "announcement"
+  | "character_profile"
+  | "game_text_reference"
+  | "neutral_reference"
+  | "gameplay_guide"
+  | "lore_analysis"
+  | "speculation";
+export type SourceAuthority =
+  | "official"
+  | "curated_reference"
+  | "community_analysis"
+  | "community_speculation";
 export type QuestionCategory =
   | "story"
   | "character"
@@ -117,12 +142,28 @@ export interface Citation {
   excerpt: string;
   external: boolean;
   crossLanguage: boolean;
+  assessment?: SourceAssessment;
+}
+
+export interface SourceAssessment {
+  platformKind: PlatformKind;
+  publisherKind: PublisherKind;
+  contentKind: ContentKind;
+  authority: SourceAuthority;
+  officialAccountId?: string;
+  signals: string[];
+  confidence: "high" | "medium" | "low";
 }
 
 export interface Claim {
   text: string;
   citationIds: string[];
   factStatus: FactStatus;
+}
+
+export interface AnswerParagraph {
+  text: string;
+  citationIds: string[];
 }
 
 export interface EventClassification {
@@ -137,6 +178,7 @@ export interface ChatResult {
     | "refused"
     | "insufficient_evidence";
   answer: string;
+  answerParagraphs?: AnswerParagraph[];
   language: Language;
   answerMode:
     | "minimal_catch_up"

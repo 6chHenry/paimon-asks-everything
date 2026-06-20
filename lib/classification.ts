@@ -3,6 +3,7 @@ import type {
   Language,
   QuestionCategory,
 } from "@/lib/domain";
+import { detectQuestionEntities } from "@/lib/entity-lexicon";
 
 const patterns: Array<{
   category: QuestionCategory;
@@ -131,9 +132,17 @@ export function classifyQuestion(
   const match = patterns.find((item) =>
     item.terms.some((term) => normalized.includes(term.toLowerCase())),
   );
-  return match
-    ? { questionCategory: match.category, confusionTopic: match.topic }
-    : { questionCategory: "other", confusionTopic: "long_tail_question" };
+  if (match) return { questionCategory: match.category, confusionTopic: match.topic };
+  const entity = detectQuestionEntities(question).find(
+    (item) => item.kind === "character",
+  );
+  if (entity) {
+    return {
+      questionCategory: "character",
+      confusionTopic: `character:${entity.canonical}`,
+    };
+  }
+  return { questionCategory: "other", confusionTopic: "long_tail_question" };
 }
 
 export function isHighRiskSpoilerQuestion(question: string) {

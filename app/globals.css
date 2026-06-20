@@ -412,6 +412,7 @@ main { flex: 1; }
 .loading-card > div { display: flex; flex-direction: column; gap: 4px; }
 .loading-card span { color: var(--ink-soft); font-size: 11px; }
 .error-card { border-color: rgba(189,105,92,.35); background: rgba(189,105,92,.08); }
+.resource-loading { display: flex; align-items: center; gap: 9px; margin: 12px 0 0; color: var(--ink-soft); font-size: 12px; }
 .spin { animation: rotate 1s linear infinite; }
 
 .trace-timeline {

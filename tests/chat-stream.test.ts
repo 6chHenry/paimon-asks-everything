@@ -22,7 +22,7 @@ describe("chat stream route", () => {
     process.env = { ...originalEnv };
   });
 
-  it("streams trace events before the final result", async () => {
+  it("streams the answer before supplementary resources finish", async () => {
     const response = await POST(
       new Request("http://localhost/api/chat/stream", {
         method: "POST",
@@ -44,7 +44,12 @@ describe("chat stream route", () => {
     const body = await response.text();
 
     expect(body).toContain("event: trace");
-    expect(body).toContain("event: result");
-    expect(body.indexOf("event: trace")).toBeLessThan(body.indexOf("event: result"));
+    expect(body).toContain("event: answer");
+    expect(body).toContain("event: resources");
+    expect(body).toContain("event: done");
+    expect(body.indexOf("event: trace")).toBeLessThan(body.indexOf("event: answer"));
+    expect(body.indexOf("event: answer")).toBeLessThan(
+      body.indexOf("event: resources"),
+    );
   });
 });

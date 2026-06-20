@@ -227,6 +227,62 @@ describe("grounded generation", () => {
     expect(answer).not.toContain("来源都放在下面");
   });
 
+  it("filters generic and gameplay snippets from direct identity fallbacks", async () => {
+    const genericCitation: Citation = {
+      id: "external-1",
+      title: "原神WIKI",
+      url: "https://wiki.biligame.com/ys/",
+      sourceName: "原神WIKI_BWIKI",
+      sourceKind: "trusted_wiki",
+      credibility: "trusted_wiki",
+      factStatus: "trusted_secondary",
+      excerpt:
+        "欢迎来到原神WIKI，这是开放编辑由玩家制作的游戏数据库，整合了详细原神相关图鉴资料和攻略内容。",
+      external: true,
+      crossLanguage: false,
+    };
+    const gameplayCitation: Citation = {
+      id: "external-2",
+      title: "丝柯克/技能",
+      url: "https://wiki.biligame.com/ys/丝柯克/技能",
+      sourceName: "原神WIKI_BWIKI",
+      sourceKind: "trusted_wiki",
+      credibility: "trusted_wiki",
+      factStatus: "trusted_secondary",
+      excerpt:
+        "长按 丝柯克获得45点蛇之狡谋，并将持续快速移动，在该状态下提高丝柯克的抗打断能力。",
+      external: true,
+      crossLanguage: false,
+    };
+    const identityCitation: Citation = {
+      id: "external-3",
+      title: "丝柯克",
+      url: "https://wiki.biligame.com/ys/丝柯克",
+      sourceName: "原神WIKI_BWIKI",
+      sourceKind: "trusted_wiki",
+      credibility: "trusted_wiki",
+      factStatus: "trusted_secondary",
+      excerpt:
+        "丝柯克是来历不明的强大战士，她自称是坎瑞亚五大罪人之一苏尔特洛奇的弟子。",
+      external: true,
+      crossLanguage: false,
+    };
+
+    const answer = await generateGroundedAnswer({
+      question: "丝柯克是外星人吗",
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [genericCitation, gameplayCitation, identityCitation],
+    });
+
+    expect(answer).toContain("丝柯克");
+    expect(answer).toContain("来历不明");
+    expect(answer).not.toContain("欢迎来到原神WIKI");
+    expect(answer).not.toContain("长按");
+    expect(answer).not.toContain("蛇之狡谋");
+  });
+
   it("rejects an off-topic model answer even when it cites a valid source id", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";
@@ -461,7 +517,7 @@ describe("grounded generation", () => {
       external: [],
     });
 
-    expect(llmCalls).toBe(2);
+    expect(llmCalls).toBe(3);
     expect(result.answer).toContain("爱可菲");
     expect(result.answer).toContain("传说任务");
     expect(result.answer).toContain("身份背景");
@@ -583,11 +639,449 @@ describe("grounded generation", () => {
     });
 
     expect(llmCalls).toBe(2);
-    expect(result.searchPlan.coreEntities).toEqual([]);
+    expect(result.searchPlan.coreEntities).toEqual(["雷电将军", "雷电影"]);
     expect(searchedQueries.some((query) => query.includes("桑多涅"))).toBe(false);
     expect(searchedQueries.some((query) => query.includes("雷电将军"))).toBe(true);
     expect(result.external[0]?.title).toBe("雷电将军");
     expect(result.answer).toContain("雷电将军");
     expect(result.answer).not.toContain("桑多涅");
+  });
+
+  it("uses reconciled question understanding to anchor alias-only questions", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    process.env.LLM_MODEL = "deepseek-v4-flash";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    let llmCalls = 0;
+    const searchedQueries: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "api.example.test") {
+        llmCalls += 1;
+        if (llmCalls === 1) {
+          return new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  finish_reason: "tool_calls",
+                  message: {
+                    content: null,
+                    tool_calls: [
+                      {
+                        id: "call-search-alias",
+                        type: "function",
+                        function: {
+                          name: "search_web_evidence",
+                          arguments: JSON.stringify({
+                            coreEntities: [],
+                            aliases: [],
+                            intent: "general",
+                            queries: ["关系 原神"],
+                            language: "zh-CN",
+                          }),
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    answer: "雷电将军是雷电影制造的人偶。[external-1]",
+                    citedSourceIds: ["external-1"],
+                  }),
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (url.hostname === "html.duckduckgo.com" || url.hostname === "search.yahoo.com") {
+        searchedQueries.push(
+          url.searchParams.get("q") ?? url.searchParams.get("p") ?? "",
+        );
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(JSON.stringify({ query: { pages: {} } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      searchedQueries.push(url.searchParams.get("srsearch") ?? "");
+      return new Response(
+        JSON.stringify({
+          query: {
+            search: [
+              {
+                title: "雷电将军",
+                snippet: "雷电将军是雷电影制造的人偶。",
+                pageid: 1001,
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateGroundedResponse({
+      question: "将军和影的关系",
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [],
+      understanding: {
+        entities: [
+          { canonical: "雷电将军", aliases: ["将军"], kind: "character" },
+          { canonical: "雷电影", aliases: ["影"], kind: "character" },
+        ],
+        ruleEntities: [
+          { canonical: "将军", aliases: [], kind: "character" },
+          { canonical: "影", aliases: [], kind: "character" },
+        ],
+        modelEntities: [
+          { canonical: "雷电将军", aliases: ["将军"], kind: "character" },
+          { canonical: "雷电影", aliases: ["影"], kind: "character" },
+        ],
+        intent: "relationship",
+        queries: ["雷电将军 雷电影 关系"],
+        classification: {
+          questionCategory: "character",
+          confusionTopic: "雷电将军",
+        },
+        agreement: "confirmed",
+      },
+    });
+
+    expect(llmCalls).toBe(2);
+    expect(result.searchPlan.coreEntities).toEqual(["雷电将军", "雷电影"]);
+    expect(searchedQueries.some((query) => query.includes("雷电将军"))).toBe(true);
+    expect(result.answer).toContain("雷电将军");
+  });
+
+  it("merges local character anchors into weak model search plans", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    process.env.LLM_MODEL = "deepseek-v4-flash";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    let llmCalls = 0;
+    const searchedQueries: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "api.example.test") {
+        llmCalls += 1;
+        if (llmCalls === 1) {
+          return new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  finish_reason: "tool_calls",
+                  message: {
+                    content: null,
+                    tool_calls: [
+                      {
+                        id: "call-search-skirk",
+                        type: "function",
+                        function: {
+                          name: "search_web_evidence",
+                          arguments: JSON.stringify({
+                            coreEntities: [],
+                            aliases: [],
+                            intent: "general",
+                            queries: ["外星人 原神"],
+                            language: "zh-CN",
+                          }),
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    answer: "丝柯克来自星海。[external-1]",
+                    citedSourceIds: ["external-1"],
+                  }),
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (url.hostname === "html.duckduckgo.com" || url.hostname === "search.yahoo.com") {
+        searchedQueries.push(
+          url.searchParams.get("q") ?? url.searchParams.get("p") ?? "",
+        );
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(
+          JSON.stringify({
+            query: {
+              pages: {
+                "3001": {
+                  pageid: 3001,
+                  extract: "丝柯克是来自星海的神秘剑客。",
+                },
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      searchedQueries.push(url.searchParams.get("srsearch") ?? "");
+      return new Response(
+        JSON.stringify({
+          query: {
+            search: [
+              {
+                title: "丝柯克",
+                snippet: "丝柯克是来自星海的神秘剑客。",
+                pageid: 3001,
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateGroundedResponse({
+      question: "丝柯克是外星人",
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [],
+    });
+
+    expect(llmCalls).toBe(2);
+    expect(result.searchPlan.coreEntities).toEqual(["丝柯克"]);
+    expect(result.searchPlan.aliases).toEqual(["Skirk"]);
+    expect(result.searchPlan.intent).toBe("identity");
+    expect(searchedQueries.some((query) => query.includes("丝柯克"))).toBe(true);
+    expect(result.answer).toContain("丝柯克");
+  });
+
+  it("uses inferred question anchors when no lexicon entry exists", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    process.env.LLM_MODEL = "deepseek-v4-flash";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    let llmCalls = 0;
+    const searchedQueries: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "api.example.test") {
+        llmCalls += 1;
+        if (llmCalls === 1) {
+          return new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  finish_reason: "tool_calls",
+                  message: {
+                    content: null,
+                    tool_calls: [
+                      {
+                        id: "call-search-generic",
+                        type: "function",
+                        function: {
+                          name: "search_web_evidence",
+                          arguments: JSON.stringify({
+                            coreEntities: [],
+                            aliases: [],
+                            intent: "general",
+                            queries: ["外星人 原神"],
+                            language: "zh-CN",
+                          }),
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    answer: "赫利俄斯来自星海。[external-1]",
+                    citedSourceIds: ["external-1"],
+                  }),
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (url.hostname === "html.duckduckgo.com" || url.hostname === "search.yahoo.com") {
+        searchedQueries.push(
+          url.searchParams.get("q") ?? url.searchParams.get("p") ?? "",
+        );
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(
+          JSON.stringify({
+            query: {
+              pages: {
+                "4001": {
+                  pageid: 4001,
+                  extract: "赫利俄斯来自星海。",
+                },
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      searchedQueries.push(url.searchParams.get("srsearch") ?? "");
+      return new Response(
+        JSON.stringify({
+          query: {
+            search: [
+              {
+                title: "赫利俄斯",
+                snippet: "赫利俄斯来自星海。",
+                pageid: 4001,
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateGroundedResponse({
+      question: "赫利俄斯是外星人",
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [],
+    });
+
+    expect(llmCalls).toBe(2);
+    expect(result.searchPlan.coreEntities).toEqual(["赫利俄斯"]);
+    expect(result.searchPlan.intent).toBe("identity");
+    expect(searchedQueries.some((query) => query.includes("赫利俄斯"))).toBe(true);
+    expect(result.answer).toContain("赫利俄斯");
+  });
+
+  it("does not turn generic wiki or gameplay snippets into identity fallback answers", async () => {
+    delete process.env.LLM_API_KEY;
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    const searchedQueries: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(JSON.stringify({ query: { pages: {} } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.searchParams.get("list") === "search") {
+        searchedQueries.push(url.searchParams.get("srsearch") ?? "");
+        return new Response(
+          JSON.stringify({
+            query: {
+              search: [
+                {
+                  title: "原神WIKI",
+                  snippet:
+                    "欢迎来到原神WIKI，这是开放编辑由玩家制作的游戏数据库，整合了详细原神相关图鉴资料和攻略内容。",
+                  pageid: 1,
+                },
+                {
+                  title: "丝柯克/技能",
+                  snippet:
+                    "长按 丝柯克获得45点蛇之狡谋，并将持续快速移动，提高丝柯克的抗打断能力。",
+                  pageid: 2,
+                },
+                {
+                  title: "丝柯克",
+                  snippet:
+                    "丝柯克是来历不明的强大战士，她自称是坎瑞亚五大罪人之一苏尔特洛奇的弟子。",
+                  pageid: 3,
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response("", {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateGroundedResponse({
+      question: "丝柯克是外星人吗",
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [],
+    });
+
+    expect(
+      searchedQueries.every(
+        (query) => query.includes("丝柯克") || query.includes("Skirk"),
+      ),
+    ).toBe(true);
+    expect(result.external[0]?.title).toBe("丝柯克");
+    expect(result.answer).toContain("丝柯克");
+    expect(result.answer).not.toContain("欢迎来到原神WIKI");
+    expect(result.answer).not.toContain("长按");
+    expect(result.answer).not.toContain("蛇之狡谋");
   });
 });

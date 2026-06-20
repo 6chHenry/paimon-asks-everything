@@ -44,6 +44,7 @@ export const labels = {
     official_explicit: { "zh-CN": "官方明确", en: "Officially explicit" },
     narrative_implied: { "zh-CN": "剧情暗示", en: "Narratively implied" },
     trusted_secondary: { "zh-CN": "高可信二手资料", en: "Trusted secondary source" },
+    community_analysis: { "zh-CN": "社区分析", en: "Community analysis" },
     community_speculation: { "zh-CN": "社区推测", en: "Community speculation" },
     demo_hypothesis: { "zh-CN": "Demo 假设", en: "Demo hypothesis" },
   },

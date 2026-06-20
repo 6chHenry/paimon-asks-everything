@@ -162,6 +162,22 @@ describe("agent workflow", () => {
     expect(result.answer).toContain("Fontaine");
   });
 
+  it("answers a Chinese question in Chinese even when UI preference is English", async () => {
+    const result = await runAgent(
+      {
+        ...base,
+        language: "en",
+        focus: ["story", "character"],
+        question: "桑多涅和阿兰是什么关系？",
+      },
+      { recordEvent: false },
+    );
+
+    expect(result.language).toBe("zh-CN");
+    expect(result.answer).toMatch(/[\u3400-\u9fff]/u);
+    expect(result.answer).toContain("桑多涅");
+  });
+
   it("emits auditable trace events without private reasoning", async () => {
     const traceEvents: Array<{ stage: string; message: string }> = [];
 
@@ -195,41 +211,11 @@ describe("agent workflow", () => {
     delete process.env.HTTPS_PROXY;
     delete process.env.http_proxy;
     delete process.env.HTTP_PROXY;
-    let llmCalls = 0;
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = new URL(String(input));
         if (url.hostname === "api.example.test") {
-          llmCalls += 1;
-          if (llmCalls === 1) {
-            return new Response(
-              JSON.stringify({
-                choices: [
-                  {
-                    finish_reason: "tool_calls",
-                    message: {
-                      content: null,
-                      tool_calls: [
-                        {
-                          id: "call-search-1",
-                          type: "function",
-                          function: {
-                            name: "search_web_evidence",
-                            arguments: JSON.stringify({
-                              query: "桑多涅 阿兰 玛丽安",
-                              language: "zh-CN",
-                            }),
-                          },
-                        },
-                      ],
-                    },
-                  },
-                ],
-              }),
-              { status: 200, headers: { "Content-Type": "application/json" } },
-            );
-          }
           return new Response(
             JSON.stringify({
               choices: [
@@ -294,41 +280,11 @@ describe("agent workflow", () => {
     delete process.env.HTTPS_PROXY;
     delete process.env.http_proxy;
     delete process.env.HTTP_PROXY;
-    let llmCalls = 0;
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = new URL(String(input));
         if (url.hostname === "api.example.test") {
-          llmCalls += 1;
-          if (llmCalls === 1) {
-            return new Response(
-              JSON.stringify({
-                choices: [
-                  {
-                    finish_reason: "tool_calls",
-                    message: {
-                      content: null,
-                      tool_calls: [
-                        {
-                          id: "call-search-1",
-                          type: "function",
-                          function: {
-                            name: "search_web_evidence",
-                            arguments: JSON.stringify({
-                              query: "La Signora duel before the throne",
-                              language: "zh-CN",
-                            }),
-                          },
-                        },
-                      ],
-                    },
-                  },
-                ],
-              }),
-              { status: 200, headers: { "Content-Type": "application/json" } },
-            );
-          }
           return new Response(
             JSON.stringify({
               choices: [
