@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { historicalEvents } from "@/data/events";
+import { historicalPreheatEvents } from "@/data/preheat-events";
 import { aggregateInsights } from "@/lib/insights";
 
 describe("insight aggregation", () => {
@@ -36,5 +37,17 @@ describe("insight aggregation", () => {
       affectedPlayers: expect.any(String),
     });
     expect(result.briefingCards?.[0]?.evidenceItems.length).toBeGreaterThan(0);
+  });
+
+  it("keeps preheat interest separate from question confusion", () => {
+    const result = aggregateInsights(historicalEvents, historicalPreheatEvents);
+    expect(result.preheat.total).toBe(historicalPreheatEvents.length);
+    expect(result.preheat.topics.length).toBeGreaterThan(0);
+    expect(result.preheat.depths.length).toBeGreaterThan(0);
+    expect(
+      result.preheat.interestVsConfusion.every(
+        (item) => item.interestCount >= item.questionCount,
+      ),
+    ).toBe(true);
   });
 });

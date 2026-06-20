@@ -21,7 +21,7 @@ export function StatusBar() {
       </summary>
       <div className="status-editor">
         <label>
-          <span>{t(language, "进度", "Progress")}</span>
+          <span>{t(language, "最新完成的地区主线", "Latest completed region")}</span>
           <select
             value={preferences.progress}
             onChange={(event) =>

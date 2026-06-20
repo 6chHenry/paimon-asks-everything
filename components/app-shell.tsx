@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, FlaskConical, MessageCircleMore, Sparkles } from "lucide-react";
+import { BarChart3, Flame, FlaskConical, MessageCircleMore, Sparkles } from "lucide-react";
 import { usePreferences } from "@/components/preferences-provider";
 
 const navigation = [
+  { href: "/preheat", labelZh: "版本预热", labelEn: "Preheat", icon: Flame },
   { href: "/ask", labelZh: "问派蒙", labelEn: "Ask", icon: MessageCircleMore },
   { href: "/insights", labelZh: "发行洞察", labelEn: "Insights", icon: BarChart3 },
   {

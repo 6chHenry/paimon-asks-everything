@@ -22,6 +22,7 @@ import { t } from "@/lib/i18n";
 interface InsightPayload {
   total: number;
   liveCount: number;
+  historicalCount: number;
   lastUpdated: string;
   languages: Array<{ key: string; count: number }>;
   profiles: Array<{ key: string; count: number }>;
@@ -33,6 +34,25 @@ interface InsightPayload {
   aiError?: string;
   signals: InsightSignal[];
   recommendations: Recommendation[];
+  preheat: {
+    total: number;
+    historicalCount: number;
+    liveCount: number;
+    topics: Array<{ key: string; count: number }>;
+    depths: Array<{ key: string; count: number }>;
+    timelineNodes: Array<{ key: string; count: number }>;
+    relationNodes: Array<{ key: string; count: number }>;
+    interestVsConfusion: Array<{
+      topicId: string;
+      interestCount: number;
+      questionCount: number;
+      state:
+        | "high_interest_high_confusion"
+        | "high_interest_low_confusion"
+        | "low_interest_high_confusion"
+        | "emerging";
+    }>;
+  };
   consentedSamples: Array<{
     id: string;
     language: string;
@@ -49,6 +69,16 @@ const topicLabels: Record<string, [string, string]> = {
   fontaine_lore: ["枫丹剧情脉络", "Fontaine lore"],
   long_tail_question: ["长尾问题", "Long-tail questions"],
   prohibited_automation: ["违规自动化请求", "Prohibited automation"],
+  gnosis_collection_purpose: ["神之心收集目的", "Purpose of Gnosis collection"],
+  tsaritsa_goal: ["冰之女皇目标", "Tsaritsa's goal"],
+  gnosis_third_descender: ["神之心与第三降临者", "Gnoses & Third Descender"],
+  gnosis_journey: ["各国神之心流转", "Gnosis journeys"],
+};
+
+const preheatTopicLabels: Record<string, [string, string]> = {
+  "why-fatui-collect-gnoses": ["愚人众为何收集神之心", "Why the Fatui collect Gnoses"],
+  "seven-gnosis-journeys": ["七枚神之心经历", "The seven Gnosis journeys"],
+  "tsaritsa-known-unknown": ["冰之女皇：已知与未知", "Tsaritsa: known & unknown"],
 };
 
 function labelFor(key: string, isZh: boolean) {
@@ -103,18 +133,18 @@ export default function InsightsPage() {
         <>
           <section className="metric-grid">
             <article>
-              <span><BarChart3 size={17} />{t(language, "匿名事件", "Anonymous events")}</span>
-              <strong>{data.total}</strong>
-              <small>{t(language, `其中 ${data.liveCount} 条现场增量`, `${data.liveCount} live increment(s)`)}</small>
+              <span><BarChart3 size={17} />{t(language, "问题事件", "Question events")}</span>
+              <strong>{data.historicalCount} + {data.liveCount}</strong>
+              <small>{t(language, "历史基线 + 现场增量", "Historical baseline + live")}</small>
             </article>
             <article>
-              <span><Languages size={17} />{t(language, "语言分布", "Language split")}</span>
+              <span><Signal size={17} />{t(language, "预热互动", "Preheat interactions")}</span>
+              <strong>{data.preheat.historicalCount} + {data.preheat.liveCount}</strong>
+              <small>{t(language, "兴趣信号，不计作困惑", "Interest signal, not confusion")}</small>
+            </article>
+            <article>
+              <span><Languages size={17} />{t(language, "问题语言分布", "Question language split")}</span>
               <strong>{data.languages.map((item) => `${item.key === "zh-CN" ? "中" : "EN"} ${item.count}`).join(" / ")}</strong>
-            </article>
-            <article>
-              <span><UsersRound size={17} />{t(language, "主要画像", "Leading profile")}</span>
-              <strong>{data.profiles[0]?.key ?? "—"}</strong>
-              <small>{data.profiles[0]?.count ?? 0} {t(language, "条事件", "events")}</small>
             </article>
             <article>
               <span><RefreshCw size={17} />{t(language, "最近更新", "Last update")}</span>
@@ -123,9 +153,64 @@ export default function InsightsPage() {
             </article>
           </section>
 
+          <section className="interest-section">
+            <div className="section-title">
+              <div><span className="section-index">01</span><h2>{t(language, "兴趣与理解断点", "Interest and comprehension")}</h2></div>
+              <p>{t(language, "点击代表兴趣，追问代表需要进一步解释", "Clicks indicate interest; questions indicate a need for explanation")}</p>
+            </div>
+            <div className="interest-grid">
+              {data.preheat.interestVsConfusion.map((item) => {
+                const labelsForTopic = preheatTopicLabels[item.topicId];
+                return (
+                  <article key={item.topicId} className={item.state}>
+                    <small>{item.state.replaceAll("_", " ")}</small>
+                    <h3>{labelsForTopic?.[isZh ? 0 : 1] ?? item.topicId}</h3>
+                    <div>
+                      <span><strong>{item.interestCount}</strong>{t(language, " 次兴趣互动", " interest actions")}</span>
+                      <span><strong>{item.questionCount}</strong>{t(language, " 次相关追问", " related questions")}</span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="insight-grid preheat-distribution">
+            <article className="panel chart-panel">
+              <div className="panel-heading">
+                <span>02</span>
+                <div><h2>{t(language, "讲解深度选择", "Depth selection")}</h2></div>
+              </div>
+              <div className="bar-list">
+                {data.preheat.depths.map((item, index) => (
+                  <div key={item.key}>
+                    <div><span>{item.key}</span><strong>{item.count}</strong></div>
+                    <i style={{ width: `${Math.max(8, (item.count / (data.preheat.depths[0]?.count || 1)) * 100)}%` }} />
+                    <small>{String(index + 1).padStart(2, "0")}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
+            <article className="panel chart-panel">
+              <div className="panel-heading">
+                <span>03</span>
+                <div><h2>{t(language, "时间线节点兴趣", "Timeline node interest")}</h2></div>
+              </div>
+              <div className="bar-list">
+                {data.preheat.timelineNodes.slice(0, 5).map((item, index) => (
+                  <div key={item.key}>
+                    <div><span>{item.key.replaceAll("-", " ")}</span><strong>{item.count}</strong></div>
+                    <i style={{ width: `${Math.max(8, (item.count / (data.preheat.timelineNodes[0]?.count || 1)) * 100)}%` }} />
+                    <small>{String(index + 1).padStart(2, "0")}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </section>
+
           <section className="briefing-section">
             <div className="section-title">
-              <div><span className="section-index">01</span><h2>{t(language, "行动简报", "Action brief")}</h2></div>
+              <div><span className="section-index">04</span><h2>{t(language, "行动简报", "Action brief")}</h2></div>
               <p>
                 <span className={`insight-mode ${data.insightsMode}`}>
                   {data.insightsMode === "ai"
@@ -169,7 +254,7 @@ export default function InsightsPage() {
           <section className="insight-grid">
             <article className="panel chart-panel">
               <div className="panel-heading">
-                <span>02</span>
+                <span>05</span>
                 <div><h2>{t(language, "困惑主题排行", "Confusion topics")}</h2></div>
               </div>
               <div className="bar-list">
@@ -185,7 +270,7 @@ export default function InsightsPage() {
 
             <article className="panel category-panel">
               <div className="panel-heading">
-                <span>03</span>
+                <span>06</span>
                 <div><h2>{t(language, "高频问题类别", "Question categories")}</h2></div>
               </div>
               <div className="category-cloud">
@@ -202,7 +287,7 @@ export default function InsightsPage() {
 
           <section className="signal-section">
             <div className="section-title">
-              <div><span className="section-index">04</span><h2>{t(language, "发行机会信号", "Release opportunity signals")}</h2></div>
+              <div><span className="section-index">07</span><h2>{t(language, "发行机会信号", "Release opportunity signals")}</h2></div>
             </div>
             <div className="signal-list">
               {data.signals.map((signal) => (
@@ -221,7 +306,7 @@ export default function InsightsPage() {
 
           <section className="recommendation-section">
             <div className="section-title">
-              <div><span className="section-index">05</span><h2>{t(language, "FAQ / 内容调整建议", "FAQ / content recommendations")}</h2></div>
+              <div><span className="section-index">08</span><h2>{t(language, "FAQ / 内容调整建议", "FAQ / content recommendations")}</h2></div>
             </div>
             <div className="recommendation-grid">
               {data.recommendations.map((recommendation) => {
@@ -249,7 +334,7 @@ export default function InsightsPage() {
 
           <section className="evidence-drawer">
             <div>
-              <span className="section-index">06</span>
+              <span className="section-index">09</span>
               <div>
                 <h2>{t(language, "已授权问题样本", "Consented question samples")}</h2>
                 <p>{t(language, "仅显示已授权文本。", "Consented text only.")}</p>

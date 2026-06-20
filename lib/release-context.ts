@@ -1,5 +1,5 @@
 export const RELEASE_CONTEXT = {
-  asOfDate: "2026-06-19",
+  asOfDate: "2026-06-20",
   liveVersion: "月之七",
   liveVersionTitle: "空月之歌·行律",
   nextVersion: "月之八",

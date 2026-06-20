@@ -1,4 +1,5 @@
 import type { KnowledgeEntry, Language } from "@/lib/domain";
+import { gnosisKnowledgeEntries } from "@/data/gnosis-knowledge";
 
 const officialCharacterUrl =
   "https://genshin.hoyoverse.com/en/news/detail/157790";
@@ -352,7 +353,7 @@ const pairs: PairSeed[] = [
   },
 ];
 
-export const knowledgeEntries: KnowledgeEntry[] = pairs.flatMap((pair) =>
+const sandroneKnowledgeEntries: KnowledgeEntry[] = pairs.flatMap((pair) =>
   (["zh-CN", "en"] as Language[]).map((language) => {
     const localized = language === "zh-CN" ? pair.zh : pair.en;
     return {
@@ -373,3 +374,8 @@ export const knowledgeEntries: KnowledgeEntry[] = pairs.flatMap((pair) =>
     };
   }),
 );
+
+export const knowledgeEntries: KnowledgeEntry[] = [
+  ...sandroneKnowledgeEntries,
+  ...gnosisKnowledgeEntries,
+];

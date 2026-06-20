@@ -70,4 +70,36 @@ describe("controlled retrieval", () => {
     ).toBe(false);
     expect(result.entries).toHaveLength(0);
   });
+
+  it("retrieves the new Gnosis knowledge line for a preheat follow-up", () => {
+    const result = retrieveControlled({
+      question: "冰之女皇已经明确说过为什么收集神之心吗？",
+      language: "zh-CN",
+      progress: "fontaine",
+      spoilerPreference: "low",
+      focus: ["story", "overview"],
+    });
+
+    expect(
+      result.entries.some(
+        (entry) => entry.conceptId === "tsaritsa-plan-unknown",
+      ),
+    ).toBe(true);
+    expect(
+      result.entries.every((entry) => entry.language === "zh-CN"),
+    ).toBe(true);
+  });
+
+  it("retrieves the released Nod-Krai fate of the Pyro Gnosis", () => {
+    const result = retrieveControlled({
+      question: "月之七最后火神之心去了哪里？",
+      language: "zh-CN",
+      progress: "nodkrai",
+      spoilerPreference: "full",
+      focus: ["story"],
+    });
+
+    expect(result.entries[0]?.conceptId).toBe("gnosis-nodkrai");
+    expect(result.entries[0]?.summary).toContain("下落不明");
+  });
 });

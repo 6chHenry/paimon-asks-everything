@@ -1,29 +1,26 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowRight,
-  Compass,
-  Feather,
-  LockKeyhole,
-  Radar,
-} from "lucide-react";
-import { usePreferences } from "@/components/preferences-provider";
+import { Compass, Settings2, Sparkles } from "lucide-react";
 import { ChoiceGrid, Field } from "@/components/field";
+import { PreheatNote } from "@/components/preheat-note";
+import { usePreferences } from "@/components/preferences-provider";
+import { preheatTopics } from "@/data/preheat-topics";
 import type {
   Focus,
+  PreheatDepth,
   Profile,
   Progress,
-  SpoilerPreference,
 } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
 
 const profileDescriptions = {
-  new: ["解释术语与入口", "Terms and entry points"],
-  returning: ["只补真正需要的背景", "Only the context you need"],
-  story: ["人物、伏笔与证据", "People, threads, and evidence"],
-  exploration: ["机制解释与分层提示", "Mechanics and layered hints"],
-  casual: ["轻量理解核心卖点", "A lighter path to the highlights"],
+  new: ["先解释阵营和术语", "Explain factions and terms first"],
+  returning: ["只补进入至冬前的必要背景", "Only the context needed before Snezhnaya"],
+  story: ["展开证据、人物与伏笔", "Open evidence, characters, and threads"],
+  exploration: ["轻量理解大世界文本", "Light context from world text"],
+  casual: ["先看核心卖点", "Start with the main hook"],
 };
 
 export default function HomePage() {
@@ -31,29 +28,21 @@ export default function HomePage() {
   const { preferences, setPreferences } = usePreferences();
   const language = preferences.language;
   const isZh = language === "zh-CN";
-  const profileItems = (
-    Object.keys(labels.profile) as Profile[]
-  ).map((value) => ({
-    value,
-    label: labels.profile[value][language],
-    description: profileDescriptions[value][isZh ? 0 : 1],
-  }));
-  const progressItems = (
-    Object.keys(labels.progress) as Progress[]
-  ).map((value) => ({ value, label: labels.progress[value][language] }));
-  const spoilerItems = (
-    Object.keys(labels.spoiler) as SpoilerPreference[]
-  ).map((value) => ({
-    value,
-    label: labels.spoiler[value][language],
-    description:
-      value === "none"
-        ? t(language, "只给公共背景", "Public context only")
-        : value === "low"
-          ? t(language, "保留关键反转", "Protect major twists")
-          : t(language, "关键剧透仍会再确认", "Major twists still reconfirm"),
-  }));
+  const [topicId, setTopicId] = useState(preheatTopics[0].id);
+  const [depth, setDepth] = useState<PreheatDepth>("guided");
+  const topic =
+    preheatTopics.find((item) => item.id === topicId) ?? preheatTopics[0];
 
+  const profileItems = (Object.keys(labels.profile) as Profile[]).map(
+    (value) => ({
+      value,
+      label: labels.profile[value][language],
+      description: profileDescriptions[value][isZh ? 0 : 1],
+    }),
+  );
+  const progressItems = (Object.keys(labels.progress) as Progress[]).map(
+    (value) => ({ value, label: labels.progress[value][language] }),
+  );
   function toggleFocus(focus: Focus) {
     setPreferences((current) => {
       const exists = current.focus.includes(focus);
@@ -65,64 +54,104 @@ export default function HomePage() {
   }
 
   return (
-    <div className="home-page">
-      <section className="hero">
-        <div className="hero-copy reveal">
+    <div className="home-page preheat-home">
+      <section className="preheat-home-hero">
+        <div className="preheat-home-heading reveal">
           <span className="eyebrow">
-            <Feather size={14} />
-            {t(language, "旅行者，准备出发！", "Ready, Traveler?")}
+            <Sparkles size={14} />
+            {t(language, "主动版本预热", "Proactive release preheat")}
           </span>
-          <h1>
-            {t(language, "旧故事太多？", "Too much story to catch up on?")}
-            <em>{t(language, "派蒙帮你挑重点！", "Paimon will find the important bits!")}</em>
-          </h1>
-          <p>
-            {t(
-              language,
-              "选好进度和剧透偏好，我们马上开始！",
-              "Pick your progress and spoiler limit, then let’s go!",
-            )}
-          </p>
-          <div className="hero-principles">
-            <span><Compass size={17} />{t(language, "最小必要补课", "Minimum catch-up")}</span>
-            <span><LockKeyhole size={17} />{t(language, "剧透由你控制", "You control spoilers")}</span>
-            <span><Radar size={17} />{t(language, "问题沉淀为洞察", "Questions become insights")}</span>
-          </div>
+          <h2>
+            {t(language, "旧线索不是作业。", "Old clues are not homework.")}
+            <em>
+              {t(
+                language,
+                "派蒙把值得重看的那一条递给你。",
+                "Paimon hands you the one thread worth revisiting.",
+              )}
+            </em>
+          </h2>
         </div>
-        <div className="hero-orbit reveal delay-1" aria-hidden="true">
-          <div className="orbit-ring orbit-a" />
-          <div className="orbit-ring orbit-b" />
-          <img src="/compass-mark.svg" alt="" />
-          <span className="orbit-note note-a">EVIDENCE</span>
-          <span className="orbit-note note-b">NO SPOILERS</span>
-          <span className="orbit-note note-c">ZH / EN</span>
+        <div className="topic-rail reveal delay-1">
+          <span>{t(language, "本期可轮换主题", "Curated topic rotation")}</span>
+          {preheatTopics.map((item, index) => (
+            <button
+              type="button"
+              key={item.id}
+              className={item.id === topicId ? "active" : undefined}
+              onClick={() => setTopicId(item.id)}
+            >
+              <small>{String(index + 1).padStart(2, "0")}</small>
+              <strong>{isZh ? item.titleZh : item.titleEn}</strong>
+            </button>
+          ))}
         </div>
       </section>
 
-      <section className="setup-panel reveal delay-2">
-        <div className="setup-heading">
-          <div>
-            <span className="section-index">01</span>
-            <h2>{t(language, "旅行者，先选一下！", "A few quick choices, Traveler!")}</h2>
-          </div>
-        </div>
+      <section className="note-stage reveal delay-2">
+        <PreheatNote
+          topic={topic}
+          language={language}
+          selectedDepth={depth}
+          onSelectDepth={setDepth}
+          onStart={() =>
+            router.push(
+              `/preheat?topicId=${encodeURIComponent(topicId)}&depth=${depth}`,
+            )
+          }
+        />
+        <aside className="note-margin">
+          <Compass size={24} />
+          <strong>{t(language, "今日导览原则", "Today's guide rule")}</strong>
+          <p>
+            {t(
+              language,
+              "是否展开某国剧情，只看你是否完成该国主线；完整考据仅增加武器、圣遗物、物品和大世界文本，不会越过进度锁。",
+              "A nation's story opens only after you finish that nation's main quest. Research adds weapon, artifact, item, and world text, but never bypasses progress locks.",
+            )}
+          </p>
+        </aside>
+      </section>
 
-        <Field label={t(language, "你更像哪类玩家？", "What kind of player are you?")}>
-          <ChoiceGrid
-            items={profileItems}
-            value={preferences.profile}
-            onChange={(value) =>
-              setPreferences((current) => ({
-                ...current,
-                profile: value as Profile,
-              }))
-            }
-            columns={5}
-          />
-        </Field>
-
-        <div className="setup-split">
-          <Field label={t(language, "大致主线进度", "Approximate story progress")}>
+      <details className="traveler-settings">
+        <summary>
+          <span>
+            <Settings2 size={16} />
+            {t(language, "调整旅行者状态", "Adjust Traveler context")}
+          </span>
+          <small>
+            {labels.profile[preferences.profile][language]} ·{" "}
+            {labels.progress[preferences.progress][language]}
+          </small>
+        </summary>
+        <div className="settings-body">
+          <Field
+            label={t(language, "你更像哪类玩家？", "What kind of player are you?")}
+          >
+            <ChoiceGrid
+              items={profileItems}
+              value={preferences.profile}
+              onChange={(value) =>
+                setPreferences((current) => ({
+                  ...current,
+                  profile: value as Profile,
+                }))
+              }
+              columns={5}
+            />
+          </Field>
+          <Field
+            label={t(
+              language,
+              "你最新完成了哪个地区的主线？",
+              "Which region's main quest have you most recently completed?",
+            )}
+            hint={t(
+              language,
+              "后续地区的事件节点将保持锁定",
+              "Later-region event nodes remain locked",
+            )}
+          >
             <select
               value={preferences.progress}
               onChange={(event) =>
@@ -133,43 +162,31 @@ export default function HomePage() {
               }
             >
               {progressItems.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
               ))}
             </select>
           </Field>
-          <Field label={t(language, "默认剧透深度", "Default spoiler depth")}>
-            <ChoiceGrid
-              items={spoilerItems}
-              value={preferences.spoilerPreference}
-              onChange={(value) =>
-                setPreferences((current) => ({
-                  ...current,
-                  spoilerPreference: value as SpoilerPreference,
-                }))
-              }
-            />
+          <Field
+            label={t(language, "回答更关注什么？", "What should answers emphasize?")}
+            hint={t(language, "可以多选", "Choose more than one")}
+          >
+            <div className="focus-row">
+              {(Object.keys(labels.focus) as Focus[]).map((focus) => (
+                <button
+                  type="button"
+                  key={focus}
+                  className={
+                    preferences.focus.includes(focus) ? "pill active" : "pill"
+                  }
+                  onClick={() => toggleFocus(focus)}
+                >
+                  {labels.focus[focus][language]}
+                </button>
+              ))}
+            </div>
           </Field>
-        </div>
-
-        <Field
-          label={t(language, "回答更关注什么？", "What should answers emphasize?")}
-          hint={t(language, "可以多选", "Choose more than one")}
-        >
-          <div className="focus-row">
-            {(Object.keys(labels.focus) as Focus[]).map((focus) => (
-              <button
-                type="button"
-                key={focus}
-                className={preferences.focus.includes(focus) ? "pill active" : "pill"}
-                onClick={() => toggleFocus(focus)}
-              >
-                {labels.focus[focus][language]}
-              </button>
-            ))}
-          </div>
-        </Field>
-
-        <div className="consent-row">
           <label className="switch-label">
             <input
               type="checkbox"
@@ -183,17 +200,20 @@ export default function HomePage() {
             />
             <span className="switch" />
             <span>
-              <strong>{t(language, "保存这次问题", "Save this question")}</strong>
-              <small>{t(language, "关闭时只记录匿名分类。", "When off, only anonymous categories are recorded.")}</small>
+              <strong>
+                {t(language, "允许保存我主动提交的问题", "Allow saving questions I submit")}
+              </strong>
+              <small>
+                {t(
+                  language,
+                  "关闭时仍只记录匿名分类；预热点击不含原始文本。",
+                  "When off, only anonymous categories are stored; preheat clicks contain no raw text.",
+                )}
+              </small>
             </span>
           </label>
-          <button className="primary-button" type="button" onClick={() => router.push("/ask")}>
-            {t(language, "出发！", "Let’s go!")}
-            <ArrowRight size={18} />
-          </button>
         </div>
-      </section>
-
+      </details>
     </div>
   );
 }

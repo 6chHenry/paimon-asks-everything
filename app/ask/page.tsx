@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { ArrowUp, CircleAlert, LoaderCircle, Send, Stars } from "lucide-react";
+import Link from "next/link";
+import { FormEvent, useEffect, useState } from "react";
+import { ArrowLeft, ArrowUp, CircleAlert, LoaderCircle, Send, Stars } from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
 import { StatusBar } from "@/components/status-bar";
@@ -37,6 +38,16 @@ export default function AskPage() {
   const [traceCollapsed, setTraceCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [sourceTopicId, setSourceTopicId] = useState("");
+  const [sourceTimelineNodeId, setSourceTimelineNodeId] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const initialQuestion = params.get("question");
+    if (initialQuestion) setQuestion(initialQuestion);
+    setSourceTopicId(params.get("topicId") ?? "");
+    setSourceTimelineNodeId(params.get("timelineNodeId") ?? "");
+  }, []);
 
   async function submitRegularRequest(text: string, confirmationToken?: string) {
     const response = await fetch(
@@ -153,6 +164,20 @@ export default function AskPage() {
         </div>
         <StatusBar />
       </section>
+
+      {sourceTopicId ? (
+        <div className="ask-source-context">
+          <div>
+            <span>{t(language, "来自预热主题", "From preheat topic")}</span>
+            <strong>{sourceTopicId.replaceAll("-", " ")}</strong>
+            {sourceTimelineNodeId ? <small>{sourceTimelineNodeId.replaceAll("-", " ")}</small> : null}
+          </div>
+          <Link href={`/preheat?topicId=${encodeURIComponent(sourceTopicId)}&depth=guided`}>
+            <ArrowLeft size={14} />
+            {t(language, "返回事件链", "Back to event chain")}
+          </Link>
+        </div>
+      ) : null}
 
       <div className="ask-layout">
         <section className="conversation-panel">

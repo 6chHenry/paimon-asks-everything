@@ -24,6 +24,10 @@ export const labels = {
     sumeru: { "zh-CN": "须弥", en: "Sumeru" },
     fontaine: { "zh-CN": "枫丹", en: "Fontaine" },
     natlan: { "zh-CN": "纳塔", en: "Natlan" },
+    nodkrai: {
+      "zh-CN": "挪德卡莱（月之一至月之七）",
+      en: "Nod-Krai (Luna I–VII)",
+    },
   },
   spoiler: {
     none: { "zh-CN": "无剧透", en: "Spoiler-free" },

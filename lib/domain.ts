@@ -12,9 +12,15 @@ export type Progress =
   | "inazuma"
   | "sumeru"
   | "fontaine"
-  | "natlan";
+  | "natlan"
+  | "nodkrai";
 export type SpoilerPreference = "none" | "low" | "full";
 export type Focus = "story" | "character" | "gameplay" | "overview";
+export type PreheatDepth = "guided" | "research";
+export type PreheatInteractionKind =
+  | "depth_selected"
+  | "timeline_node_opened"
+  | "relation_node_opened";
 export type FactStatus =
   | "official_explicit"
   | "narrative_implied"
@@ -168,4 +174,65 @@ export interface QuestionEvent {
   sourceKind: "historical_sample" | "live_increment";
   questionText?: string;
   textConsent: boolean;
+}
+
+export interface PreheatTopic {
+  id: string;
+  titleZh: string;
+  titleEn: string;
+  introZh: string;
+  introEn: string;
+  heroConceptIds: string[];
+  depthConceptIds: Record<PreheatDepth, string[]>;
+  timelineNodeIds: string[];
+  relationGraphId: string;
+  suggestedQuestionsZh: string[];
+  suggestedQuestionsEn: string[];
+}
+
+export interface TimelineNode {
+  id: string;
+  region: Progress;
+  titleZh: string;
+  titleEn: string;
+  eventConceptIds: string[];
+  implicationConceptIds: string[];
+  participantIds: string[];
+  relationGraphId: string;
+}
+
+export interface RelationNode {
+  id: string;
+  labelZh: string;
+  labelEn: string;
+  kind: "person" | "faction" | "object" | "concept";
+  conceptIds: string[];
+}
+
+export interface RelationEdge {
+  id: string;
+  from: string;
+  to: string;
+  labelZh: string;
+  labelEn: string;
+  factStatus: FactStatus;
+  conceptIds: string[];
+}
+
+export interface RelationGraph {
+  id: string;
+  nodeIds: string[];
+  edges: RelationEdge[];
+}
+
+export interface PreheatInteractionEvent {
+  id: string;
+  occurredAt: string;
+  language: Language;
+  playerProfile: Profile;
+  topicId: string;
+  interactionKind: PreheatInteractionKind;
+  targetId: string;
+  depth?: PreheatDepth;
+  sourceKind: "historical_sample" | "live_increment";
 }

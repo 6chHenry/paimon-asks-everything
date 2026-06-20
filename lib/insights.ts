@@ -1,5 +1,6 @@
 import type {
   Language,
+  PreheatInteractionEvent,
   Profile,
   QuestionCategory,
   QuestionEvent,
@@ -111,6 +112,50 @@ const topicPlaybook: Record<
     strategyEn:
       "Add a cross-language terminology cheat sheet: one plain sentence per term plus when the player actually needs it.",
   },
+  gnosis_collection_purpose: {
+    labelZh: "愚人众收集神之心的目的",
+    labelEn: "Why the Fatui collect Gnoses",
+    needZh: "玩家能看见收集行动，却容易把“行动已确认”误读成“最终用途已公开”。",
+    needEn:
+      "Players can see the collection campaign but may mistake a confirmed action for a disclosed end purpose.",
+    strategyZh:
+      "制作“已知 / 未知”双栏卡：左侧只列已确认事件，右侧明确仍未公开的用途、代价与步骤。",
+    strategyEn:
+      "Publish a known/unknown card: confirmed events on the left, undisclosed use, cost, and procedure on the right.",
+  },
+  tsaritsa_goal: {
+    labelZh: "冰之女皇目标边界",
+    labelEn: "Boundaries of the Tsaritsa's goal",
+    needZh: "玩家正在区分女皇的公开立场、游戏文本暗示和社区终局猜想。",
+    needEn:
+      "Players are separating the Tsaritsa's public position, textual implications, and community endgame theories.",
+    strategyZh:
+      "把哀叙冰玉、苍白之火和主线事件放进证据阶梯，逐条标注“明确 / 暗示 / 推测”。",
+    strategyEn:
+      "Place Shivada Jade, Pale Flame, and Archon Quest events on an evidence ladder labeled explicit, implied, or speculative.",
+  },
+  gnosis_third_descender: {
+    labelZh: "神之心与第三降临者",
+    labelEn: "Gnoses and the Third Descender",
+    needZh: "玩家理解了神之心的材料来源，但仍需要知道这并没有直接公开女皇的使用方案。",
+    needEn:
+      "Players understand what the Gnoses are made from but still need the distinction that this does not reveal the Tsaritsa's use plan.",
+    strategyZh:
+      "增加一条短 FAQ：先回答“由什么制成”，再单列“这不能证明什么”。",
+    strategyEn:
+      "Add a short FAQ that answers what they are made from, followed by a distinct 'what this does not prove' section.",
+  },
+  gnosis_journey: {
+    labelZh: "各国神之心流转",
+    labelEn: "The journey of each Gnosis",
+    needZh: "玩家需要一条按地区排列、只包含确定事件的时间线。",
+    needEn:
+      "Players need a region-by-region timeline containing confirmed events only.",
+    strategyZh:
+      "发布六国神之心事件时间线，并把纳塔的“未确认取得”作为状态而不是补写结局。",
+    strategyEn:
+      "Publish a six-nation Gnosis timeline and show Natlan's 'not confirmed obtained' as a status rather than inventing an ending.",
+  },
 };
 
 function playbookFor(topic: string) {
@@ -173,7 +218,17 @@ function buildBriefingCards(events: QuestionEvent[]) {
   });
 }
 
-export function aggregateInsights(events: QuestionEvent[]) {
+const confusionTopicToPreheatTopic: Record<string, string> = {
+  gnosis_collection_purpose: "why-fatui-collect-gnoses",
+  gnosis_third_descender: "why-fatui-collect-gnoses",
+  gnosis_journey: "seven-gnosis-journeys",
+  tsaritsa_goal: "tsaritsa-known-unknown",
+};
+
+export function aggregateInsights(
+  events: QuestionEvent[],
+  preheatEvents: PreheatInteractionEvent[] = [],
+) {
   const languages = countBy<Language>(events, (event) => event.language);
   const profiles = countBy<Profile>(events, (event) => event.playerProfile);
   const categories = countBy<QuestionCategory>(
@@ -184,6 +239,67 @@ export function aggregateInsights(events: QuestionEvent[]) {
   const liveCount = events.filter(
     (event) => event.sourceKind === "live_increment",
   ).length;
+  const preheatTopics = Object.entries(
+    preheatEvents.reduce<Record<string, number>>((acc, event) => {
+      acc[event.topicId] = (acc[event.topicId] ?? 0) + 1;
+      return acc;
+    }, {}),
+  )
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count);
+  const preheatDepths = Object.entries(
+    preheatEvents
+      .filter((event) => event.interactionKind === "depth_selected")
+      .reduce<Record<string, number>>((acc, event) => {
+        const key = event.depth ?? event.targetId;
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {}),
+  )
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count);
+  const timelineInterest = Object.entries(
+    preheatEvents
+      .filter((event) => event.interactionKind === "timeline_node_opened")
+      .reduce<Record<string, number>>((acc, event) => {
+        acc[event.targetId] = (acc[event.targetId] ?? 0) + 1;
+        return acc;
+      }, {}),
+  )
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count);
+  const relationInterest = Object.entries(
+    preheatEvents
+      .filter((event) => event.interactionKind === "relation_node_opened")
+      .reduce<Record<string, number>>((acc, event) => {
+        acc[event.targetId] = (acc[event.targetId] ?? 0) + 1;
+        return acc;
+      }, {}),
+  )
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count);
+  const preheatLiveCount = preheatEvents.filter(
+    (event) => event.sourceKind === "live_increment",
+  ).length;
+  const interestVsConfusion = preheatTopics.map((topic) => {
+    const questionCount = events.filter(
+      (event) =>
+        confusionTopicToPreheatTopic[event.confusionTopic] === topic.key,
+    ).length;
+    return {
+      topicId: topic.key,
+      interestCount: topic.count,
+      questionCount,
+      state:
+        questionCount >= 4 && topic.count >= 8
+          ? ("high_interest_high_confusion" as const)
+          : topic.count >= 8
+            ? ("high_interest_low_confusion" as const)
+            : questionCount >= 4
+              ? ("low_interest_high_confusion" as const)
+              : ("emerging" as const),
+    };
+  });
   const lastUpdated =
     [...events]
       .sort(
@@ -285,9 +401,40 @@ export function aggregateInsights(events: QuestionEvent[]) {
     };
   });
 
+  const preheatLeader = interestVsConfusion[0];
+  if (preheatLeader) {
+    recommendations.push({
+      id: "rec-preheat-leader",
+      type: "release_note",
+      titleZh:
+        preheatLeader.state === "high_interest_high_confusion"
+          ? "为高兴趣节点补一张“已知 / 未知”内容卡"
+          : "把高兴趣节点扩展为预热 FAQ",
+      titleEn:
+        preheatLeader.state === "high_interest_high_confusion"
+          ? "Add a known/unknown card for the high-interest breakpoint"
+          : "Expand the high-interest node into a preheat FAQ",
+      bodyZh: `主题 ${preheatLeader.topicId} 获得 ${preheatLeader.interestCount} 次预热互动，并带来 ${preheatLeader.questionCount} 次相关追问。建议保持事件与动机边界，并由内容团队审核后发布。`,
+      bodyEn: `Topic ${preheatLeader.topicId} received ${preheatLeader.interestCount} preheat interactions and ${preheatLeader.questionCount} related questions. Preserve the event-versus-motive boundary and route the draft through content review.`,
+      signalId: signals[0]?.id ?? "preheat-interest",
+      status: "draft",
+    });
+  }
+
   return {
     total: events.length,
     liveCount,
+    historicalCount: events.length - liveCount,
+    preheat: {
+      total: preheatEvents.length,
+      historicalCount: preheatEvents.length - preheatLiveCount,
+      liveCount: preheatLiveCount,
+      topics: preheatTopics,
+      depths: preheatDepths,
+      timelineNodes: timelineInterest,
+      relationNodes: relationInterest,
+      interestVsConfusion,
+    },
     lastUpdated,
     briefingCards: buildBriefingCards(events),
     languages,

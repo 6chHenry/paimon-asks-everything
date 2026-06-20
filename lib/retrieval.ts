@@ -15,6 +15,7 @@ const progressRank: Record<Progress, number> = {
   sumeru: 4,
   fontaine: 5,
   natlan: 6,
+  nodkrai: 7,
 };
 
 const aliases: Record<string, string[]> = {
@@ -36,6 +37,18 @@ const aliases: Record<string, string[]> = {
   机关: ["puzzle", "mechanism", "解谜"],
   卡住: ["stuck", "hint", "解谜"],
   puzzle: ["解谜", "机关", "提示"],
+  神之心: ["gnosis", "gnoses", "神之心用途", "收集神之心"],
+  gnosis: ["神之心", "gnoses"],
+  gnoses: ["神之心", "gnosis"],
+  冰之女皇: ["女皇", "tsaritsa", "cryo archon"],
+  tsaritsa: ["冰之女皇", "女皇", "cryo archon"],
+  愚人众: ["fatui", "执行官", "harbinger"],
+  fatui: ["愚人众", "执行官", "harbinger"],
+  挪德卡莱: ["nod-krai", "nodkrai", "月之七"],
+  "nod-krai": ["挪德卡莱", "月之七"],
+  月之七: ["luna vii", "挪德卡莱"],
+  世界树: ["irminsul", "纳西妲", "博士"],
+  irminsul: ["世界树", "nahida", "dottore"],
 };
 
 const genericIntentTerms = new Set([
