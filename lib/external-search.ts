@@ -397,7 +397,7 @@ async function searchMediaWikiProvider(
   }
 
   for (const item of searchResults) {
-    if (extracts.get(item.pageid) || stripHtml(item.snippet)) continue;
+    if (extracts.get(item.pageid)) continue;
     try {
       const parsedExcerpt = await fetchParsedPageExcerpt(
         provider,
@@ -536,6 +536,33 @@ function expandedQueries(plan: SearchPlan, question: string, language: Language)
   const queries = [...plan.queries];
   const subject = plan.coreEntities[0] || plan.aliases[0];
   if (subject) {
+    const latinAlias = plan.aliases.find((alias) => /[a-z]/iu.test(alias));
+    const identityLike =
+      plan.intent === "identity" ||
+      /是谁|身份|是什么人|外星人|来自哪里|提瓦特之外|星海|who is|identity|alien|outside teyvat|origin/iu.test(
+        question,
+      );
+    if (identityLike) {
+      if (language === "zh-CN") {
+        queries.push(
+          `${subject} 提瓦特之外`,
+          `${subject} 星海 来源`,
+          `${subject} 身份 来历`,
+        );
+      } else {
+        queries.push(
+          `${latinAlias ?? subject} outside Teyvat`,
+          `${latinAlias ?? subject} alien origin`,
+          `${latinAlias ?? subject} identity origin`,
+        );
+      }
+      if (latinAlias) {
+        queries.push(
+          `${latinAlias} outside Teyvat`,
+          `${latinAlias} alien origin`,
+        );
+      }
+    }
     queries.push(
       language === "zh-CN"
         ? `site:baike.mihoyo.com/ys/obc ${subject}`
@@ -742,9 +769,39 @@ function makeWebCitation({
   ];
 }
 
+function shouldFetchReadablePage(citation: Citation) {
+  try {
+    const parsed = new URL(citation.url);
+    const hostname = parsed.hostname.replace(/^www\./, "").toLowerCase();
+    if (
+      hostname === "search.yahoo.com" ||
+      hostname === "html.duckduckgo.com" ||
+      hostname.endsWith(".google.com") ||
+      hostname === "google.com"
+    ) {
+      return false;
+    }
+    return /^https?:$/iu.test(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+function looksLikeHtmlResponse(contentType: string | null, body: string) {
+  if (/text\/html|application\/xhtml\+xml/iu.test(contentType ?? "")) {
+    return true;
+  }
+  const trimmed = body.trimStart().slice(0, 500).toLowerCase();
+  return (
+    trimmed.startsWith("<!doctype html") ||
+    trimmed.startsWith("<html") ||
+    /<(?:main|article|section|p|div|body)\b/iu.test(trimmed)
+  );
+}
+
 async function enrichWebCitationUncached(
   citation: Citation,
-  signal?: AbortSignal,
+  options: { signal?: AbortSignal; question?: string } = {},
 ) {
   let platform = platformForUrl(citation.url);
   const hostname = (() => {
@@ -755,19 +812,12 @@ async function enrichWebCitationUncached(
     }
   })();
   const shortLink = hostname === "hoyo.link";
-  if (
-    !shortLink &&
-    (!platform.platform ||
-      (platform.platform !== "bilibili" &&
-        platform.platform !== "youtube" &&
-        platform.platform !== "miyoushe" &&
-        platform.platform !== "hoyolab"))
-  ) {
+  if (!shortLink && !shouldFetchReadablePage(citation)) {
     return citation;
   }
   try {
     const response = await fetchExternal(new URL(citation.url), {
-      signal: boundedSignal(signal, 6_000),
+      signal: boundedSignal(options.signal, 6_000),
       headers: {
         "User-Agent": "Mozilla/5.0 PaimonAsksEverythingDemo/0.1",
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.7",
@@ -775,19 +825,28 @@ async function enrichWebCitationUncached(
     });
     if (!response.ok) return citation;
     const html = (await response.text()).slice(0, 800_000);
+    if (!looksLikeHtmlResponse(response.headers.get("Content-Type"), html)) {
+      return citation;
+    }
     const finalUrl = response.url || citation.url;
     platform = platformForUrl(finalUrl);
     const identity = extractPublisherIdentity(finalUrl, html);
+    const pageExcerpt = focusedExcerpt(
+      htmlToText(html),
+      options.question || `${citation.title} ${citation.excerpt}`,
+    );
+    const excerpt = pageExcerpt || citation.excerpt;
     const assessment = assessSourceRule({
       url: finalUrl,
       title: citation.title,
-      excerpt: citation.excerpt,
+      excerpt,
       pageHtml: html,
     });
     const legacy = legacySourceFields(assessment);
     return {
       ...citation,
       url: finalUrl,
+      excerpt,
       sourceName:
         assessment.platformKind === "official_site"
           ? finalUrl.includes("mihoyo.com")
@@ -821,14 +880,21 @@ async function enrichWebCitationUncached(
   }
 }
 
-async function enrichWebCitation(citation: Citation, signal?: AbortSignal) {
+async function enrichWebCitation(
+  citation: Citation,
+  options: { signal?: AbortSignal; question?: string } = {},
+) {
   if (process.env.NODE_ENV === "test") {
-    return enrichWebCitationUncached(citation, signal);
+    return enrichWebCitationUncached(citation, options);
   }
-  const cacheKey = citation.url.trim().toLowerCase();
+  const cacheKey = `${citation.url.trim().toLowerCase()}::${(
+    options.question ?? ""
+  )
+    .trim()
+    .toLowerCase()}`;
   const cached = pageEnrichmentCache.get(cacheKey);
   if (cached) return { ...cached, id: citation.id };
-  const enriched = await enrichWebCitationUncached(citation, signal);
+  const enriched = await enrichWebCitationUncached(citation, options);
   pageEnrichmentCache.set(cacheKey, enriched);
   return enriched;
 }
@@ -914,7 +980,12 @@ export async function searchGeneralWeb(
   const enriched = await Promise.allSettled(
     citations
       .slice(0, 8)
-      .map((citation) => enrichWebCitation(citation, options.signal)),
+      .map((citation) =>
+        enrichWebCitation(citation, {
+          signal: options.signal,
+          question: query,
+        }),
+      ),
   );
   const output = enriched.flatMap((result) =>
     result.status === "fulfilled" ? [result.value] : [],
@@ -1017,7 +1088,9 @@ export async function searchWebEvidence(
   const selectedCandidates = [...uniqueCandidates.values()].slice(0, 8);
   const enrichedCandidates = enrich
     ? await Promise.allSettled(
-        selectedCandidates.map((citation) => enrichWebCitation(citation)),
+        selectedCandidates.map((citation) =>
+          enrichWebCitation(citation, { question }),
+        ),
       )
     : selectedCandidates.map(
         (citation) =>
