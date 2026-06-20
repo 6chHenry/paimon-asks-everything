@@ -273,6 +273,17 @@ function preferReviewedEvidence(citations: Citation[]) {
       citation.assessment?.authority === "official" ||
       citation.assessment?.authority === "curated_reference",
   );
+  const reliableGameText = reliable.filter(
+    (citation) => citation.assessment?.contentKind === "game_text_reference",
+  );
+  if (reliableGameText.length) {
+    return citations.filter(
+      (citation) =>
+        citation.assessment?.authority === "official" ||
+        citation.assessment?.authority === "curated_reference" ||
+        citation.assessment?.contentKind === "game_text_reference",
+    );
+  }
   if (reliable.length < 2) return citations;
   return citations.filter(
     (citation) =>

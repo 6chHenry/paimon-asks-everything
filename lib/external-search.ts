@@ -260,22 +260,63 @@ function htmlToText(value: string) {
 
 function basicTerms(question: string) {
   return question
+    .replace(
+      /是不是|是否|是谁|是什么|为什么|怎么|如何|有没有|讲了什么|关系|是|吗|呢|了|的/gu,
+      " ",
+    )
     .split(/[\s,，、/？?。.!;；:：()（）]+/u)
-    .map((term) => term.trim().toLowerCase())
+    .map((term) => normalizeChineseVariants(term.trim()).toLowerCase())
     .filter((term) => term.length >= 2);
+}
+
+function normalizedExcerptText(value: string) {
+  return normalizeChineseVariants(value).normalize("NFKC").toLowerCase();
+}
+
+function excerptTermCoverage(text: string, question: string) {
+  const normalized = normalizedExcerptText(text);
+  const terms = basicTerms(question);
+  return terms.filter((term) => normalized.includes(term)).length;
+}
+
+function excerptQueryScore(text: string, question: string) {
+  const normalized = normalizedExcerptText(text);
+  return basicTerms(question).reduce((score, term, index) => {
+    if (!normalized.includes(term)) return score;
+    return score + term.length + (index === 0 ? 2 : 8);
+  }, 0);
 }
 
 function focusedExcerpt(text: string, question: string) {
   const normalized = text.replace(/\s+/g, " ").trim();
   if (!normalized) return "";
-  const lower = normalized.toLowerCase();
+  const lower = normalizedExcerptText(normalized);
   const terms = basicTerms(question);
-  const index = terms
-    .map((term) => lower.indexOf(term))
-    .filter((item) => item >= 0)
-    .sort((a, b) => a - b)[0];
-  const start = Math.max(0, (index ?? 0) - 450);
-  return normalized.slice(start, start + 900).trim();
+  const starts = terms
+    .flatMap((term) => {
+      const first = lower.indexOf(term);
+      const last = lower.lastIndexOf(term);
+      return [first, last].filter((index) => index >= 0);
+    });
+  if (!starts.length) return normalized.slice(0, 900).trim();
+  const candidates = starts.map((index) => {
+    const start = Math.max(0, index - 180);
+    const excerpt = normalized.slice(start, start + 900).trim();
+    return {
+      excerpt,
+      index,
+      score: excerptQueryScore(excerpt, question),
+    };
+  });
+  candidates.sort((a, b) => b.score - a.score || a.index - b.index);
+  return candidates[0]?.excerpt ?? "";
+}
+
+function shouldFetchParsedExcerpt(excerpt: string | undefined, question: string) {
+  if (!excerpt) return true;
+  const terms = basicTerms(question);
+  if (terms.length <= 1) return false;
+  return excerptTermCoverage(excerpt, question) < Math.min(2, terms.length);
 }
 
 async function fetchParsedPageExcerpt(
@@ -351,7 +392,7 @@ async function searchMediaWikiProvider(
   endpoint.searchParams.set("action", "query");
   endpoint.searchParams.set("list", "search");
   endpoint.searchParams.set("srsearch", question);
-  endpoint.searchParams.set("srlimit", "3");
+  endpoint.searchParams.set("srlimit", "5");
   endpoint.searchParams.set("format", "json");
   endpoint.searchParams.set("origin", "*");
 
@@ -397,14 +438,21 @@ async function searchMediaWikiProvider(
   }
 
   for (const item of searchResults) {
-    if (extracts.get(item.pageid)) continue;
+    const existing = extracts.get(item.pageid);
+    if (!shouldFetchParsedExcerpt(existing, question)) continue;
     try {
       const parsedExcerpt = await fetchParsedPageExcerpt(
         provider,
         item.pageid,
         question,
       );
-      if (parsedExcerpt) extracts.set(item.pageid, parsedExcerpt);
+      if (
+        parsedExcerpt &&
+        excerptQueryScore(parsedExcerpt, question) >
+          excerptQueryScore(existing ?? "", question)
+      ) {
+        extracts.set(item.pageid, parsedExcerpt);
+      }
     } catch {
       // Search result title remains available as a degraded fallback.
     }
@@ -500,7 +548,11 @@ export function entityRelevanceScore(citation: Citation, plan: SearchPlan) {
   return matchScore + allCoreBonus;
 }
 
-function passesEntityGate(citation: Citation, plan: SearchPlan) {
+function passesEntityGate(
+  citation: Citation,
+  plan: SearchPlan,
+  question: string,
+) {
   if (!plan.coreEntities.length) return true;
   const titleOrUrlMatch = [...plan.coreEntities, ...plan.aliases].some(
     (entity) =>
@@ -512,7 +564,11 @@ function passesEntityGate(citation: Citation, plan: SearchPlan) {
     plan.intent === "current_status" ||
     plan.intent === "official_media"
   ) {
-    return titleOrUrlMatch;
+    return (
+      titleOrUrlMatch ||
+      (Boolean(identityClaimQueryPattern(question)) &&
+        entityRelevanceScore(citation, plan) >= 30)
+    );
   }
   const excerptThreshold = plan.intent === "relationship" ? 60 : 30;
   return titleOrUrlMatch || entityRelevanceScore(citation, plan) >= excerptThreshold;
@@ -548,18 +604,26 @@ function expandedQueries(plan: SearchPlan, question: string, language: Language)
           `${subject} 提瓦特之外`,
           `${subject} 星海 来源`,
           `${subject} 身份 来历`,
+          `${subject} 传说任务 剧情文本`,
+          `${subject} 传说任务 星球`,
+          `${subject} 剧情 世界边界`,
         );
       } else {
         queries.push(
           `${latinAlias ?? subject} outside Teyvat`,
           `${latinAlias ?? subject} alien origin`,
           `${latinAlias ?? subject} identity origin`,
+          `${latinAlias ?? subject} story quest origin`,
+          `${latinAlias ?? subject} quest text`,
         );
       }
       if (latinAlias) {
         queries.push(
           `${latinAlias} outside Teyvat`,
           `${latinAlias} alien origin`,
+          `${latinAlias} not from Teyvat different planet`,
+          `${latinAlias} different planet story quest`,
+          `${latinAlias} story quest transcript`,
         );
       }
     }
@@ -600,7 +664,7 @@ function expandedQueries(plan: SearchPlan, question: string, language: Language)
   }
   return Array.from(new Set(queries.map((query) => cleanSearchValue(query)))).slice(
     0,
-    8,
+    16,
   );
 }
 
@@ -624,6 +688,28 @@ function storyIntentScore(citation: Citation, plan: SearchPlan) {
   return patterns.reduce((score, pattern) => score + (pattern.test(text) ? 25 : 0), 0);
 }
 
+function identityClaimQueryPattern(question: string) {
+  if (/外星人|提瓦特之外|世界之外|星海|outside\s+teyvat|alien|otherworld|beyond\s+teyvat/iu.test(question)) {
+    return /外星人|提瓦特之外|非提瓦特|世界之外|世界边界|星海|星球|宇宙|outside\s+teyvat|not\s+from\s+teyvat|different\s+planet|another\s+planet|border\s+between\s+worlds|alien|otherworld|beyond\s+teyvat/iu;
+  }
+  if (/身份|来历|来源|来自哪里|origin|identity|where.*from/iu.test(question)) {
+    return /身份|来历|来源|来自|origin|identity|from/iu;
+  }
+  return null;
+}
+
+function identityClaimScore(citation: Citation, question: string, plan: SearchPlan) {
+  if (plan.intent !== "identity" && plan.intent !== "current_status") return 0;
+  const pattern = identityClaimQueryPattern(question);
+  if (!pattern) return 0;
+  const text = `${citation.title} ${citation.excerpt}`;
+  if (!pattern.test(text)) return 0;
+  return citation.assessment?.authority === "curated_reference" ||
+    citation.assessment?.authority === "official"
+    ? 180
+    : 90;
+}
+
 function dedupeAndRank(
   citations: Citation[],
   plan: SearchPlan,
@@ -635,7 +721,7 @@ function dedupeAndRank(
     if (!deduped.has(key)) deduped.set(key, citation);
   }
   return [...deduped.values()]
-    .filter((citation) => passesEntityGate(citation, plan))
+    .filter((citation) => passesEntityGate(citation, plan, question))
     .filter((citation) =>
       sourceAllowedForQuestion(citation, { question, plan }),
     )
@@ -648,6 +734,9 @@ function dedupeAndRank(
       const aRank = credibilityRank[a.credibility ?? "unknown_web"];
       const bRank = credibilityRank[b.credibility ?? "unknown_web"];
       const storyDifference = storyIntentScore(b, plan) - storyIntentScore(a, plan);
+      const claimDifference =
+        identityClaimScore(b, question, plan) -
+        identityClaimScore(a, question, plan);
       const lexicalDifference =
         lexicalRelevanceScore(b, plan) - lexicalRelevanceScore(a, plan);
       if (plan.intent === "story") {
@@ -660,8 +749,19 @@ function dedupeAndRank(
           a.title.localeCompare(b.title)
         );
       }
+      if (identityClaimQueryPattern(question)) {
+        return (
+          claimDifference ||
+          governanceDifference ||
+          entityDifference ||
+          bRank - aRank ||
+          lexicalDifference ||
+          a.title.localeCompare(b.title)
+        );
+      }
       return (
         governanceDifference ||
+        claimDifference ||
         entityDifference ||
         bRank - aRank ||
         lexicalDifference ||
@@ -1013,17 +1113,17 @@ function tieredQueries(plan: SearchPlan, question: string, language: Language) {
   ).slice(0, 3);
   const remaining = all.filter((query) => !first.includes(query));
   const second =
-    plan.intent === "story"
+    plan.intent === "story" || plan.intent === "identity"
       ? [
           ...remaining.filter((query) =>
-            /剧情文本|任务对白|角色故事|story quest|transcript|quest plot/iu.test(
+            /剧情文本|任务对白|角色故事|传说任务|提瓦特之外|星海|星球|世界边界|outside\s+teyvat|not\s+from\s+teyvat|different\s+planet|alien\s+origin|story quest|transcript|quest plot|quest text/iu.test(
               query,
             ),
           ),
           ...remaining,
         ].filter((query, index, values) => values.indexOf(query) === index)
       : remaining;
-  return { first, second: second.slice(0, 2), entityLookup };
+  return { first, second: second.slice(0, 14), entityLookup };
 }
 
 export async function searchWebEvidence(
@@ -1039,6 +1139,7 @@ export async function searchWebEvidence(
     detail: question,
   });
   const tiers = tieredQueries(plan, question, language);
+  const planEntities = [...plan.coreEntities, ...plan.aliases];
   const runQueries = async (queries: string[]) =>
     Promise.allSettled(
       queries.map(async (query) => {
@@ -1049,10 +1150,18 @@ export async function searchWebEvidence(
         detail: query,
       });
       const siteRestricted = /^site:/iu.test(query);
+      const queryRetainsEntity =
+        !tiers.entityLookup ||
+        query === tiers.entityLookup ||
+        planEntities.some((entity) => includesEntity(query, entity));
       const wikiEligible =
         !siteRestricted &&
-        (!tiers.entityLookup ||
-          query === tiers.entityLookup ||
+        queryRetainsEntity &&
+        (query === tiers.entityLookup ||
+          plan.intent === "identity" ||
+          plan.intent === "current_status" ||
+          plan.intent === "relationship" ||
+          plan.intent === "general" ||
           (plan.intent === "story" &&
             /剧情文本|任务对白|角色故事|story quest|transcript|quest plot|duel before the throne/iu.test(
               query,
@@ -1085,7 +1194,11 @@ export async function searchWebEvidence(
     const key = `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`;
     if (!uniqueCandidates.has(key)) uniqueCandidates.set(key, citation);
   }
-  const selectedCandidates = [...uniqueCandidates.values()].slice(0, 8);
+  const selectedCandidates = dedupeAndRank(
+    [...uniqueCandidates.values()],
+    plan,
+    question,
+  ).slice(0, 16);
   const enrichedCandidates = enrich
     ? await Promise.allSettled(
         selectedCandidates.map((citation) =>
@@ -1103,34 +1216,14 @@ export async function searchWebEvidence(
     { question, plan, useModel },
   );
   };
-  const enoughEvidence = (ranked: Citation[]) => {
-    const authoritative = ranked.filter(
-      (citation) =>
-        citation.assessment?.authority === "official" ||
-        citation.assessment?.authority === "curated_reference",
-    );
-    if (
-      plan.intent === "story" &&
-      !ranked.some((citation) => storyIntentScore(citation, plan) > 0)
-    ) {
-      return false;
-    }
-    if (authoritative.some((citation) => citation.assessment?.authority === "official")) {
-      return true;
-    }
-    return ranked.length >= 3 && authoritative.length >= 2;
-  };
   const firstResults = await runQueries(tiers.first);
-  let candidates = collectCandidates(firstResults);
-  let assessed = await assessCandidates(candidates, false, false);
-  let ranked = dedupeAndRank(assessed, plan, question).slice(0, 8);
-  const firstRoundEnough = enoughEvidence(ranked);
-  if (!firstRoundEnough && tiers.second.length) {
-    const secondResults = await runQueries(tiers.second);
-    candidates = [...candidates, ...collectCandidates(secondResults)];
-    assessed = await assessCandidates(candidates, true, true);
-    ranked = dedupeAndRank(assessed, plan, question).slice(0, 8);
-  }
+  const secondResults = tiers.second.length ? await runQueries(tiers.second) : [];
+  const candidates = [
+    ...collectCandidates(firstResults),
+    ...collectCandidates(secondResults),
+  ];
+  const assessed = await assessCandidates(candidates, true, true);
+  const ranked = dedupeAndRank(assessed, plan, question).slice(0, 8);
   await emitTrace(options.emitTrace, {
     stage: "search",
     status: ranked.length ? "complete" : "skipped",

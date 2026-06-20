@@ -552,6 +552,220 @@ describe("whitelisted external search", () => {
     expect(results[0]?.excerpt).toContain("提瓦特之外");
   });
 
+  it("searches wiki providers for identity claim expansions instead of stopping at profile pages", async () => {
+    const wikiQueries: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "html.duckduckgo.com" || url.hostname === "search.yahoo.com") {
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        const pageIds = url.searchParams.get("pageids") ?? "";
+        return new Response(
+          JSON.stringify({
+            query: {
+              pages: Object.fromEntries(
+                pageIds.split("|").filter(Boolean).map((pageid) => [
+                  pageid,
+                  { pageid: Number(pageid), extract: "" },
+                ]),
+              ),
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (url.searchParams.get("action") === "parse") {
+        const pageid = url.searchParams.get("pageid");
+        return new Response(
+          JSON.stringify({
+            parse: {
+              pageid: Number(pageid),
+              title: pageid === "3002" ? "丝柯克" : "Skirk/Profile",
+              text: {
+                "*":
+                  pageid === "3002"
+                    ? "<p>丝柯克来自提瓦特之外，她的经历与星海、深渊和苏尔特洛奇有关。</p>"
+                    : "<p>Skirk wanders Teyvat like a shadow and avoids contact with people.</p>",
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (url.searchParams.get("list") === "search") {
+        const query = url.searchParams.get("srsearch") ?? "";
+        wikiQueries.push(query);
+        if (query.includes("提瓦特之外")) {
+          return new Response(
+            JSON.stringify({
+              query: {
+                search: [
+                  {
+                    title: "丝柯克",
+                    snippet: "丝柯克来自提瓦特之外。",
+                    pageid: 3002,
+                  },
+                ],
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (query === "丝柯克" || query === "Skirk") {
+          return new Response(
+            JSON.stringify({
+              query: {
+                search: [
+                  {
+                    title: "Skirk/Profile",
+                    snippet:
+                      "She wanders Teyvat like a shadow, avoiding contact with people.",
+                    pageid: 3001,
+                  },
+                ],
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+      }
+      return new Response(JSON.stringify({ query: { search: [] } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence("丝柯克是外星人吗", "zh-CN", {
+      plan: {
+        coreEntities: ["丝柯克"],
+        aliases: ["Skirk"],
+        intent: "identity",
+        queries: ["丝柯克是外星人吗"],
+      },
+    });
+
+    expect(wikiQueries.some((query) => query.includes("提瓦特之外"))).toBe(true);
+    expect(results[0]?.title).toBe("丝柯克");
+    expect(results[0]?.excerpt).toContain("提瓦特之外");
+    expect(results[0]?.title).not.toBe("Skirk/Profile");
+  });
+
+  it("keeps trusted quest text pages for identity claims even when the page title is not the character name", async () => {
+    const searchedQueries: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "html.duckduckgo.com") {
+        const query = url.searchParams.get("q") ?? "";
+        searchedQueries.push(query);
+        if (query.includes("传说任务") || query.includes("星球")) {
+          return new Response(
+            `<a class="result__a" href="https://wiki.biligame.com/ys/%E6%98%9F%E4%B8%8E%E5%A4%9C%E7%9A%84%E4%BD%8E%E8%AF%AD">星与夜的低语 - 原神WIKI_BWIKI</a>
+             <div class="result__snippet">丝柯克传说任务剧情文本提到她来自遥远的星球。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", { status: 200 });
+      }
+      if (url.hostname === "search.yahoo.com") {
+        return new Response("", { status: 200 });
+      }
+      if (
+        url.hostname === "wiki.biligame.com" &&
+        !url.searchParams.has("action") &&
+        decodeURIComponent(url.pathname).includes("星与夜的低语")
+      ) {
+        return new Response(
+          `<main>
+            <h1>星与夜的低语</h1>
+            <p>任务剧情中，丝柯克回忆自己的故乡并非提瓦特，而是来自另一个遥远的星球。</p>
+            <p>极恶骑打开了提瓦特的世界边界，把她送进了提瓦特。</p>
+          </main>`,
+          { status: 200, headers: { "Content-Type": "text/html" } },
+        );
+      }
+      if (url.hostname === "wiki.biligame.com" && !url.searchParams.has("action")) {
+        return new Response("<main><p>丝柯克是角色页面，欢迎来到原神WIKI。</p></main>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        const pageIds = url.searchParams.get("pageids") ?? "";
+        return new Response(
+          JSON.stringify({
+            query: {
+              pages: Object.fromEntries(
+                pageIds.split("|").filter(Boolean).map((pageid) => [
+                  pageid,
+                  {
+                    pageid: Number(pageid),
+                    extract: "丝柯克是角色页面，欢迎来到原神WIKI。",
+                  },
+                ]),
+              ),
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (url.searchParams.get("action") === "parse") {
+        return new Response(
+          JSON.stringify({
+            parse: {
+              text: {
+                "*": "<p>丝柯克是角色页面，欢迎来到原神WIKI。</p>",
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (url.searchParams.get("list") === "search") {
+        return new Response(
+          JSON.stringify({
+            query: {
+              search: [
+                {
+                  title: "丝柯克",
+                  snippet: "欢迎来到原神WIKI。",
+                  pageid: 3001,
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response(JSON.stringify({ query: { search: [] } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence("丝柯克是外星人吗", "zh-CN", {
+      plan: {
+        coreEntities: ["丝柯克"],
+        aliases: ["Skirk"],
+        intent: "identity",
+        queries: ["丝柯克是外星人吗"],
+      },
+    });
+
+    expect(searchedQueries.some((query) => query.includes("传说任务"))).toBe(true);
+    expect(results[0]).toMatchObject({
+      title: "星与夜的低语 - 原神WIKI_BWIKI",
+      sourceKind: "trusted_wiki",
+      credibility: "trusted_wiki",
+    });
+    expect(results[0]?.excerpt).toContain("另一个遥远的星球");
+  });
+
   it("matches simplified Chinese questions to traditional Chinese wiki titles", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
