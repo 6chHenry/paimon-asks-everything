@@ -57,6 +57,54 @@ describe("whitelisted external search", () => {
     expect(results[0]?.factStatus).toBe("trusted_secondary");
   });
 
+  it("falls through to parsed wiki page text when extracts are empty even if snippets exist", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.searchParams.get("action") === "parse") {
+        return new Response(
+          JSON.stringify({
+            parse: {
+              pageid: 3001,
+              title: "Skirk",
+              text: {
+                "*": "<p>Skirk is a powerful warrior from beyond Teyvat. Her origin is tied to the stars and the Abyss.</p>",
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(
+          JSON.stringify({
+            query: { pages: { "3001": { pageid: 3001, extract: "" } } },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          query: {
+            search: [
+              {
+                title: "Skirk",
+                snippet: "search snippet only",
+                pageid: 3001,
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWhitelistedWiki("Skirk origin", "en");
+
+    expect(results[0]?.excerpt).toContain("beyond Teyvat");
+    expect(results[0]?.excerpt).not.toContain("search snippet only");
+  });
+
   it("classifies source credibility without calling trusted wikis official", () => {
     expect(
       classifyWebSource("https://www.hoyoverse.com/en-us/news/101566"),
@@ -404,6 +452,104 @@ describe("whitelisted external search", () => {
     expect(results[0]?.title).toContain("爱可菲");
     expect(results[0]?.sourceKind).toBe("community");
     expect(results[0]?.excerpt).toContain("身份背景");
+  });
+
+  it("opens general web results and promotes page body passages over search snippets", async () => {
+    const fetchedUrls: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      fetchedUrls.push(url.toString());
+      if (url.hostname === "html.duckduckgo.com") {
+        return new Response(
+          `<a class="result__a" href="https://example.com/skirk-origin">丝柯克是外星人吗？</a>
+           <div class="result__snippet">这里只是搜索摘要，没有足够证据。</div>`,
+          { status: 200, headers: { "Content-Type": "text/html" } },
+        );
+      }
+      if (url.hostname === "example.com") {
+        return new Response(
+          `<html><head><title>丝柯克来源考据</title></head>
+           <body><main><p>丝柯克是来自提瓦特之外的强大战士，这一点在剧情资料中已有明确说明。她的身份与星海、深渊和苏尔特洛奇相关。</p></main></body></html>`,
+          { status: 200, headers: { "Content-Type": "text/html" } },
+        );
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(JSON.stringify({ query: { pages: {} } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ query: { search: [] } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence("丝柯克是外星人吗", "zh-CN", {
+      plan: {
+        coreEntities: ["丝柯克"],
+        aliases: ["Skirk"],
+        intent: "identity",
+        queries: ["丝柯克 外星人", "丝柯克 提瓦特之外"],
+      },
+    });
+
+    expect(fetchedUrls.some((url) => url === "https://example.com/skirk-origin")).toBe(
+      true,
+    );
+    expect(results[0]?.excerpt).toContain("提瓦特之外");
+    expect(results[0]?.excerpt).not.toContain("这里只是搜索摘要");
+  });
+
+  it("expands identity claim questions into claim-bearing web searches", async () => {
+    const searchedQueries: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "html.duckduckgo.com") {
+        const query = url.searchParams.get("q") ?? "";
+        searchedQueries.push(query);
+        if (query.includes("提瓦特之外")) {
+          return new Response(
+            `<a class="result__a" href="https://example.com/skirk-beyond-teyvat">丝柯克来自提瓦特之外</a>
+             <div class="result__snippet">丝柯克的身份与提瓦特之外、星海和深渊有关。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", { status: 200 });
+      }
+      if (url.hostname === "example.com") {
+        return new Response(
+          `<main><p>丝柯克来自提瓦特之外，并非普通的提瓦特本土角色；资料将她与星海和深渊联系起来。</p></main>`,
+          { status: 200, headers: { "Content-Type": "text/html" } },
+        );
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(JSON.stringify({ query: { pages: {} } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ query: { search: [] } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence("丝柯克是外星人吗", "zh-CN", {
+      plan: {
+        coreEntities: ["丝柯克"],
+        aliases: ["Skirk"],
+        intent: "identity",
+        queries: ["丝柯克是外星人吗"],
+      },
+    });
+
+    expect(searchedQueries.some((query) => query.includes("提瓦特之外"))).toBe(
+      true,
+    );
+    expect(results[0]?.excerpt).toContain("提瓦特之外");
   });
 
   it("matches simplified Chinese questions to traditional Chinese wiki titles", async () => {
