@@ -258,8 +258,16 @@ function htmlToText(value: string) {
   ).replace(/\s+/g, " ");
 }
 
+function cjkBigrams(value: string) {
+  const bigrams: string[] = [];
+  for (let i = 0; i <= value.length - 2; i += 1) {
+    bigrams.push(value.slice(i, i + 2));
+  }
+  return bigrams;
+}
+
 function basicTerms(question: string) {
-  return question
+  const terms = question
     .replace(
       /是不是|是否|是谁|是什么|为什么|怎么|如何|有没有|讲了什么|关系|是|吗|呢|了|的/gu,
       " ",
@@ -267,6 +275,16 @@ function basicTerms(question: string) {
     .split(/[\s,，、/？?。.!;；:：()（）]+/u)
     .map((term) => normalizeChineseVariants(term.trim()).toLowerCase())
     .filter((term) => term.length >= 2);
+  const expanded: string[] = [];
+  for (const term of terms) {
+    expanded.push(term);
+    if (/^[\p{Script=Han}]{4,}$/u.test(term)) {
+      for (const bigram of cjkBigrams(term)) {
+        expanded.push(bigram);
+      }
+    }
+  }
+  return Array.from(new Set(expanded));
 }
 
 function normalizedExcerptText(value: string) {
