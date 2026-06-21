@@ -1,0 +1,396 @@
+import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import {
+  buildRelationshipQuestion,
+  evidenceTierLabel,
+  initialSnezhnayaNodeId,
+  validateSnezhnayaGraph,
+  type SnezhnayaGraphData,
+} from "@/lib/snezhnaya-graph";
+import { snezhnayaGraph } from "@/data/snezhnaya-graph";
+
+const sampleGraph: SnezhnayaGraphData = {
+  video: {
+    title: {
+      "zh-CN": "至冬生态短片",
+      en: "Snezhnaya Ecology Short",
+    },
+    description: {
+      "zh-CN": "跟着派蒙先看至冬的第一眼。",
+      en: "A first look at Snezhnaya with Paimon.",
+    },
+    coverImageUrl: "/snezhnaya-cover.jpg",
+    youtubeUrl: "https://www.youtube.com/watch?v=test",
+    miyousheUrl: "https://www.miyoushe.com/ys/article/test",
+  },
+  nodes: [
+    {
+      id: "tsaritsa",
+      label: { "zh-CN": "冰之女皇", en: "Tsaritsa" },
+      aliases: ["女皇", "冰神"],
+      kind: "character",
+      tier: "official_text_index",
+      graphGroup: "sovereign",
+      graphPosition: { x: 50, y: 10 },
+      summary: {
+        "zh-CN": "至冬的神明，也是愚人众行动的最高指向。",
+        en: "The god of Snezhnaya and the Fatui's highest direction.",
+      },
+      detail: {
+        "zh-CN": ["她与神之心收集行动密切相关。"],
+        en: ["She is closely tied to the Gnosis collection campaign."],
+      },
+      clues: [
+        {
+          id: "tsaritsa-gnosis",
+          title: "Archon Quest text index",
+          sourceType: "quest_text",
+          tier: "official_text_index",
+          url: "https://genshin-impact.fandom.com/wiki/Gnosis",
+          excerpt: {
+            "zh-CN": "游戏文本索引收录了愚人众收集神之心的相关剧情。",
+            en: "The game text index records Fatui-related Gnosis plot text.",
+          },
+        },
+      ],
+      relatedNodeIds: ["gnosis"],
+      suggestedQuestions: {
+        "zh-CN": ["冰之女皇和神之心有什么关系？"],
+        en: ["What is the relationship between the Tsaritsa and Gnoses?"],
+      },
+    },
+    {
+      id: "gnosis",
+      label: { "zh-CN": "神之心", en: "Gnoses" },
+      aliases: ["神之心"],
+      kind: "concept",
+      tier: "official_explicit",
+      graphGroup: "lore",
+      graphPosition: { x: 50, y: 90 },
+      summary: {
+        "zh-CN": "贯穿多国主线的重要物件。",
+        en: "A key object across multiple Archon Quests.",
+      },
+      detail: {
+        "zh-CN": ["神之心是理解至冬计划的重要线索。"],
+        en: ["Gnoses are important clues for understanding Snezhnaya's plan."],
+      },
+      clues: [],
+      relatedNodeIds: ["tsaritsa"],
+      suggestedQuestions: {
+        "zh-CN": ["神之心为什么重要？"],
+        en: ["Why are Gnoses important?"],
+      },
+    },
+  ],
+  edges: [
+    {
+      id: "tsaritsa-gnosis",
+      from: "tsaritsa",
+      to: "gnosis",
+      tier: "official_text_index",
+      label: {
+        "zh-CN": "神之心收集",
+        en: "Gnosis collection",
+      },
+    },
+  ],
+};
+
+describe("snezhnaya graph helpers", () => {
+  it("validates a complete curated graph", () => {
+    expect(validateSnezhnayaGraph(sampleGraph)).toEqual([]);
+  });
+
+  it("reports broken edge and relation references", () => {
+    const broken: SnezhnayaGraphData = {
+      ...sampleGraph,
+      nodes: [
+        {
+          ...sampleGraph.nodes[0],
+          relatedNodeIds: ["missing-node"],
+        },
+      ],
+      edges: [
+        {
+          ...sampleGraph.edges[0],
+          to: "missing-node",
+        },
+      ],
+    };
+
+    expect(validateSnezhnayaGraph(broken)).toEqual([
+      "node:tsaritsa:related:missing-node",
+      "edge:tsaritsa-gnosis:to:missing-node",
+    ]);
+  });
+
+  it("labels official text indexes as factual game-text indexes", () => {
+    expect(evidenceTierLabel("official_text_index", "zh-CN")).toBe(
+      "官方文本索引",
+    );
+    expect(evidenceTierLabel("official_text_index", "en")).toBe(
+      "Official text index",
+    );
+  });
+
+  it("builds a Chinese relationship question with evidence boundaries", () => {
+    const question = buildRelationshipQuestion({
+      language: "zh-CN",
+      left: sampleGraph.nodes[0],
+      right: sampleGraph.nodes[1],
+    });
+
+    expect(question).toContain("冰之女皇");
+    expect(question).toContain("神之心");
+    expect(question).toContain("官方文本索引");
+    expect(question).toContain("已确认关系、文本暗示、社区推测或未证实内容");
+    expect(question).toContain("不要把社区推测说成官方事实");
+  });
+
+  it("builds an English relationship question without mixed Chinese instructions", () => {
+    const question = buildRelationshipQuestion({
+      language: "en",
+      left: sampleGraph.nodes[0],
+      right: sampleGraph.nodes[1],
+    });
+
+    expect(question).toContain("Tsaritsa");
+    expect(question).toContain("Gnoses");
+    expect(question).toContain("official text indexes");
+    expect(question).toContain(
+      "Do not present community theories as official facts",
+    );
+    expect(question).not.toContain("请");
+  });
+});
+
+describe("curated Snezhnaya graph catalog", () => {
+  it("contains the first-version node range and validates references", () => {
+    expect(snezhnayaGraph.nodes.length).toBeGreaterThanOrEqual(19);
+    expect(snezhnayaGraph.nodes.length).toBeLessThanOrEqual(22);
+    expect(validateSnezhnayaGraph(snezhnayaGraph)).toEqual([]);
+  });
+
+  it("includes the agreed core keywords", () => {
+    const ids = new Set(snezhnayaGraph.nodes.map((node) => node.id));
+
+    expect(Array.from(ids)).toEqual(
+      expect.arrayContaining([
+        "tsaritsa",
+        "fatui",
+        "pierro",
+        "dottore",
+        "columbina",
+        "arlecchino",
+        "capitano",
+        "tartaglia",
+        "scaramouche",
+        "signora",
+        "sandrone",
+        "pulcinella",
+        "pantalone",
+        "unknown-tenth",
+        "third-descender",
+        "gnosis",
+        "heavenly-principles",
+        "project-stuzha",
+        "khaenriah-abyss",
+      ]),
+    );
+    expect(ids.has("white-birch")).toBe(false);
+  });
+
+  it("models the complete numbered Harbinger seats", () => {
+    const harbingers = snezhnayaGraph.nodes.filter(
+      (node) => node.graphGroup === "harbinger",
+    );
+    const ranks = harbingers
+      .map((node) => node.harbingerRank)
+      .sort((left, right) => (left ?? 0) - (right ?? 0));
+
+    expect(ranks).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(new Set(ranks).size).toBe(11);
+
+    const unknownTenth = harbingers.find(
+      (node) => node.id === "unknown-tenth",
+    );
+    expect(unknownTenth).toMatchObject({
+      harbingerRank: 10,
+      status: "unknown",
+      label: {
+        "zh-CN": "第十席",
+        en: "Tenth Seat",
+      },
+    });
+  });
+
+  it("records status and map position for the authored layout", () => {
+    const expectedStatuses = {
+      capitano: "dormant",
+      dottore: "deceased",
+      columbina: "former",
+      arlecchino: "active",
+      pulcinella: "active",
+      scaramouche: "former",
+      sandrone: "deceased",
+      signora: "deceased",
+      pantalone: "active",
+      "unknown-tenth": "unknown",
+      tartaglia: "active",
+    } as const;
+
+    for (const [id, status] of Object.entries(expectedStatuses)) {
+      const node = snezhnayaGraph.nodes.find((item) => item.id === id);
+      expect(node?.status, id).toBe(status);
+      expect(node?.statusLabel?.["zh-CN"], id).not.toBe("");
+      expect(node?.statusLabel?.en, id).not.toBe("");
+    }
+
+    for (const node of snezhnayaGraph.nodes) {
+      expect(node.graphPosition, node.id).toBeDefined();
+      expect(node.graphPosition?.x, node.id).toBeGreaterThanOrEqual(0);
+      expect(node.graphPosition?.x, node.id).toBeLessThanOrEqual(100);
+      expect(node.graphPosition?.y, node.id).toBeGreaterThanOrEqual(0);
+      expect(node.graphPosition?.y, node.id).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("keeps the visual edge set focused on the main hierarchy", () => {
+    expect(snezhnayaGraph.edges.length).toBeLessThanOrEqual(8);
+    expect(snezhnayaGraph.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "tsaritsa-heavenly-principles",
+          direction: "bidirectional",
+          tone: "opposition",
+        }),
+        expect.objectContaining({
+          id: "tsaritsa-project-stuzha",
+          direction: "forward",
+          tone: "plan",
+        }),
+        expect.objectContaining({
+          id: "tsaritsa-fatui",
+          direction: "forward",
+          tone: "command",
+        }),
+        expect.objectContaining({
+          id: "fatui-pierro",
+          direction: "forward",
+          tone: "command",
+        }),
+      ]),
+    );
+  });
+
+  it("uses the agreed labels and evidence tiers for Harbingers", () => {
+    const columbina = snezhnayaGraph.nodes.find(
+      (node) => node.id === "columbina",
+    );
+    const marionette = snezhnayaGraph.nodes.find(
+      (node) => node.id === "sandrone",
+    );
+    const projectStuzha = snezhnayaGraph.nodes.find(
+      (node) => node.id === "project-stuzha",
+    );
+
+    expect(columbina?.tier).toBe("official_explicit");
+    expect(marionette?.label).toEqual({
+      "zh-CN": "木偶",
+      en: "Marionette",
+    });
+    expect(marionette?.aliases).toEqual(
+      expect.arrayContaining(["Sandrone", "桑多涅"]),
+    );
+    expect(projectStuzha?.tier).not.toBe("official_explicit");
+  });
+
+  it("provides video links without requiring an iframe", () => {
+    expect(snezhnayaGraph.video.coverImageUrl).toMatch(/^https?:\/\//u);
+    expect(snezhnayaGraph.video.youtubeUrl).toContain("youtube");
+    expect(snezhnayaGraph.video.miyousheUrl).toContain("miyoushe");
+  });
+
+  it("provides a bilingual Fandom text clue for every keyword", () => {
+    for (const node of snezhnayaGraph.nodes) {
+      expect(node.clues.length, node.id).toBeGreaterThan(0);
+      for (const clue of node.clues) {
+        expect(clue.sourceType, clue.id).toBe("wiki_text_index");
+        expect(clue.url, clue.id).toMatch(
+          /^https:\/\/genshin-impact\.fandom\.com\/wiki\//u,
+        );
+        expect(clue.excerpt["zh-CN"], clue.id).not.toBe("");
+        expect(clue.excerpt.en, clue.id).not.toBe("");
+      }
+    }
+  });
+
+  it("stores published character portraits as local WebP assets", () => {
+    const portraitNodeIds = [
+      "pierro",
+      "dottore",
+      "columbina",
+      "arlecchino",
+      "capitano",
+      "tartaglia",
+      "scaramouche",
+      "signora",
+      "sandrone",
+      "pulcinella",
+      "pantalone",
+    ];
+
+    for (const id of portraitNodeIds) {
+      const node = snezhnayaGraph.nodes.find((item) => item.id === id);
+      expect(node?.imageUrl, id).toMatch(
+        /^\/snezhnaya\/avatars\/[a-z0-9-]+\.webp$/u,
+      );
+      expect(
+        existsSync(
+          path.join(process.cwd(), "public", node?.imageUrl?.slice(1) ?? ""),
+        ),
+        id,
+      ).toBe(true);
+    }
+
+    const tsaritsa = snezhnayaGraph.nodes.find(
+      (node) => node.id === "tsaritsa",
+    );
+    expect(tsaritsa?.imageUrl).toBeUndefined();
+  });
+
+  it("keeps curated copy player-facing", () => {
+    const copy = JSON.stringify(snezhnayaGraph);
+    for (const phrase of [
+      "第一版",
+      "v1",
+      "作为入口",
+      "entry point",
+      "should stay",
+      "should not be treated",
+      "hard-coding",
+      "展示相关文本",
+    ]) {
+      expect(copy).not.toContain(phrase);
+    }
+  });
+});
+
+describe("Snezhnaya graph UI helpers", () => {
+  it("selects the first curated node as the initial detail node", () => {
+    expect(initialSnezhnayaNodeId(snezhnayaGraph)).toBe(
+      snezhnayaGraph.nodes[0].id,
+    );
+  });
+
+  it("returns an empty initial id for an empty graph", () => {
+    expect(
+      initialSnezhnayaNodeId({
+        ...snezhnayaGraph,
+        nodes: [],
+      }),
+    ).toBe("");
+  });
+});
