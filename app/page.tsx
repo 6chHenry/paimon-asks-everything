@@ -6,7 +6,9 @@ import { Compass, Settings2, Sparkles } from "lucide-react";
 import { ChoiceGrid, Field } from "@/components/field";
 import { PreheatNote } from "@/components/preheat-note";
 import { usePreferences } from "@/components/preferences-provider";
+import { SnezhnayaGraph } from "@/components/snezhnaya-graph";
 import { preheatTopics } from "@/data/preheat-topics";
+import { snezhnayaGraph } from "@/data/snezhnaya-graph";
 import type {
   Focus,
   PreheatDepth,
@@ -55,11 +57,13 @@ export default function HomePage() {
 
   return (
     <div className="home-page preheat-home">
+      <SnezhnayaGraph graph={snezhnayaGraph} />
+
       <section className="preheat-home-hero">
         <div className="preheat-home-heading reveal">
           <span className="eyebrow">
             <Sparkles size={14} />
-            {t(language, "主动版本预热", "Proactive release preheat")}
+            {t(language, "剧情快速回顾", "Story catch-up")}
           </span>
           <h2>
             {t(language, "旧线索不是作业。", "Old clues are not homework.")}
