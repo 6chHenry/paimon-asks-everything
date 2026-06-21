@@ -31,6 +31,8 @@ const sampleGraph: SnezhnayaGraphData = {
       aliases: ["女皇", "冰神"],
       kind: "character",
       tier: "official_text_index",
+      graphGroup: "sovereign",
+      graphPosition: { x: 50, y: 10 },
       summary: {
         "zh-CN": "至冬的神明，也是愚人众行动的最高指向。",
         en: "The god of Snezhnaya and the Fatui's highest direction.",
@@ -64,6 +66,8 @@ const sampleGraph: SnezhnayaGraphData = {
       aliases: ["神之心"],
       kind: "concept",
       tier: "official_explicit",
+      graphGroup: "lore",
+      graphPosition: { x: 50, y: 90 },
       summary: {
         "zh-CN": "贯穿多国主线的重要物件。",
         en: "A key object across multiple Archon Quests.",
@@ -164,8 +168,8 @@ describe("snezhnaya graph helpers", () => {
 
 describe("curated Snezhnaya graph catalog", () => {
   it("contains the first-version node range and validates references", () => {
-    expect(snezhnayaGraph.nodes.length).toBeGreaterThanOrEqual(12);
-    expect(snezhnayaGraph.nodes.length).toBeLessThanOrEqual(20);
+    expect(snezhnayaGraph.nodes.length).toBeGreaterThanOrEqual(19);
+    expect(snezhnayaGraph.nodes.length).toBeLessThanOrEqual(22);
     expect(validateSnezhnayaGraph(snezhnayaGraph)).toEqual([]);
   });
 
@@ -185,6 +189,9 @@ describe("curated Snezhnaya graph catalog", () => {
         "scaramouche",
         "signora",
         "sandrone",
+        "pulcinella",
+        "pantalone",
+        "unknown-tenth",
         "third-descender",
         "gnosis",
         "heavenly-principles",
@@ -193,6 +200,89 @@ describe("curated Snezhnaya graph catalog", () => {
       ]),
     );
     expect(ids.has("white-birch")).toBe(false);
+  });
+
+  it("models the complete numbered Harbinger seats", () => {
+    const harbingers = snezhnayaGraph.nodes.filter(
+      (node) => node.graphGroup === "harbinger",
+    );
+    const ranks = harbingers
+      .map((node) => node.harbingerRank)
+      .sort((left, right) => (left ?? 0) - (right ?? 0));
+
+    expect(ranks).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(new Set(ranks).size).toBe(11);
+
+    const unknownTenth = harbingers.find(
+      (node) => node.id === "unknown-tenth",
+    );
+    expect(unknownTenth).toMatchObject({
+      harbingerRank: 10,
+      status: "unknown",
+      label: {
+        "zh-CN": "第十席",
+        en: "Tenth Seat",
+      },
+    });
+  });
+
+  it("records status and map position for the authored layout", () => {
+    const expectedStatuses = {
+      capitano: "dormant",
+      dottore: "deceased",
+      columbina: "former",
+      arlecchino: "active",
+      pulcinella: "active",
+      scaramouche: "former",
+      sandrone: "deceased",
+      signora: "deceased",
+      pantalone: "active",
+      "unknown-tenth": "unknown",
+      tartaglia: "active",
+    } as const;
+
+    for (const [id, status] of Object.entries(expectedStatuses)) {
+      const node = snezhnayaGraph.nodes.find((item) => item.id === id);
+      expect(node?.status, id).toBe(status);
+      expect(node?.statusLabel?.["zh-CN"], id).not.toBe("");
+      expect(node?.statusLabel?.en, id).not.toBe("");
+    }
+
+    for (const node of snezhnayaGraph.nodes) {
+      expect(node.graphPosition, node.id).toBeDefined();
+      expect(node.graphPosition?.x, node.id).toBeGreaterThanOrEqual(0);
+      expect(node.graphPosition?.x, node.id).toBeLessThanOrEqual(100);
+      expect(node.graphPosition?.y, node.id).toBeGreaterThanOrEqual(0);
+      expect(node.graphPosition?.y, node.id).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("keeps the visual edge set focused on the main hierarchy", () => {
+    expect(snezhnayaGraph.edges.length).toBeLessThanOrEqual(8);
+    expect(snezhnayaGraph.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "tsaritsa-heavenly-principles",
+          direction: "bidirectional",
+          tone: "opposition",
+        }),
+        expect.objectContaining({
+          id: "tsaritsa-project-stuzha",
+          direction: "forward",
+          tone: "plan",
+        }),
+        expect.objectContaining({
+          id: "tsaritsa-fatui",
+          direction: "forward",
+          tone: "command",
+        }),
+        expect.objectContaining({
+          id: "fatui-pierro",
+          direction: "forward",
+          tone: "command",
+        }),
+      ]),
+    );
   });
 
   it("uses the agreed labels and evidence tiers for Harbingers", () => {
@@ -248,6 +338,8 @@ describe("curated Snezhnaya graph catalog", () => {
       "scaramouche",
       "signora",
       "sandrone",
+      "pulcinella",
+      "pantalone",
     ];
 
     for (const id of portraitNodeIds) {

@@ -1,5 +1,9 @@
 import type {
+  LocalizedText,
   SnezhnayaGraphData,
+  SnezhnayaGraphGroup,
+  SnezhnayaGraphPosition,
+  SnezhnayaNodeStatus,
   SnezhnayaTextClue,
 } from "@/lib/snezhnaya-graph";
 
@@ -28,7 +32,7 @@ function wikiClue({
   };
 }
 
-export const snezhnayaGraph: SnezhnayaGraphData = {
+const snezhnayaGraphBase: SnezhnayaGraphData = {
   video: {
     title: {
       "zh-CN": "至冬生态短片",
@@ -57,11 +61,11 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "多国主线通过神之心收集行动与执行官任务，持续勾勒她对至冬与愚人众的影响。",
-          "她的最终目标仍需结合后续官方剧情判断。",
+          "现有文本明确指向她反抗天理、试图建立新世界的方向，但其最终方案仍需后续官方剧情揭示。",
         ],
         en: [
           "Archon Quests across several nations outline her influence through the Gnosis campaign and Harbinger missions.",
-          "Her final objective still depends on future official story revelations.",
+          "Current text points to her rebellion against the Heavenly Principles and desire to create a new world, while the complete plan remains unrevealed.",
         ],
       },
       clues: [
@@ -73,7 +77,13 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
           en: "The page indexes references to the Tsaritsa across voice-overs, quests, and Snezhnaya-related text.",
         }),
       ],
-      relatedNodeIds: ["fatui", "gnosis", "pierro", "project-stuzha"],
+      relatedNodeIds: [
+        "fatui",
+        "gnosis",
+        "pierro",
+        "project-stuzha",
+        "heavenly-principles",
+      ],
       suggestedQuestions: {
         "zh-CN": ["冰之女皇为什么要收集神之心？"],
         en: ["Why does the Tsaritsa collect Gnoses?"],
@@ -109,6 +119,8 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       relatedNodeIds: [
         "tsaritsa",
         "pierro",
+        "pulcinella",
+        "pantalone",
         "dottore",
         "arlecchino",
         "capitano",
@@ -142,7 +154,12 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
           en: "The page indexes Pierro's Harbinger identity, Khaenri'ahn background, and official appearances.",
         }),
       ],
-      relatedNodeIds: ["fatui", "khaenriah-abyss", "tsaritsa"],
+      relatedNodeIds: [
+        "fatui",
+        "khaenriah-abyss",
+        "tsaritsa",
+        "project-stuzha",
+      ],
       suggestedQuestions: {
         "zh-CN": ["丑角和坎瑞亚有什么关系？"],
         en: ["How is Pierro connected to Khaenri'ah?"],
@@ -155,12 +172,18 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       kind: "character",
       tier: "official_text_index",
       summary: {
-        "zh-CN": "执行官之一，围绕实验、切片和散兵计划留下大量争议线索。",
-        en: "A Harbinger tied to experiments, segments, and the Scaramouche plan.",
+        "zh-CN": "前愚人众第二席，以切片实验和跨越生命边界的研究著称。",
+        en: "The former Second Harbinger, known for his Segments and research that crossed the boundaries of life.",
       },
       detail: {
-        "zh-CN": ["他的相关文本经常涉及人体实验、知识边界和愚人众内部目标。"],
-        en: ["His related text often involves human experimentation, knowledge boundaries, and Fatui goals."],
+        "zh-CN": [
+          "须弥主线中，他以雷神之心为交换条件清除了当时的其他切片。",
+          "后续活跃个体与世界树融合，并在世界树被焚毁时一同消亡；现有文本将博士列为已故。",
+        ],
+        en: [
+          "In Sumeru, he erased his other Segments in exchange for the Electro Gnosis.",
+          "A later active iteration merged with Irminsul and perished when the tree burned; current text lists Dottore as deceased.",
+        ],
       },
       imageUrl: "/snezhnaya/avatars/dottore.webp",
       clues: [
@@ -185,12 +208,18 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       kind: "character",
       tier: "official_explicit",
       summary: {
-        "zh-CN": "愚人众执行官之一，官方已明确她的身份，但其经历与能力仍保留许多谜团。",
-        en: "A confirmed Fatui Harbinger whose history and abilities still contain many unknowns.",
+        "zh-CN": "前愚人众第三席，现已回归月神身份，不再属于执行官体系。",
+        en: "The former Third Harbinger, now restored to her identity as a Moon Goddess and no longer part of the Harbingers.",
       },
       detail: {
-        "zh-CN": ["她以「少女」之名出现在执行官相关官方内容中，现有文本可确认其组织身份。"],
-        en: ["Official Harbinger material identifies her by the codename Damselette and confirms her place in the organization."],
+        "zh-CN": [
+          "她曾以「少女」之名担任第三席，加入愚人众与其月神力量有关。",
+          "挪德卡莱剧情后，官方资料称她为月神库塔尔，并使用「前愚人众第三席」表述。",
+        ],
+        en: [
+          "She once served as the Third under the codename Damselette, with her Moon Goddess powers central to her recruitment.",
+          "After the Nod-Krai story, official material calls her the Moon Goddess Kuutar and a former Third Harbinger.",
+        ],
       },
       imageUrl: "/snezhnaya/avatars/columbina.webp",
       clues: [
@@ -245,12 +274,18 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       kind: "character",
       tier: "official_text_index",
       summary: {
-        "zh-CN": "执行官之一，和纳塔、荣誉、战争叙事联系紧密。",
-        en: "A Harbinger tied to Natlan, honor, and war-story framing.",
+        "zh-CN": "愚人众第一席，在纳塔将自身存在与夜神融合，身体现处于沉睡。",
+        en: "The First Harbinger, whose existence merged with the Lord of the Night in Natlan while his body remains dormant.",
       },
       detail: {
-        "zh-CN": ["他在纳塔相关剧情中的行动，把战争、荣誉与至冬立场联系起来。"],
-        en: ["His actions in Natlan connect themes of war and honor with Snezhnaya's position."],
+        "zh-CN": [
+          "他以坎瑞亚人的不死诅咒替代玛薇卡承担代价，将生命力转移给夜神以修复纳塔地脉。",
+          "融合后，他的身体留在原火王座上沉睡；这并不等同于已确认死亡。",
+        ],
+        en: [
+          "He used the Khaenri'ahn curse of immortality to take Mavuika's place, transferring his life force to the Lord of the Night to sustain Natlan's Ley Lines.",
+          "After the fusion, his body remains dormant on the Throne of the Primal Fire; this is not a confirmed death.",
+        ],
       },
       imageUrl: "/snezhnaya/avatars/capitano.webp",
       clues: [
@@ -311,12 +346,18 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       kind: "character",
       tier: "official_explicit",
       summary: {
-        "zh-CN": "曾经的执行官，连接神之心、博士实验和须弥主线。",
-        en: "A former Harbinger linked to Gnoses, Dottore's experiments, and the Sumeru Archon Quest.",
+        "zh-CN": "前愚人众第六席；世界树改写了关于散兵的历史记录，但他本人仍以流浪者身份存在。",
+        en: "The former Sixth Harbinger; Irminsul rewrote records of Scaramouche, but he continues to exist as the Wanderer.",
       },
       detail: {
-        "zh-CN": ["须弥主线揭示了愚人众如何利用他、雷神之心与人造神计划。"],
-        en: ["The Sumeru Archon Quest reveals how the Fatui used him, the Electro Gnosis, and the artificial god project."],
+        "zh-CN": [
+          "他试图从世界树中抹除自己，结果是提瓦特关于其过去身份与行为的记录和记忆被改写。",
+          "他本人没有消失，后来取回记忆并选择以流浪者身份继续生活；愚人众则认为第六席长期空缺。",
+        ],
+        en: [
+          "He attempted to erase himself from Irminsul, rewriting Teyvat's records and memories of his former identities and actions.",
+          "He did not cease to exist, later recovered his memories, and continues as the Wanderer; the Fatui regard the Sixth Seat as long vacant.",
+        ],
       },
       imageUrl: "/snezhnaya/avatars/scaramouche.webp",
       clues: [
@@ -341,12 +382,18 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       kind: "character",
       tier: "official_explicit",
       summary: {
-        "zh-CN": "执行官之一，蒙德、璃月和稻妻主线都留下了关键节点。",
-        en: "A Harbinger with key appearances across Mondstadt, Liyue, and Inazuma.",
+        "zh-CN": "前愚人众第八席，在稻妻御前决斗败北后被雷电将军处决。",
+        en: "The former Eighth Harbinger, executed by the Raiden Shogun after losing a duel before the throne in Inazuma.",
       },
       detail: {
-        "zh-CN": ["她的死亡和过往文本都常被用于讨论愚人众代价与执行官命运。"],
-        en: ["Her death and backstory are often used to discuss Fatui costs and Harbinger fates."],
+        "zh-CN": [
+          "她接受旅行者发起的御前决斗并战败。",
+          "依据决斗规则，雷电将军以无想的一刀执行处决，其身体化为灰烬。",
+        ],
+        en: [
+          "She accepted the Traveler's challenge to a duel before the throne and lost.",
+          "Under the duel's rules, the Raiden Shogun executed her with the Musou no Hitotachi, reducing her body to ash.",
+        ],
       },
       imageUrl: "/snezhnaya/avatars/signora.webp",
       clues: [
@@ -371,12 +418,18 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       kind: "character",
       tier: "official_text_index",
       summary: {
-        "zh-CN": "愚人众执行官之一，称号为「木偶」，其形象与机械和人偶主题紧密相连。",
-        en: "A Fatui Harbinger known as the Marionette, strongly associated with machinery and puppet imagery.",
+        "zh-CN": "愚人众第七席，身体在与博士的冲突中被摧毁，核心随后被回收。",
+        en: "The Seventh Harbinger, whose body was destroyed in a confrontation with Dottore while her core was later recovered.",
       },
       detail: {
-        "zh-CN": ["枫丹相关文本与社区讨论常把她和阿兰、玛丽安及水仙十字线索放在一起考察，但具体关系仍需区分官方文本与推测。"],
-        en: ["Fontaine text and community discussion often examine her alongside Alain, Mary-Ann, and Narzissenkreuz clues, while the exact relationship still requires separating text from theory."],
+        "zh-CN": [
+          "她为阻止博士利用三月力量而设局，随后身体被博士摧毁。",
+          "仆人回收了她与普洛尼亚的核心，并准备送往枫丹科学院；能否恢复尚未得到确认。",
+        ],
+        en: [
+          "She set a trap to prevent Dottore from exploiting the power of the Three Moons, after which he destroyed her body.",
+          "Arlecchino recovered her core and Pulonia's for delivery to the Fontaine Research Institute; whether she can be restored remains unconfirmed.",
+        ],
       },
       imageUrl: "/snezhnaya/avatars/sandrone.webp",
       clues: [
@@ -392,6 +445,113 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       suggestedQuestions: {
         "zh-CN": ["木偶和阿兰是什么关系？"],
         en: ["What is the relationship between the Marionette and Alain?"],
+      },
+    },
+    {
+      id: "pulcinella",
+      label: { "zh-CN": "公鸡", en: "The Rooster" },
+      aliases: ["Pulcinella", "The Rooster", "公鸡", "普契涅拉"],
+      kind: "character",
+      tier: "official_explicit",
+      summary: {
+        "zh-CN": "愚人众第五席执行官，也是至冬城的市长与地方权力核心。",
+        en: "The Fifth Fatui Harbinger and mayor of Snezhnograd, placing him at the center of local political power.",
+      },
+      detail: {
+        "zh-CN": [
+          "他曾将年少的公子招入愚人众，并与富人共同推进严冬计划。",
+          "现有剧情仍将他列为在任执行官。",
+        ],
+        en: [
+          "He recruited the young Tartaglia into the Fatui and works with Pantalone on Project Stuzha.",
+          "Current story material still lists him as an active Harbinger.",
+        ],
+      },
+      imageUrl: "/snezhnaya/avatars/pulcinella.webp",
+      clues: [
+        wikiClue({
+          id: "pulcinella-wiki-clue",
+          title: "Pulcinella",
+          slug: "Pulcinella",
+          zh: "页面索引公鸡的第五席身份、市长职务、公子相关故事与严冬计划文本。",
+          en: "The page indexes Pulcinella's Fifth Seat, mayoral office, Tartaglia connections, and Project Stuzha references.",
+        }),
+      ],
+      relatedNodeIds: ["fatui", "tartaglia", "pantalone", "project-stuzha"],
+      suggestedQuestions: {
+        "zh-CN": ["公鸡为什么照顾公子的家人？"],
+        en: ["Why does Pulcinella look after Tartaglia's family?"],
+      },
+    },
+    {
+      id: "pantalone",
+      label: { "zh-CN": "富人", en: "Regrator" },
+      aliases: ["Pantalone", "Regrator", "富人", "潘塔罗涅"],
+      kind: "character",
+      tier: "official_explicit",
+      summary: {
+        "zh-CN": "愚人众第九席执行官，掌握北国银行与至冬的金融力量。",
+        en: "The Ninth Fatui Harbinger, associated with the Northland Bank and Snezhnaya's financial power.",
+      },
+      detail: {
+        "zh-CN": [
+          "他试图以经济体系挑战神明掌握的权威，并与公鸡共同推进严冬计划。",
+          "现有剧情仍将他列为在任执行官。",
+        ],
+        en: [
+          "He seeks to challenge divine authority through economic systems and works with Pulcinella on Project Stuzha.",
+          "Current story material still lists him as an active Harbinger.",
+        ],
+      },
+      imageUrl: "/snezhnaya/avatars/pantalone.webp",
+      clues: [
+        wikiClue({
+          id: "pantalone-wiki-clue",
+          title: "Pantalone",
+          slug: "Pantalone",
+          zh: "页面索引富人的第九席身份、北国银行、经济理念与严冬计划文本。",
+          en: "The page indexes Pantalone's Ninth Seat, Northland Bank ties, economic ideology, and Project Stuzha references.",
+        }),
+      ],
+      relatedNodeIds: ["fatui", "pulcinella", "project-stuzha"],
+      suggestedQuestions: {
+        "zh-CN": ["富人为什么想挑战神明的经济权威？"],
+        en: ["Why does Pantalone challenge the gods' economic authority?"],
+      },
+    },
+    {
+      id: "unknown-tenth",
+      label: { "zh-CN": "第十席", en: "Tenth Seat" },
+      aliases: ["第十席", "Tenth Harbinger", "Unknown Tenth"],
+      kind: "character",
+      tier: "official_text_index",
+      summary: {
+        "zh-CN": "唯一尚未公开具体持有者的执行官席位，也可能目前为空席。",
+        en: "The only numbered Harbinger seat without a disclosed holder; it may currently be vacant.",
+      },
+      detail: {
+        "zh-CN": [
+          "官方尚未公布第十席的姓名、代号或经历。",
+          "丑角是愚人众统括者，不应仅因席位空缺而推定为第十席。",
+        ],
+        en: [
+          "No official name, codename, or history has been disclosed for the Tenth Seat.",
+          "Pierro is the Fatui Director and should not be assigned the Tenth Seat merely because it remains unknown.",
+        ],
+      },
+      clues: [
+        wikiClue({
+          id: "unknown-tenth-wiki-clue",
+          title: "Eleven Fatui Harbingers",
+          slug: "Eleven_Fatui_Harbingers",
+          zh: "执行官页面说明第十席仍没有已公开的持有者，并可能处于空缺状态。",
+          en: "The Harbinger index notes that the Tenth Seat has no disclosed holder and may be vacant.",
+        }),
+      ],
+      relatedNodeIds: ["fatui", "pierro"],
+      suggestedQuestions: {
+        "zh-CN": ["愚人众第十席为什么仍未公开？"],
+        en: ["Why is the Tenth Harbinger still undisclosed?"],
       },
     },
     {
@@ -493,12 +653,18 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       kind: "event",
       tier: "official_text_implication",
       summary: {
-        "zh-CN": "与至冬行动有关的计划名，现有信息需要区分明确文本、叙事暗示与推测。",
-        en: "A project name tied to Snezhnayan activity, with confirmed text, narrative implications, and theories requiring clear separation.",
+        "zh-CN": "由冰之女皇监督、愚人众执行官参与推进的至冬计划。",
+        en: "A Snezhnayan project overseen by the Tsaritsa and conducted through the Fatui Harbingers.",
       },
       detail: {
-        "zh-CN": ["现有文本尚不足以说明计划的全部目标、参与者和执行方式。"],
-        en: ["Available text does not yet establish the project's complete goals, participants, or methods."],
+        "zh-CN": [
+          "已知参与者包括丑角、公鸡、富人、公子与仆人等执行官。",
+          "官方尚未说明计划的全部目标和执行方式，因此不能断言由女皇亲自构思了所有细节。",
+        ],
+        en: [
+          "Known participants include Pierro, Pulcinella, Pantalone, Tartaglia, and Arlecchino.",
+          "Official text has not revealed every goal or method, so it does not establish that the Tsaritsa personally designed every detail.",
+        ],
       },
       clues: [
         wikiClue({
@@ -509,7 +675,15 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
           en: "The page collects known references to Project Stuzha from quests and character text.",
         }),
       ],
-      relatedNodeIds: ["tsaritsa", "fatui", "sandrone"],
+      relatedNodeIds: [
+        "tsaritsa",
+        "fatui",
+        "pierro",
+        "pulcinella",
+        "pantalone",
+        "tartaglia",
+        "arlecchino",
+      ],
       suggestedQuestions: {
         "zh-CN": ["严冬计划目前有哪些可靠信息？"],
         en: ["What reliable information exists about Project Stuzha?"],
@@ -547,60 +721,226 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
   ],
   edges: [
     {
+      id: "tsaritsa-heavenly-principles",
+      from: "tsaritsa",
+      to: "heavenly-principles",
+      tier: "official_text_index",
+      label: { "zh-CN": "反抗世界秩序", en: "rebels against the world order" },
+      direction: "bidirectional",
+      tone: "opposition",
+      showLabel: true,
+    },
+    {
+      id: "tsaritsa-project-stuzha",
+      from: "tsaritsa",
+      to: "project-stuzha",
+      tier: "official_text_index",
+      label: { "zh-CN": "监督", en: "oversees" },
+      direction: "forward",
+      tone: "plan",
+      showLabel: true,
+    },
+    {
       id: "tsaritsa-fatui",
       from: "tsaritsa",
       to: "fatui",
       tier: "official_text_index",
       label: { "zh-CN": "统领", en: "commands" },
+      direction: "forward",
+      tone: "command",
+      showLabel: true,
     },
     {
       id: "fatui-pierro",
       from: "fatui",
       to: "pierro",
       tier: "official_text_index",
-      label: { "zh-CN": "首席执行官", en: "first Harbinger" },
+      label: { "zh-CN": "统括执行官", en: "directs the Harbingers" },
+      direction: "forward",
+      tone: "command",
+      showLabel: true,
     },
     {
       id: "tsaritsa-gnosis",
       from: "tsaritsa",
       to: "gnosis",
       tier: "official_text_index",
-      label: { "zh-CN": "收集目标", en: "collection target" },
+      label: { "zh-CN": "收集神之心", en: "collects Gnoses" },
+      direction: "forward",
+      tone: "lore",
+      showLabel: true,
     },
     {
       id: "gnosis-third-descender",
       from: "gnosis",
       to: "third-descender",
       tier: "official_text_index",
-      label: { "zh-CN": "本质线索", en: "nature clue" },
-    },
-    {
-      id: "dottore-scaramouche",
-      from: "dottore",
-      to: "scaramouche",
-      tier: "official_explicit",
-      label: { "zh-CN": "实验计划", en: "experiment plan" },
+      label: { "zh-CN": "遗骸来源", en: "origin in remains" },
+      direction: "forward",
+      tone: "lore",
+      showLabel: true,
     },
     {
       id: "pierro-khaenriah",
       from: "pierro",
       to: "khaenriah-abyss",
       tier: "official_text_index",
-      label: { "zh-CN": "旧国背景", en: "old nation background" },
-    },
-    {
-      id: "tartaglia-abyss",
-      from: "tartaglia",
-      to: "khaenriah-abyss",
-      tier: "official_explicit",
-      label: { "zh-CN": "深渊经历", en: "Abyss experience" },
-    },
-    {
-      id: "gnosis-heavenly-principles",
-      from: "gnosis",
-      to: "heavenly-principles",
-      tier: "official_text_index",
-      label: { "zh-CN": "世界秩序关联", en: "world-order connection" },
+      label: { "zh-CN": "坎瑞亚遗民", en: "Khaenri'ahn survivor" },
+      direction: "forward",
+      tone: "lore",
+      showLabel: true,
     },
   ],
+};
+
+type NodeVisual = {
+  graphGroup: SnezhnayaGraphGroup;
+  graphPosition: SnezhnayaGraphPosition;
+  status?: SnezhnayaNodeStatus;
+  statusLabel?: LocalizedText;
+  harbingerRank?: number;
+};
+
+const nodeVisuals: Record<string, NodeVisual> = {
+  "heavenly-principles": {
+    graphGroup: "sovereign",
+    graphPosition: { x: 12, y: 9 },
+  },
+  tsaritsa: {
+    graphGroup: "sovereign",
+    graphPosition: { x: 50, y: 9 },
+  },
+  "project-stuzha": {
+    graphGroup: "sovereign",
+    graphPosition: { x: 88, y: 9 },
+  },
+  fatui: {
+    graphGroup: "organization",
+    graphPosition: { x: 50, y: 22 },
+  },
+  pierro: {
+    graphGroup: "director",
+    graphPosition: { x: 50, y: 35 },
+  },
+  capitano: {
+    graphGroup: "harbinger",
+    graphPosition: { x: 8, y: 52 },
+    harbingerRank: 1,
+    status: "dormant",
+    statusLabel: {
+      "zh-CN": "与夜神融合 · 身体沉睡",
+      en: "Merged with the Lord of the Night · body dormant",
+    },
+  },
+  dottore: {
+    graphGroup: "harbinger",
+    graphPosition: { x: 25, y: 52 },
+    harbingerRank: 2,
+    status: "deceased",
+    statusLabel: {
+      "zh-CN": "切片清除 · 后续个体消亡",
+      en: "Segments erased · later iteration perished",
+    },
+  },
+  columbina: {
+    graphGroup: "harbinger",
+    graphPosition: { x: 42, y: 52 },
+    harbingerRank: 3,
+    status: "former",
+    statusLabel: {
+      "zh-CN": "前第三席 · 现为月神",
+      en: "Former Third · now a Moon Goddess",
+    },
+  },
+  arlecchino: {
+    graphGroup: "harbinger",
+    graphPosition: { x: 59, y: 52 },
+    harbingerRank: 4,
+    status: "active",
+    statusLabel: { "zh-CN": "现役", en: "Active" },
+  },
+  pulcinella: {
+    graphGroup: "harbinger",
+    graphPosition: { x: 76, y: 52 },
+    harbingerRank: 5,
+    status: "active",
+    statusLabel: {
+      "zh-CN": "现役 · 至冬城市长",
+      en: "Active · Mayor of Snezhnograd",
+    },
+  },
+  scaramouche: {
+    graphGroup: "harbinger",
+    graphPosition: { x: 93, y: 52 },
+    harbingerRank: 6,
+    status: "former",
+    statusLabel: {
+      "zh-CN": "前第六席 · 现为流浪者",
+      en: "Former Sixth · now the Wanderer",
+    },
+  },
+  sandrone: {
+    graphGroup: "harbinger",
+    graphPosition: { x: 16, y: 68 },
+    harbingerRank: 7,
+    status: "deceased",
+    statusLabel: {
+      "zh-CN": "身体被摧毁 · 核心已回收",
+      en: "Body destroyed · core recovered",
+    },
+  },
+  signora: {
+    graphGroup: "harbinger",
+    graphPosition: { x: 33, y: 68 },
+    harbingerRank: 8,
+    status: "deceased",
+    statusLabel: {
+      "zh-CN": "御前决斗后被处决",
+      en: "Executed after the duel before the throne",
+    },
+  },
+  pantalone: {
+    graphGroup: "harbinger",
+    graphPosition: { x: 50, y: 68 },
+    harbingerRank: 9,
+    status: "active",
+    statusLabel: { "zh-CN": "现役", en: "Active" },
+  },
+  "unknown-tenth": {
+    graphGroup: "harbinger",
+    graphPosition: { x: 67, y: 68 },
+    harbingerRank: 10,
+    status: "unknown",
+    statusLabel: {
+      "zh-CN": "身份未公开 · 也可能为空席",
+      en: "Holder undisclosed · possibly vacant",
+    },
+  },
+  tartaglia: {
+    graphGroup: "harbinger",
+    graphPosition: { x: 84, y: 68 },
+    harbingerRank: 11,
+    status: "active",
+    statusLabel: { "zh-CN": "现役", en: "Active" },
+  },
+  "khaenriah-abyss": {
+    graphGroup: "lore",
+    graphPosition: { x: 18, y: 89 },
+  },
+  gnosis: {
+    graphGroup: "lore",
+    graphPosition: { x: 50, y: 89 },
+  },
+  "third-descender": {
+    graphGroup: "lore",
+    graphPosition: { x: 82, y: 89 },
+  },
+};
+
+export const snezhnayaGraph: SnezhnayaGraphData = {
+  ...snezhnayaGraphBase,
+  nodes: snezhnayaGraphBase.nodes.map((node) => ({
+    ...node,
+    ...nodeVisuals[node.id],
+  })),
 };

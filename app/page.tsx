@@ -66,12 +66,12 @@ export default function HomePage() {
             {t(language, "剧情快速回顾", "Story catch-up")}
           </span>
           <h2>
-            {t(language, "旧线索不是作业。", "Old clues are not homework.")}
+            {t(language, "旅行者，", "Traveler")}
             <em>
               {t(
                 language,
-                "派蒙把值得重看的那一条递给你。",
-                "Paimon hands you the one thread worth revisiting.",
+                "来看看今天的线索吧~",
+                "Come and take a look at today's clue.",
               )}
             </em>
           </h2>
@@ -142,7 +142,7 @@ export default function HomePage() {
           <p>
             {t(
               language,
-              "3 分钟会按上方主线进度锁定后续地区；完整考据是主动完整剧透，会展开已实装的后续内容。",
+              "轻剧透会按上方主线进度锁定后续地区；完整考据是会展开已实装的后续内容。",
               "3 min locks later regions by the progress above. Research is an explicit full-spoiler mode and opens released later content.",
             )}
           </p>
@@ -214,8 +214,8 @@ export default function HomePage() {
               <small>
                 {t(
                   language,
-                  "关闭时仍只记录匿名分类；预热点击不含原始文本。",
-                  "When off, only anonymous categories are stored; preheat clicks contain no raw text.",
+                  "关闭时只记录匿名分类",
+                  "When off, only anonymous categories are stored",
                 )}
               </small>
             </span>

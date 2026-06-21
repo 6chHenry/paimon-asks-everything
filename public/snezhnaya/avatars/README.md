@@ -12,5 +12,7 @@ the corresponding Genshin Impact Wiki pages:
 - `scaramouche.webp` — https://genshin-impact.fandom.com/wiki/Wanderer
 - `signora.webp` — https://genshin-impact.fandom.com/wiki/La_Signora
 - `sandrone.webp` — https://genshin-impact.fandom.com/wiki/Sandrone
+- `pulcinella.webp` — https://genshin-impact.fandom.com/wiki/Pulcinella
+- `pantalone.webp` — https://genshin-impact.fandom.com/wiki/Pantalone
 
 The source images were cropped and resized to 512×512 for consistent display.

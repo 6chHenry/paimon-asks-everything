@@ -21,8 +21,10 @@ import {
   evidenceTierLabel,
   initialSnezhnayaNodeId,
   localize,
+  type SnezhnayaEdge,
   type SnezhnayaGraphData,
   type SnezhnayaNode,
+  type SnezhnayaNodeStatus,
 } from "@/lib/snezhnaya-graph";
 import type { TraceEvent } from "@/lib/trace";
 
@@ -52,6 +54,60 @@ function sourceTypeLabel(sourceType: string, language: "zh-CN" | "en") {
   return (labels[sourceType] ?? [sourceType, sourceType])[
     language === "zh-CN" ? 0 : 1
   ];
+}
+
+function statusShortLabel(
+  status: SnezhnayaNodeStatus | undefined,
+  language: "zh-CN" | "en",
+) {
+  const labels: Record<SnezhnayaNodeStatus, [string, string]> = {
+    active: ["现役", "Active"],
+    former: ["前席", "Former"],
+    deceased: ["已故 / 躯体毁损", "Dead / body lost"],
+    dormant: ["融合休眠", "Dormant"],
+    unknown: ["未公开", "Unknown"],
+  };
+  if (!status) return "";
+  return labels[status][language === "zh-CN" ? 0 : 1];
+}
+
+function edgePath(
+  edge: SnezhnayaEdge,
+  nodeMap: Map<string, SnezhnayaNode>,
+) {
+  const from = nodeMap.get(edge.from)?.graphPosition;
+  const to = nodeMap.get(edge.to)?.graphPosition;
+  if (!from || !to) return "";
+  const x1 = from.x * 10;
+  const y1 = from.y * 9;
+  const x2 = to.x * 10;
+  const y2 = to.y * 9;
+  const midX = (x1 + x2) / 2;
+  const midY = (y1 + y2) / 2;
+  const bend =
+    edge.tone === "opposition"
+      ? -42
+      : Math.abs(y2 - y1) < 60
+        ? -24
+        : x1 === x2
+          ? 0
+          : x1 < x2
+            ? 24
+            : -24;
+  return `M ${x1} ${y1} Q ${midX + bend} ${midY} ${x2} ${y2}`;
+}
+
+function edgeLabelPosition(
+  edge: SnezhnayaEdge,
+  nodeMap: Map<string, SnezhnayaNode>,
+) {
+  const from = nodeMap.get(edge.from)?.graphPosition;
+  const to = nodeMap.get(edge.to)?.graphPosition;
+  if (!from || !to) return { x: 0, y: 0 };
+  return {
+    x: ((from.x + to.x) / 2) * 10,
+    y: ((from.y + to.y) / 2) * 9 - (edge.tone === "opposition" ? 18 : 7),
+  };
 }
 
 function parseSseBlock(block: string) {
@@ -193,33 +249,165 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
       <div className="snezhnaya-workbench">
         <div className="snezhnaya-map">
           <div className="snezhnaya-map-heading">
-            <span>{t(language, "关键词图谱", "Keyword graph")}</span>
+            <span>{t(language, "至冬权力与命运图谱", "Snezhnaya power and fate map")}</span>
             <strong>
               {t(
                 language,
-                "选择两个节点，问它们之间的关系",
-                "Select two nodes and ask how they connect",
+                "从女皇的意志，到十一席各自的去向",
+                "From the Tsaritsa's will to the fate of every numbered seat",
               )}
             </strong>
           </div>
-          <div className="snezhnaya-node-cloud">
-            {graph.nodes.map((node) => (
-              <button
-                key={node.id}
-                type="button"
-                className={[
-                  "snezhnaya-node",
-                  `kind-${node.kind}`,
-                  `tier-${node.tier}`,
-                  selectedId === node.id ? "active" : "",
-                  relationIds.includes(node.id) ? "selected-for-relation" : "",
-                ].join(" ")}
-                onClick={() => toggleRelationNode(node)}
+          <div className="snezhnaya-map-viewport">
+            <div className="snezhnaya-map-pan-hint">
+              {t(
+                language,
+                "窄屏可左右拖动查看完整席位",
+                "Drag horizontally on narrow screens to view every seat",
+              )}
+            </div>
+            <div className="snezhnaya-map-canvas">
+              <div className="snezhnaya-harbinger-field" aria-hidden="true">
+                <span>
+                  {t(
+                    language,
+                    "愚人众十一执行官 · 丑角统括",
+                    "Eleven Fatui Harbingers · directed by Pierro",
+                  )}
+                </span>
+              </div>
+              <svg
+                className="snezhnaya-edges"
+                viewBox="0 0 1000 900"
+                aria-hidden="true"
               >
-                <span>{localize(node.label, language)}</span>
-                <small>{nodeKindLabel(node.kind, language)}</small>
-              </button>
-            ))}
+                <defs>
+                  <marker
+                    id="snezhnaya-arrow"
+                    viewBox="0 0 10 10"
+                    refX="8"
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 0 L 10 5 L 0 10 z" />
+                  </marker>
+                  <marker
+                    id="snezhnaya-arrow-opposition"
+                    viewBox="0 0 10 10"
+                    refX="8"
+                    refY="5"
+                    markerWidth="7"
+                    markerHeight="7"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 0 L 10 5 L 0 10 z" />
+                  </marker>
+                </defs>
+                <path
+                  className="snezhnaya-roster-spine"
+                  d="M 500 315 L 500 400 Q 500 425 475 425 L 85 425 M 500 425 L 930 425"
+                />
+                <path
+                  className="snezhnaya-roster-arc"
+                  d="M 75 480 Q 500 390 935 480"
+                />
+                <path
+                  className="snezhnaya-roster-arc secondary"
+                  d="M 155 625 Q 500 555 845 625"
+                />
+                {graph.edges.map((edge) => {
+                  const labelPosition = edgeLabelPosition(edge, nodeMap);
+                  return (
+                    <g key={edge.id} className={`edge-${edge.tone ?? "lore"}`}>
+                      <path
+                        className="snezhnaya-edge"
+                        d={edgePath(edge, nodeMap)}
+                        markerEnd={`url(#${
+                          edge.tone === "opposition"
+                            ? "snezhnaya-arrow-opposition"
+                            : "snezhnaya-arrow"
+                        })`}
+                        markerStart={
+                          edge.direction === "bidirectional"
+                            ? "url(#snezhnaya-arrow-opposition)"
+                            : undefined
+                        }
+                      />
+                      {edge.showLabel ? (
+                        <text
+                          className="snezhnaya-edge-label"
+                          x={labelPosition.x}
+                          y={labelPosition.y}
+                          textAnchor="middle"
+                        >
+                          {localize(edge.label, language)}
+                        </text>
+                      ) : null}
+                    </g>
+                  );
+                })}
+              </svg>
+              {graph.nodes.map((node) => {
+                const position = node.graphPosition;
+                if (!position) return null;
+                return (
+                  <button
+                    key={node.id}
+                    type="button"
+                    data-node-id={node.id}
+                    style={{
+                      left: `${position.x}%`,
+                      top: `${position.y}%`,
+                    }}
+                    className={[
+                      "snezhnaya-node",
+                      `group-${node.graphGroup}`,
+                      node.status ? `status-${node.status}` : "",
+                      selectedId === node.id ? "active" : "",
+                      relationIds.includes(node.id)
+                        ? "selected-for-relation"
+                        : "",
+                    ].join(" ")}
+                    aria-label={`${localize(node.label, language)}${
+                      node.statusLabel
+                        ? ` · ${localize(node.statusLabel, language)}`
+                        : ""
+                    }`}
+                    onClick={() => toggleRelationNode(node)}
+                  >
+                    {node.harbingerRank ? (
+                      <small className="snezhnaya-rank">
+                        {String(node.harbingerRank).padStart(2, "0")}
+                      </small>
+                    ) : null}
+                    <span>{localize(node.label, language)}</span>
+                    <small className="snezhnaya-node-meta">
+                      {node.status
+                        ? statusShortLabel(node.status, language)
+                        : nodeKindLabel(node.kind, language)}
+                    </small>
+                  </button>
+                );
+              })}
+              <div className="snezhnaya-map-legend">
+                {(
+                  [
+                    ["active", "现役", "Active"],
+                    ["former", "前席 / 脱离", "Former / departed"],
+                    ["deceased", "死亡 / 躯体毁损", "Dead / body lost"],
+                    ["dormant", "融合休眠", "Dormant"],
+                    ["unknown", "身份未知", "Unknown"],
+                  ] as const
+                ).map(([status, zh, en]) => (
+                  <span key={status} className={`status-${status}`}>
+                    <i />
+                    {t(language, zh, en)}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="snezhnaya-relation-bar">
             <div>
@@ -286,6 +474,22 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                   />
                 ) : null}
               </div>
+              {selectedNode.statusLabel ? (
+                <div
+                  className={`snezhnaya-status-callout status-${selectedNode.status}`}
+                >
+                  {selectedNode.harbingerRank ? (
+                    <strong>
+                      {t(
+                        language,
+                        `第 ${selectedNode.harbingerRank} 席`,
+                        `Seat ${selectedNode.harbingerRank}`,
+                      )}
+                    </strong>
+                  ) : null}
+                  <span>{localize(selectedNode.statusLabel, language)}</span>
+                </div>
+              ) : null}
               <p>{localize(selectedNode.summary, language)}</p>
               {selectedNode.detail[language].map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>

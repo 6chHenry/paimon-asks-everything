@@ -24,8 +24,34 @@ export type SnezhnayaSourceType =
   | "wiki_text_index"
   | "community_analysis";
 
+export type SnezhnayaGraphGroup =
+  | "sovereign"
+  | "organization"
+  | "director"
+  | "harbinger"
+  | "lore";
+
+export type SnezhnayaNodeStatus =
+  | "active"
+  | "former"
+  | "deceased"
+  | "dormant"
+  | "unknown";
+
+export type SnezhnayaEdgeDirection = "forward" | "bidirectional";
+export type SnezhnayaEdgeTone =
+  | "command"
+  | "opposition"
+  | "plan"
+  | "lore";
+
 export type LocalizedText = Record<Language, string>;
 export type LocalizedParagraphs = Record<Language, string[]>;
+
+export interface SnezhnayaGraphPosition {
+  x: number;
+  y: number;
+}
 
 export interface SnezhnayaVideoMeta {
   title: LocalizedText;
@@ -50,6 +76,11 @@ export interface SnezhnayaNode {
   aliases: string[];
   kind: SnezhnayaNodeKind;
   tier: SnezhnayaEvidenceTier;
+  graphGroup?: SnezhnayaGraphGroup;
+  graphPosition?: SnezhnayaGraphPosition;
+  status?: SnezhnayaNodeStatus;
+  statusLabel?: LocalizedText;
+  harbingerRank?: number;
   imageUrl?: string;
   summary: LocalizedText;
   detail: LocalizedParagraphs;
@@ -64,6 +95,9 @@ export interface SnezhnayaEdge {
   to: string;
   tier: SnezhnayaEvidenceTier;
   label: LocalizedText;
+  direction?: SnezhnayaEdgeDirection;
+  tone?: SnezhnayaEdgeTone;
+  showLabel?: boolean;
 }
 
 export interface SnezhnayaGraphData {
@@ -123,6 +157,18 @@ export function validateSnezhnayaGraph(graph: SnezhnayaGraphData) {
     }
     if (!node.detail["zh-CN"]?.length || !node.detail.en?.length) {
       errors.push(`node:${node.id}:detail`);
+    }
+    if (!node.graphGroup) {
+      errors.push(`node:${node.id}:group`);
+    }
+    if (
+      !node.graphPosition ||
+      node.graphPosition.x < 0 ||
+      node.graphPosition.x > 100 ||
+      node.graphPosition.y < 0 ||
+      node.graphPosition.y > 100
+    ) {
+      errors.push(`node:${node.id}:position`);
     }
 
     for (const clue of node.clues) {
