@@ -3,6 +3,7 @@ import { classifyQuestion } from "@/lib/classification";
 import type { EventClassification, Language } from "@/lib/domain";
 import { detectQuestionEntities, type QuestionEntity } from "@/lib/entity-lexicon";
 import {
+  inferStorySearchScope,
   normalizeSearchPlan,
   type SearchIntent,
   type SearchPlan,
@@ -127,6 +128,12 @@ export function shouldUseModelQuestionUnderstanding(
 ) {
   if (process.env.QUESTION_UNDERSTANDING_LLM_ENABLED === "false") return false;
   if (!rule.entities.length) return true;
+  if (
+    rule.intent === "story" &&
+    rule.entities.some((entity) => entity.aliases.length === 0)
+  ) {
+    return true;
+  }
   if (rule.intent === "relationship" && rule.entities.length < 2) return true;
   if (
     rule.classification.questionCategory === "other" &&
@@ -322,7 +329,7 @@ export async function understandQuestionWithModel(
           language,
           question,
           instruction:
-            "Return {\"entities\":[{\"canonical\":\"...\",\"aliases\":[\"...\"],\"kind\":\"character|story\"}],\"intent\":\"identity|relationship|story|current_status|official_media|general\",\"claim\":\"...\",\"queries\":[\"...\"]}. Entities must be direct subjects of the raw question. Queries must retain a direct entity or alias.",
+            "Return {\"entities\":[{\"canonical\":\"...\",\"aliases\":[\"...\"],\"kind\":\"character|story\"}],\"intent\":\"identity|relationship|story|current_status|official_media|general\",\"claim\":\"...\",\"queries\":[\"...\"]}. Entities must be direct subjects of the raw question. Include established names in other languages as aliases when known, especially the official English character name. For a character Story Quest request, include an English query like '<English alias> story quest'. Queries must retain a direct entity or alias.",
         }),
       },
     ],
@@ -383,6 +390,10 @@ export function searchPlanFromUnderstanding(
       aliases: understanding.entities.flatMap((entity) => entity.aliases),
       intent: understanding.intent,
       queries: understanding.queries,
+      storyScope: inferStorySearchScope(
+        fallbackQuestion,
+        understanding.intent,
+      ),
     },
     fallbackQuestion,
   );

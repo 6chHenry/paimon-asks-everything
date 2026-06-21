@@ -15,6 +15,7 @@ import type { ChatResult, Language } from "@/lib/domain";
 import { parseAnswerCitationMarkers } from "@/lib/citation-markers";
 import { labels, t } from "@/lib/i18n";
 import { ReadingAppendix } from "@/components/reading-appendix";
+import { clientPath } from "@/lib/client-path";
 
 export function AnswerCard({
   result,
@@ -114,7 +115,7 @@ export function AnswerCard({
   async function sendFeedback(helpful: boolean) {
     setFeedback(helpful);
     if (result.eventId) {
-      await fetch("/api/feedback", {
+      await fetch(clientPath("/api/feedback"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId: result.eventId, helpful }),

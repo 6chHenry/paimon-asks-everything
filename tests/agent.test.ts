@@ -318,9 +318,9 @@ describe("agent workflow", () => {
             query: {
               search: [
                 {
-                  title: "Duel Before the Throne",
+                  title: "御前决斗",
                   snippet:
-                    "Defeat Signora in a duel before the throne. The Raiden Shogun executes Signora.",
+                    "女士在御前决斗中败北，随后被雷电将军处决。",
                   pageid: 1001,
                 },
               ],

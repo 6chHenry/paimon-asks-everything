@@ -429,7 +429,7 @@ describe("grounded generation", () => {
     );
   });
 
-  it("uses community video evidence instead of returning a source-only answer", async () => {
+  it("does not generate Story Quest facts from a community analysis video alone", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";
     process.env.LLM_MODEL = "deepseek-v4-flash";
@@ -518,13 +518,8 @@ describe("grounded generation", () => {
     });
 
     expect(llmCalls).toBe(3);
-    expect(result.answer).toContain("爱可菲");
-    expect(result.answer).toContain("传说任务");
-    expect(result.answer).toContain("身份背景");
-    expect(result.answer).not.toContain("不用把旧内容全部补完");
-    expect(result.answer).not.toContain("来源都放在下面");
-    expect(result.external[0]?.sourceKind).toBe("community");
-    expect(result.citedSourceIds).toEqual(["external-1"]);
+    expect(result.external).toEqual([]);
+    expect(result.citedSourceIds).toEqual([]);
   });
 
   it("falls back to the user question when the model plans a search for an unrelated subject", async () => {

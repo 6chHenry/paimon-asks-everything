@@ -154,4 +154,30 @@ describe("source governance", () => {
       }),
     ).toBe(false);
   });
+
+  it("does not let a personal plot-analysis video prove Story Quest facts", () => {
+    const analysis = citation(
+      "法尔伽传说任务剧情梳理",
+      "https://www.bilibili.com/video/BV-user-analysis",
+      "个人解析法尔伽传说任务的主题和结局。",
+    );
+    analysis.assessment = assessSourceRule({
+      url: analysis.url,
+      title: analysis.title,
+      excerpt: analysis.excerpt,
+    });
+
+    expect(
+      sourceAllowedForQuestion(analysis, {
+        question: "法尔伽传说任务故事梗概",
+        plan: {
+          coreEntities: ["法尔伽"],
+          aliases: ["Varka"],
+          intent: "story",
+          queries: ["法尔伽传说任务故事梗概"],
+          storyScope: "character_story_quest",
+        },
+      }),
+    ).toBe(false);
+  });
 });

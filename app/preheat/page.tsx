@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -14,6 +13,7 @@ import {
 import { GnosisTimeline } from "@/components/gnosis-timeline";
 import { RelationMap } from "@/components/relation-map";
 import { usePreferences } from "@/components/preferences-provider";
+import { clientPath } from "@/lib/client-path";
 import type { PreheatDepth } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
 import type { PreheatView } from "@/lib/preheat";
@@ -50,7 +50,7 @@ export default function PreheatPage() {
       selectedDepth?: PreheatDepth,
     ) => {
       try {
-        await fetch("/api/preheat/events", {
+        await fetch(clientPath("/api/preheat/events"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -83,7 +83,7 @@ export default function PreheatPage() {
         spoilerPreference: preferences.spoilerPreference,
       });
       try {
-        const response = await fetch(`/api/preheat?${params}`, {
+        const response = await fetch(clientPath(`/api/preheat?${params}`), {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -299,17 +299,17 @@ export default function PreheatPage() {
               <div className="followup-box">
                 <span>{t(language, "继续问派蒙", "Continue with Paimon")}</span>
                 {data.topic.suggestedQuestions.map((question) => (
-                  <Link
+                  <a
                     key={question}
-                    href={`/ask?topicId=${encodeURIComponent(
+                    href={clientPath(`/ask?topicId=${encodeURIComponent(
                       topicId,
                     )}&timelineNodeId=${encodeURIComponent(
                       selectedTimelineId ?? "",
-                    )}&question=${encodeURIComponent(question)}`}
+                    )}&question=${encodeURIComponent(question)}`)}
                   >
                     <span>{question}</span>
                     <ArrowRight size={14} />
-                  </Link>
+                  </a>
                 ))}
               </div>
             </aside>
@@ -323,10 +323,10 @@ export default function PreheatPage() {
                 "Your depth and node selections were recorded as anonymous live increments; question text is still stored only with consent.",
               )}
             </span>
-            <Link href="/insights">
+            <a href={clientPath("/insights")}>
               {t(language, "查看发行洞察", "View release insights")}
               <ArrowRight size={15} />
-            </Link>
+            </a>
           </div>
         </>
       ) : null}

@@ -191,6 +191,12 @@ export async function recommendStoryResources(
   const reused = (options.citations ?? [])
     .filter(
       (citation) =>
+        language !== "zh-CN" ||
+        (!citation.crossLanguage &&
+          /[\u3400-\u9fff]/u.test(`${citation.title} ${citation.excerpt}`)),
+    )
+    .filter(
+      (citation) =>
         !searchPlan.coreEntities.length ||
         entityRelevanceScore(citation, searchPlan) > 0,
     )

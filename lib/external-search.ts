@@ -49,11 +49,26 @@ export type SearchIntent =
   | "official_media"
   | "general";
 
+export type StorySearchScope = "character_story_quest" | "general_story";
+
 export interface SearchPlan {
   coreEntities: string[];
   aliases: string[];
   intent: SearchIntent;
   queries: string[];
+  storyScope?: StorySearchScope;
+}
+
+export function inferStorySearchScope(
+  question: string,
+  intent: SearchIntent,
+): StorySearchScope | undefined {
+  if (intent !== "story") return undefined;
+  return /传说任务|傳說任務|角色任务|角色任務|story\s*quest|legend(?:ary)?\s+quest/iu.test(
+    question,
+  )
+    ? "character_story_quest"
+    : "general_story";
 }
 
 function cleanSearchValue(value: string, maxLength = 120) {
@@ -113,6 +128,14 @@ export function normalizeSearchPlan(
       ? (value?.intent as SearchIntent)
       : "general",
     queries: entityBoundQueries.length ? entityBoundQueries : [safeFallback],
+    storyScope:
+      value?.storyScope ??
+      inferStorySearchScope(
+        fallback,
+        intents.includes(value?.intent as SearchIntent)
+          ? (value?.intent as SearchIntent)
+          : "general",
+      ),
   };
 }
 
@@ -138,6 +161,10 @@ const MEDIAWIKI_PROVIDERS: MediaWikiProvider[] = [
     language: "zh-CN",
   },
 ];
+
+const CHINESE_MEDIAWIKI_PROVIDERS = MEDIAWIKI_PROVIDERS.filter(
+  (provider) => provider.language === "zh-CN",
+);
 
 const credibilityRank: Record<SourceCredibility, number> = {
   official: 100,
@@ -291,6 +318,31 @@ function normalizedExcerptText(value: string) {
   return normalizeChineseVariants(value).normalize("NFKC").toLowerCase();
 }
 
+function containsCjk(value: string) {
+  return /[\u3400-\u9fff]/u.test(value);
+}
+
+export function isChineseAnswerEvidence(citation: Citation) {
+  if (citation.crossLanguage) return false;
+  try {
+    const url = new URL(citation.url);
+    const hostname = url.hostname.replace(/^www\./, "").toLowerCase();
+    if (
+      (hostname === "genshin-impact.fandom.com" &&
+        !url.pathname.startsWith("/zh/")) ||
+      hostname === "wiki.hoyolab.com" ||
+      hostname === "youtube.com" ||
+      hostname.endsWith(".youtube.com") ||
+      hostname === "youtu.be"
+    ) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+  return containsCjk(`${citation.title} ${citation.excerpt}`);
+}
+
 function excerptTermCoverage(text: string, question: string) {
   const normalized = normalizedExcerptText(text);
   const terms = basicTerms(question);
@@ -330,17 +382,56 @@ function focusedExcerpt(text: string, question: string) {
   return candidates[0]?.excerpt ?? "";
 }
 
-function shouldFetchParsedExcerpt(excerpt: string | undefined, question: string) {
+function shouldFetchParsedExcerpt(
+  excerpt: string | undefined,
+  question: string,
+  forceFullPage = false,
+) {
+  if (forceFullPage) return true;
   if (!excerpt) return true;
   const terms = basicTerms(question);
   if (terms.length <= 1) return false;
   return excerptTermCoverage(excerpt, question) < Math.min(2, terms.length);
 }
 
+function focusedStoryQuestExcerpt(html: string) {
+  const fullText = htmlToText(html);
+  const intro = fullText.slice(0, 700).trim();
+  const markerIndex = html.search(
+    /<span\b[^>]*class=["'][^"']*mw-headline[^"']*["'][^>]*id=["'](?:Summary|剧情简介|剧情梗概|任务剧情|故事梗概)["']/iu,
+  );
+  if (markerIndex < 0) {
+    return fullText.slice(0, 10_000).trim();
+  }
+  const headingEnd = html.indexOf("</h2>", markerIndex);
+  if (headingEnd < 0) return fullText.slice(0, 10_000).trim();
+  const sectionStart = headingEnd + "</h2>".length;
+  const rest = html.slice(sectionStart);
+  const nextHeading = rest.search(/<h2\b/iu);
+  const sectionHtml =
+    nextHeading >= 0 ? rest.slice(0, nextHeading) : rest;
+  const fullSummary = htmlToText(sectionHtml).trim();
+  const summary =
+    fullSummary.length <= 5_500
+      ? fullSummary
+      : [
+          fullSummary.slice(0, 2_300),
+          "[Summary middle]",
+          fullSummary.slice(
+            Math.max(2_300, Math.floor(fullSummary.length / 2) - 600),
+            Math.floor(fullSummary.length / 2) + 600,
+          ),
+          "[Summary ending]",
+          fullSummary.slice(-1_800),
+        ].join(" ");
+  return `${intro} Summary ${summary}`.trim();
+}
+
 async function fetchParsedPageExcerpt(
   provider: MediaWikiProvider,
   pageid: number,
   question: string,
+  storyScope?: StorySearchScope,
 ) {
   const endpoint = new URL(provider.apiUrl);
   endpoint.searchParams.set("action", "parse");
@@ -356,7 +447,10 @@ async function fetchParsedPageExcerpt(
   const payload = (await response.json()) as {
     parse?: { text?: { "*": string } };
   };
-  return focusedExcerpt(htmlToText(payload.parse?.text?.["*"] ?? ""), question);
+  const pageHtml = payload.parse?.text?.["*"] ?? "";
+  return storyScope === "character_story_quest"
+    ? focusedStoryQuestExcerpt(pageHtml)
+    : focusedExcerpt(htmlToText(pageHtml), question);
 }
 
 export function classifyWebSource(url: string): ClassifiedWebSource {
@@ -405,6 +499,7 @@ async function searchMediaWikiProvider(
   question: string,
   language: Language,
   idPrefix: string,
+  storyScope?: StorySearchScope,
 ): Promise<Citation[]> {
   const endpoint = new URL(provider.apiUrl);
   endpoint.searchParams.set("action", "query");
@@ -455,14 +550,23 @@ async function searchMediaWikiProvider(
     }
   }
 
-  for (const item of searchResults) {
-    const existing = extracts.get(item.pageid);
-    if (!shouldFetchParsedExcerpt(existing, question)) continue;
-    try {
+  await Promise.allSettled(
+    searchResults.map(async (item) => {
+      const existing = extracts.get(item.pageid);
+      if (
+        !shouldFetchParsedExcerpt(
+          existing,
+          question,
+          storyScope === "character_story_quest",
+        )
+      ) {
+        return;
+      }
       const parsedExcerpt = await fetchParsedPageExcerpt(
         provider,
         item.pageid,
         question,
+        storyScope,
       );
       if (
         parsedExcerpt &&
@@ -471,10 +575,8 @@ async function searchMediaWikiProvider(
       ) {
         extracts.set(item.pageid, parsedExcerpt);
       }
-    } catch {
-      // Search result title remains available as a degraded fallback.
-    }
-  }
+    }),
+  );
 
   return searchResults.map((item, index) => {
     const url = `${provider.pageBaseUrl}${encodeURIComponent(
@@ -682,13 +784,41 @@ function expandedQueries(plan: SearchPlan, question: string, language: Language)
       );
     }
     if (latinAlias) {
-      queries.push(`${latinAlias} story quest`);
+      queries.push(
+        `${latinAlias} story quest`,
+        `${latinAlias} story quest chapter`,
+        `${latinAlias} story quest plot`,
+      );
     }
   }
   return Array.from(new Set(queries.map((query) => cleanSearchValue(query)))).slice(
     0,
     16,
   );
+}
+
+function decodeSearchUrl(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+export function isCharacterStoryQuestEvidence(
+  citation: Citation,
+  plan: SearchPlan,
+) {
+  if (plan.storyScope !== "character_story_quest") return true;
+  const titleAndUrl = `${decodeSearchUrl(citation.url)} ${citation.title}`;
+  const text = `${titleAndUrl} ${citation.excerpt}`;
+  const titleExplicit =
+    /传说任务|傳說任務|角色任务|角色任務|story\s*quest/iu.test(titleAndUrl);
+  const structuralEvidence =
+    /quest\s+type[\s\S]{0,40}story|(?:is|belongs to)[\s\S]{0,80}story\s*quest|story\s*quest[\s\S]{0,80}(?:chapter|act)|list\s+of\s+(?:quests|acts)[\s\S]{0,120}summary|chapter\s*:?\s*act|任[务務]类型[\s\S]{0,30}(?:传说|傳說|故事)|任[务務]章节/iu.test(
+      text,
+    );
+  return titleExplicit || structuralEvidence;
 }
 
 function storyIntentScore(citation: Citation, plan: SearchPlan) {
@@ -705,10 +835,27 @@ function storyIntentScore(citation: Citation, plan: SearchPlan) {
     /珍上至珍/u,
     /香糕塔/u,
     /story quest/i,
+    /quest chapter/i,
+    /quest type story/i,
+    /chapter\s*:?\s*act/i,
     /transcript/i,
     /quest plot/i,
   ];
-  return patterns.reduce((score, pattern) => score + (pattern.test(text) ? 25 : 0), 0);
+  const base = patterns.reduce(
+    (score, pattern) => score + (pattern.test(text) ? 25 : 0),
+    0,
+  );
+  return (
+    base +
+    (plan.storyScope === "character_story_quest" &&
+    isCharacterStoryQuestEvidence(citation, plan)
+      ? 180
+      : 0) -
+    (plan.storyScope === "character_story_quest" &&
+    /\(Event\)|（活动）|活動/iu.test(citation.title)
+      ? 120
+      : 0)
+  );
 }
 
 function identityClaimQueryPattern(question: string) {
@@ -745,6 +892,7 @@ function dedupeAndRank(
   }
   return [...deduped.values()]
     .filter((citation) => passesEntityGate(citation, plan, question))
+    .filter((citation) => isCharacterStoryQuestEvidence(citation, plan))
     .filter((citation) =>
       sourceAllowedForQuestion(citation, { question, plan }),
     )
@@ -801,7 +949,7 @@ async function searchProviders(
 ): Promise<Citation[]> {
   const providers =
     language === "zh-CN"
-      ? MEDIAWIKI_PROVIDERS
+      ? CHINESE_MEDIAWIKI_PROVIDERS
       : [EN_FANDOM_PROVIDER, ...MEDIAWIKI_PROVIDERS.filter((p) => p.language === "zh-CN")];
   const results = await Promise.allSettled(
     providers.map((provider, index) =>
@@ -814,6 +962,7 @@ async function searchProviders(
           : query,
         language,
         `external-${index + 1}`,
+        plan.storyScope,
       ),
     ),
   );
@@ -824,6 +973,99 @@ async function searchProviders(
     plan,
     query,
   ).slice(0, 6);
+}
+
+function englishDiscoveryQuery(plan: SearchPlan) {
+  const alias = plan.aliases.find((value) => /[a-z]/iu.test(value));
+  if (!alias) return undefined;
+  if (plan.storyScope === "character_story_quest") {
+    return `${alias} story quest plot`;
+  }
+  if (plan.intent === "story") return `${alias} story quest storyline`;
+  if (plan.intent === "identity") return `${alias} identity origin`;
+  if (plan.intent === "relationship") return `${alias} relationship`;
+  return `${alias} Genshin`;
+}
+
+async function discoverEnglishClues(
+  plan: SearchPlan,
+  language: Language,
+) {
+  if (language !== "zh-CN") return [] as Citation[];
+  const query = englishDiscoveryQuery(plan);
+  if (!query) return [] as Citation[];
+  return searchMediaWikiProvider(
+    EN_FANDOM_PROVIDER,
+    query,
+    language,
+    "discovery-en",
+    plan.storyScope,
+  ).catch(() => []);
+}
+
+async function localizedChineseTermsFromEnglishClues(clues: Citation[]) {
+  const results = await Promise.allSettled(
+    clues.slice(0, 2).map(async (citation) => {
+      const endpoint = new URL(EN_FANDOM_PROVIDER.apiUrl);
+      endpoint.searchParams.set("action", "parse");
+      endpoint.searchParams.set("page", citation.title);
+      endpoint.searchParams.set("prop", "text");
+      endpoint.searchParams.set("format", "json");
+      endpoint.searchParams.set("origin", "*");
+      const response = await fetchExternal(endpoint, {
+        signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+        headers: { "User-Agent": "PaimonAsksEverythingDemo/0.1" },
+      });
+      if (!response.ok) return [];
+      const payload = (await response.json()) as {
+        parse?: { text?: { "*": string } };
+      };
+      const text = htmlToText(payload.parse?.text?.["*"] ?? "");
+      return [
+        ...text.matchAll(
+          /Chinese \(Simplified\)\s+([\p{Script=Han}·・—-]{2,40})/giu,
+        ),
+      ].map((match) => match[1]!.trim());
+    }),
+  );
+  return Array.from(
+    new Set(
+      results.flatMap((result) =>
+        result.status === "fulfilled" ? result.value : [],
+      ),
+    ),
+  ).slice(0, 4);
+}
+
+function chineseQueriesFromEnglishClues(
+  plan: SearchPlan,
+  clues: Citation[],
+  localizedTerms: string[],
+) {
+  const subject = plan.coreEntities[0];
+  if (!subject) return [];
+  const generic = [
+    `site:wiki.biligame.com/ys ${subject} 传说任务`,
+    `site:baike.mihoyo.com/ys/obc ${subject} 传说任务`,
+    `${subject} 传说任务 中文WIKI 剧情`,
+    `site:zhihu.com ${subject} 传说任务 剧情`,
+    `site:mp.weixin.qq.com ${subject} 原神 传说任务`,
+  ];
+  const localized = localizedTerms.flatMap((term) => [
+    `${subject} ${term} 剧情`,
+    `site:wiki.biligame.com/ys ${subject} ${term}`,
+    `site:baike.mihoyo.com/ys/obc ${subject} ${term}`,
+  ]);
+  const titleQueries = clues
+    .filter((citation) => citation.crossLanguage)
+    .map((citation) => citation.title.trim())
+    .filter(Boolean)
+    .slice(0, 1)
+    .flatMap((title) => [
+      `${subject} "${title}" 中文 剧情`,
+      `${subject} "${title}" 中文WIKI`,
+    ]);
+  return [...localized, ...generic, ...titleQueries];
 }
 
 function normalizeResultUrl(rawUrl: string) {
@@ -1022,6 +1264,149 @@ async function enrichWebCitation(
   return enriched;
 }
 
+function directChineseWikiTitles(term: string) {
+  const normalized = cleanSearchValue(term, 60).replace(/ /g, "_");
+  if (!normalized || !containsCjk(normalized)) return [];
+  return [normalized, `「${normalized}」`];
+}
+
+async function probeLocalizedChineseWikiPages(
+  plan: SearchPlan,
+  localizedTerms: string[],
+  question: string,
+) {
+  const subject = plan.coreEntities[0];
+  if (!subject || localizedTerms.length === 0) return [] as Citation[];
+  const candidates = localizedTerms
+    .slice(0, 2)
+    .flatMap((term) =>
+      directChineseWikiTitles(term).map((pageTitle, index) => ({
+        term,
+        pageTitle,
+        index,
+      })),
+    );
+  const results = await Promise.allSettled(
+    candidates.map(async ({ term, pageTitle, index }) => {
+      const endpoint = new URL("https://wiki.biligame.com/ys/api.php");
+      endpoint.searchParams.set("action", "parse");
+      endpoint.searchParams.set("page", pageTitle);
+      endpoint.searchParams.set("prop", "text");
+      endpoint.searchParams.set("format", "json");
+      endpoint.searchParams.set("origin", "*");
+      const response = await fetchExternal(endpoint, {
+        signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+        headers: {
+          "User-Agent": "Mozilla/5.0 PaimonAsksEverythingDemo/0.1",
+          Referer: "https://wiki.biligame.com/ys/",
+          "Accept-Language": "zh-CN,zh;q=0.9",
+        },
+      });
+      if (!response.ok) return undefined;
+      const payload = (await response.json()) as {
+        parse?: { title?: string; text?: { "*": string } };
+        error?: unknown;
+      };
+      const pageHtml = payload.parse?.text?.["*"] ?? "";
+      if (!pageHtml) return undefined;
+      const resolvedTitle = payload.parse?.title?.trim() || pageTitle;
+      const url = `https://wiki.biligame.com/ys/${encodeURIComponent(
+        resolvedTitle.replace(/ /g, "_"),
+      )}`;
+      const excerpt =
+        plan.storyScope === "character_story_quest"
+          ? focusedStoryQuestExcerpt(pageHtml)
+          : focusedExcerpt(
+              htmlToText(pageHtml),
+              `${subject} ${term} ${question}`,
+            );
+      const assessment = assessSourceRule({
+        url,
+        title: resolvedTitle,
+        excerpt,
+      });
+      const legacy = legacySourceFields(assessment);
+      const citation = {
+        id: `direct-zh-wiki-${index + 1}`,
+        title: resolvedTitle,
+        url,
+        sourceName: "原神WIKI_BWIKI",
+        sourceKind: legacy.sourceKind,
+        credibility: legacy.credibility,
+        factStatus: legacy.factStatus,
+        excerpt,
+        external: true,
+        crossLanguage: false,
+        assessment,
+      } satisfies Citation;
+      const pageText = `${citation.title} ${citation.excerpt} ${decodeSearchUrl(
+        citation.url,
+      )}`;
+      if (!citation.excerpt.trim()) return undefined;
+      if (!includesEntity(pageText, term) || !includesEntity(pageText, subject)) {
+        return undefined;
+      }
+      if (!isChineseAnswerEvidence(citation)) return undefined;
+      if (!isCharacterStoryQuestEvidence(citation, plan)) return undefined;
+      return citation;
+    }),
+  );
+  return results.flatMap((result) =>
+    result.status === "fulfilled" && result.value ? [result.value] : [],
+  );
+}
+
+async function searchChineseStoryQuestWikiFast(
+  plan: SearchPlan,
+  question: string,
+) {
+  const subject = plan.coreEntities[0];
+  if (plan.storyScope !== "character_story_quest" || !subject) {
+    return [] as Citation[];
+  }
+  try {
+    const endpoint = new URL("https://wiki.biligame.com/ys/api.php");
+    endpoint.searchParams.set("action", "query");
+    endpoint.searchParams.set("list", "search");
+    endpoint.searchParams.set("srsearch", `${subject} 传说任务`);
+    endpoint.searchParams.set("srlimit", "5");
+    endpoint.searchParams.set("format", "json");
+    endpoint.searchParams.set("origin", "*");
+    const response = await fetchExternal(endpoint, {
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+      headers: {
+        "User-Agent": "Mozilla/5.0 PaimonAsksEverythingDemo/0.1",
+        Referer: "https://wiki.biligame.com/ys/",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+      },
+    });
+    if (!response.ok) return [];
+    const payload = (await response.json()) as {
+      query?: { search?: Array<{ title?: string }> };
+    };
+    const localizedTerms = Array.from(
+      new Set(
+        (payload.query?.search ?? [])
+          .map((item) =>
+            (item.title ?? "")
+              .replace(/^[「『《【]\s*/u, "")
+              .replace(/\s*[」』》】]$/u, "")
+              .trim(),
+          )
+          .filter(
+            (title) =>
+              containsCjk(title) &&
+              /(?:之章|篇章|章节|章)$/u.test(title) &&
+              title.length <= 30,
+          ),
+      ),
+    ).slice(0, 2);
+    return probeLocalizedChineseWikiPages(plan, localizedTerms, question);
+  } catch {
+    return [];
+  }
+}
+
 async function searchDuckDuckGoWeb(
   query: string,
   signal?: AbortSignal,
@@ -1120,21 +1505,61 @@ export async function searchGeneralWeb(
 }
 
 function tieredQueries(plan: SearchPlan, question: string, language: Language) {
-  const all = expandedQueries(plan, question, language);
+  const expanded = expandedQueries(plan, question, language);
+  const all =
+    language === "zh-CN"
+      ? expanded.filter(
+          (query) =>
+            containsCjk(query) ||
+            /site:(?:baike\.mihoyo\.com|wiki\.biligame\.com|zhihu\.com|mp\.weixin\.qq\.com|baike\.baidu\.com)/iu.test(
+              query,
+            ),
+        )
+      : expanded;
   const entityLookup = plan.coreEntities.join(" ").trim();
+  const latinAlias = plan.aliases.find((alias) => /[a-z]/iu.test(alias));
+  const storyQuestLookup =
+    language !== "zh-CN" &&
+    plan.storyScope === "character_story_quest" &&
+    latinAlias
+      ? `${latinAlias} story quest plot`
+      : undefined;
   const officialWiki = all.find((query) =>
     /site:(?:baike\.mihoyo\.com|wiki\.hoyolab\.com)/iu.test(query),
   );
   const primaryQuery =
     plan.intent === "story"
-      ? plan.queries[1] ?? plan.queries[0]
-      : plan.queries[0];
+      ? language === "zh-CN"
+        ? plan.queries.find(containsCjk) ?? question
+        : plan.queries[1] ?? plan.queries[0]
+      : language === "zh-CN"
+        ? plan.queries.find(containsCjk) ?? question
+        : plan.queries[0];
   const first = Array.from(
     new Set(
-      [entityLookup, primaryQuery, officialWiki].filter(Boolean) as string[],
+      [
+        language === "zh-CN" &&
+        plan.storyScope === "character_story_quest" &&
+        plan.coreEntities[0]
+          ? `${plan.coreEntities[0]} 传说任务`
+          : undefined,
+        entityLookup,
+        primaryQuery,
+        officialWiki,
+      ].filter(Boolean) as string[],
     ),
-  ).slice(0, 3);
-  const remaining = all.filter((query) => !first.includes(query));
+  );
+  if (storyQuestLookup) first.unshift(storyQuestLookup);
+  const boundedFirst = Array.from(new Set(first)).slice(0, 3);
+  const remaining = all.filter((query) => !boundedFirst.includes(query));
+  const chineseCommunity =
+    language === "zh-CN" && plan.coreEntities[0]
+      ? [
+          `site:zhihu.com ${plan.coreEntities[0]} 剧情`,
+          `site:mp.weixin.qq.com ${plan.coreEntities[0]} 原神 剧情`,
+          `site:baike.baidu.com ${plan.coreEntities[0]} 原神`,
+        ]
+      : [];
   const second =
     plan.intent === "story" || plan.intent === "identity"
       ? [
@@ -1144,9 +1569,10 @@ function tieredQueries(plan: SearchPlan, question: string, language: Language) {
             ),
           ),
           ...remaining,
+          ...chineseCommunity,
         ].filter((query, index, values) => values.indexOf(query) === index)
-      : remaining;
-  return { first, second: second.slice(0, 14), entityLookup };
+      : [...remaining, ...chineseCommunity];
+  return { first: boundedFirst, second: second.slice(0, 16), entityLookup };
 }
 
 export async function searchWebEvidence(
@@ -1236,14 +1662,115 @@ export async function searchWebEvidence(
     { question, plan, useModel },
   );
   };
+  const fastChineseStoryQuestCandidates =
+    language === "zh-CN"
+      ? await searchChineseStoryQuestWikiFast(plan, question)
+      : [];
+  if (fastChineseStoryQuestCandidates.length > 0) {
+    const fastAssessed = await assessCandidates(
+      fastChineseStoryQuestCandidates,
+      false,
+      false,
+    );
+    const fastRanked = dedupeAndRank(fastAssessed, plan, question)
+      .filter(isChineseAnswerEvidence)
+      .filter((citation) => isCharacterStoryQuestEvidence(citation, plan))
+      .slice(0, 8);
+    if (fastRanked.length > 0) {
+      await emitTrace(options.emitTrace, {
+        stage: "search",
+        status: "complete",
+        message: `找到 ${fastRanked.length} 条可核验来源`,
+        detail: fastRanked
+          .slice(0, 4)
+          .map((item) => item.title)
+          .join(" · "),
+      });
+      return fastRanked;
+    }
+  }
   const firstResults = await runQueries(tiers.first);
-  const secondResults = tiers.second.length ? await runQueries(tiers.second) : [];
+  const firstCandidates = collectCandidates(firstResults);
+  const firstAssessed = await assessCandidates(firstCandidates, false, false);
+  const firstRanked = dedupeAndRank(firstAssessed, plan, question);
+  const localizedTermsFromChineseResults =
+    language === "zh-CN" && plan.storyScope === "character_story_quest"
+      ? Array.from(
+          new Set(
+            firstCandidates
+              .map((citation) =>
+                citation.title
+                  .replace(/^[「『《【]\s*/u, "")
+                  .replace(/\s*[」』》】]$/u, "")
+                  .trim(),
+              )
+              .filter(
+                (title) =>
+                  containsCjk(title) &&
+                  /(?:之章|篇章|章节|章)$/u.test(title) &&
+                  title.length <= 30,
+              ),
+          ),
+        ).slice(0, 3)
+      : [];
+  const firstTierSufficient =
+    language === "zh-CN"
+      ? plan.storyScope === "character_story_quest"
+        ? firstRanked
+            .filter(isChineseAnswerEvidence)
+            .some((citation) =>
+              isCharacterStoryQuestEvidence(citation, plan),
+            )
+        : plan.intent !== "identity" &&
+          firstRanked.filter(isChineseAnswerEvidence).length >= 2
+      : plan.storyScope === "character_story_quest" &&
+        firstRanked.filter((citation) =>
+          isCharacterStoryQuestEvidence(citation, plan),
+        ).length >= 2;
+  const englishClues =
+    !firstTierSufficient &&
+    language === "zh-CN" &&
+    localizedTermsFromChineseResults.length === 0
+      ? await discoverEnglishClues(plan, language)
+      : [];
+  const localizedTermsFromEnglish =
+    englishClues.length > 0
+      ? await localizedChineseTermsFromEnglishClues(englishClues)
+      : [];
+  const localizedTerms = Array.from(
+    new Set([
+      ...localizedTermsFromChineseResults,
+      ...localizedTermsFromEnglish,
+    ]),
+  ).slice(0, 4);
+  const clueQueries = chineseQueriesFromEnglishClues(
+    plan,
+    englishClues,
+    localizedTerms,
+  );
+  const directChineseWikiCandidates =
+    !firstTierSufficient && language === "zh-CN"
+      ? await probeLocalizedChineseWikiPages(plan, localizedTerms, question)
+      : [];
+  const secondResults =
+    !firstTierSufficient &&
+    directChineseWikiCandidates.length === 0 &&
+    (tiers.second.length || clueQueries.length)
+      ? await runQueries(
+          Array.from(new Set([...clueQueries, ...tiers.second])).slice(0, 16),
+        )
+      : [];
   const candidates = [
-    ...collectCandidates(firstResults),
+    ...firstCandidates,
     ...collectCandidates(secondResults),
+    ...directChineseWikiCandidates,
   ];
   const assessed = await assessCandidates(candidates, true, true);
-  const ranked = dedupeAndRank(assessed, plan, question).slice(0, 8);
+  const ranked = dedupeAndRank(assessed, plan, question)
+    .filter((citation) =>
+      language === "zh-CN" ? isChineseAnswerEvidence(citation) : true,
+    )
+    .slice(0, 8);
   await emitTrace(options.emitTrace, {
     stage: "search",
     status: ranked.length ? "complete" : "skipped",

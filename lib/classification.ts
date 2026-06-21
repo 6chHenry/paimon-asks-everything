@@ -133,6 +133,16 @@ export function classifyQuestion(
     item.terms.some((term) => normalized.includes(term.toLowerCase())),
   );
   if (match) return { questionCategory: match.category, confusionTopic: match.topic };
+  if (
+    /传说任务|傳說任務|故事梗概|剧情梗概|劇情梗概|story\s*quest|legend(?:ary)?\s+quest/iu.test(
+      question,
+    )
+  ) {
+    return {
+      questionCategory: "story",
+      confusionTopic: "character_story_quest",
+    };
+  }
   const entity = detectQuestionEntities(question).find(
     (item) => item.kind === "character",
   );
@@ -199,6 +209,9 @@ export function isDeepStoryIntent(
     "发生了什么",
     "详细说",
     "介绍一下",
+    "故事梗概",
+    "剧情梗概",
+    "梗概",
     "tell me the story",
     "full story",
     "storyline",

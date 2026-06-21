@@ -1,13 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Flame, FlaskConical, MessageCircleMore, Sparkles } from "lucide-react";
+import { BarChart3, Flame, FlaskConical, MessageCircleMore, Sparkles, TestTube2 } from "lucide-react";
 import { usePreferences } from "@/components/preferences-provider";
+import { clientPath } from "@/lib/client-path";
 
 const navigation = [
   { href: "/preheat", labelZh: "版本预热", labelEn: "Preheat", icon: Flame },
   { href: "/ask", labelZh: "问派蒙", labelEn: "Ask", icon: MessageCircleMore },
+  { href: "/preview", labelZh: "能力预览", labelEn: "Preview", icon: TestTube2 },
   { href: "/insights", labelZh: "发行洞察", labelEn: "Insights", icon: BarChart3 },
   {
     href: "/evaluation",
@@ -19,13 +20,14 @@ const navigation = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const activePath = pathname.replace(/^.*\/proxy\/\d+/u, "") || "/";
   const { preferences, setPreferences } = usePreferences();
   const isZh = preferences.language === "zh-CN";
 
   return (
     <div className="site-shell">
       <header className="topbar">
-        <Link href="/" className="brand" aria-label="Paimon Asks Everything">
+        <a href={clientPath("/")} className="brand" aria-label="Paimon Asks Everything">
           <span className="brand-sigil">
             <Sparkles size={16} />
           </span>
@@ -33,19 +35,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <strong>{isZh ? "派蒙三千问" : "Paimon Asks Everything"}</strong>
             <small>{isZh ? "版本理解 Agent" : "Version understanding agent"}</small>
           </span>
-        </Link>
+        </a>
         <nav className="nav-links" aria-label="Main navigation">
           {navigation.map((item) => {
             const Icon = item.icon;
             return (
-              <Link
-                href={item.href}
+              <a
+                href={clientPath(item.href)}
                 key={item.href}
-                className={pathname === item.href ? "active" : undefined}
+                className={activePath === item.href ? "active" : undefined}
               >
                 <Icon size={16} />
                 <span>{isZh ? item.labelZh : item.labelEn}</span>
-              </Link>
+              </a>
             );
           })}
         </nav>

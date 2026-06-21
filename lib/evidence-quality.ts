@@ -1,5 +1,10 @@
 import type { Citation, Language } from "@/lib/domain";
 import type { SearchIntent } from "@/lib/external-search";
+import {
+  isChineseAnswerEvidence,
+  isCharacterStoryQuestEvidence,
+  type SearchPlan,
+} from "@/lib/external-search";
 
 const genericPagePattern =
   /欢迎来到|开放编辑|游戏数据库|图鉴资料|攻略内容|contents?\s+\d|navigation|overview\s+profile\s+storyline\s+voice-overs|dressing room\s+companion\s+gallery|wiki.*database|open(?:ly)? edited|game database/iu;
@@ -64,11 +69,22 @@ function looksLikeGameplayQuestion(question: string) {
 
 export function selectAnswerEvidence(
   citations: Citation[],
-  input: { question: string; intent: SearchIntent },
+  input: {
+    question: string;
+    intent: SearchIntent;
+    plan?: SearchPlan;
+    language?: Language;
+  },
 ) {
   return citations
     .filter((citation) => {
       if (!cleanEvidenceText(citation.excerpt || citation.title)) return false;
+      if (
+        input.language === "zh-CN" &&
+        !isChineseAnswerEvidence(citation)
+      ) {
+        return false;
+      }
       if (isGenericEvidence(citation)) return false;
       if (
         citation.assessment?.contentKind === "gameplay_guide" &&
@@ -83,6 +99,19 @@ export function selectAnswerEvidence(
       ) {
         return false;
       }
+      if (
+        input.plan?.storyScope === "character_story_quest" &&
+        !isCharacterStoryQuestEvidence(citation, input.plan)
+      ) {
+        return false;
+      }
+      if (
+        input.plan?.storyScope === "character_story_quest" &&
+        citation.assessment?.authority !== "official" &&
+        citation.assessment?.authority !== "curated_reference"
+      ) {
+        return false;
+      }
       return true;
     })
     .map((citation, index) => ({
@@ -92,11 +121,15 @@ export function selectAnswerEvidence(
 }
 
 export function evidenceForGeneration(citation: Citation) {
+  const storyQuestEvidence =
+    /传说任务|傳說任務|story\s*quest|quest\s+chapter|quest\s+act|quest\s+type\s+story/iu.test(
+      `${citation.title} ${citation.excerpt}`,
+    );
   return {
     id: citation.id,
     title: cleanEvidenceText(citation.title),
-    summary: compactCleanEvidence(citation.excerpt, 320),
-    excerpt: compactCleanEvidence(citation.excerpt),
+    summary: compactCleanEvidence(citation.excerpt, storyQuestEvidence ? 800 : 320),
+    excerpt: compactCleanEvidence(citation.excerpt, storyQuestEvidence ? 6_500 : 700),
     sourceName: citation.sourceName,
     sourceKind: citation.sourceKind,
     credibility: citation.credibility,

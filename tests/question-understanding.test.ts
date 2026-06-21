@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   reconcileQuestionUnderstanding,
   ruleUnderstandQuestion,
+  shouldUseModelQuestionUnderstanding,
   understandQuestion,
   understandQuestionWithModel,
 } from "@/lib/question-understanding";
@@ -133,5 +134,36 @@ describe("question understanding", () => {
     expect(result.intent).toBe("identity");
     expect(result.agreement).toBe("rule_only");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("uses the model to enrich aliases for an inferred character Story Quest", () => {
+    const rule = ruleUnderstandQuestion("法尔伽传说任务故事梗概", "zh-CN");
+
+    expect(rule.entities).toEqual([
+      { canonical: "法尔伽", aliases: [], kind: "character" },
+    ]);
+    expect(rule.intent).toBe("story");
+    expect(shouldUseModelQuestionUnderstanding("法尔伽传说任务故事梗概", rule)).toBe(
+      true,
+    );
+  });
+
+  it("keeps the English alias and Story Quest query returned for a new character", () => {
+    const rule = ruleUnderstandQuestion("法尔伽传说任务故事梗概", "zh-CN");
+    const reconciled = reconcileQuestionUnderstanding(
+      "法尔伽传说任务故事梗概",
+      rule,
+      {
+        entities: [
+          { canonical: "法尔伽", aliases: ["Varka"], kind: "character" },
+        ],
+        intent: "story",
+        claim: "法尔伽传说任务梗概",
+        queries: ["Varka story quest", "法尔伽 传说任务 剧情"],
+      },
+    );
+
+    expect(reconciled.entities[0]?.aliases).toContain("Varka");
+    expect(reconciled.queries).toContain("Varka story quest");
   });
 });

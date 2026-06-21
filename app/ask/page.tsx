@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, CircleAlert, LoaderCircle, Send, Stars } from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
 import { TraceTimeline } from "@/components/trace-timeline";
+import { clientPath } from "@/lib/client-path";
 import type { ChatResult } from "@/lib/domain";
 import { t } from "@/lib/i18n";
 import { suggestedQuestions } from "@/lib/suggested-questions";
@@ -41,32 +41,19 @@ export default function AskPage() {
     [],
   );
 
-  async function submitRegularRequest(text: string, confirmationToken?: string) {
-    const response = await fetch(
-      confirmationToken ? "/api/chat/confirm-spoiler" : "/api/chat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: text,
-          ...preferences,
-          sessionId,
-          ...(confirmationToken ? { confirmationToken } : {}),
-        }),
-      },
-    );
-    if (!response.ok) throw new Error("request_failed");
-    setResult((await response.json()) as ChatResult);
-  }
-
-  async function submitStreamingRequest(text: string, controller: AbortController) {
-    const response = await fetch("/api/chat/stream", {
+  async function submitStreamingRequest(
+    text: string,
+    controller: AbortController,
+    confirmationToken?: string,
+  ) {
+    const response = await fetch(clientPath("/api/chat/stream"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         question: text,
         ...preferences,
         sessionId,
+        ...(confirmationToken ? { confirmationToken } : {}),
       }),
       signal: controller.signal,
     });
@@ -144,13 +131,12 @@ export default function AskPage() {
       setTraceEvents([]);
       setTraceCollapsed(false);
       setLastQuestion(text);
+    } else {
+      setResult(null);
+      setTraceCollapsed(false);
     }
     try {
-      if (confirmationToken) {
-        await submitRegularRequest(text, confirmationToken);
-      } else {
-        await submitStreamingRequest(text, controller);
-      }
+      await submitStreamingRequest(text, controller, confirmationToken);
       setQuestion("");
     } catch (requestError) {
       if (
@@ -195,10 +181,10 @@ export default function AskPage() {
             <strong>{sourceTopicId.replaceAll("-", " ")}</strong>
             {sourceTimelineNodeId ? <small>{sourceTimelineNodeId.replaceAll("-", " ")}</small> : null}
           </div>
-          <Link href={`/preheat?topicId=${encodeURIComponent(sourceTopicId)}&depth=guided`}>
+          <a href={clientPath(`/preheat?topicId=${encodeURIComponent(sourceTopicId)}&depth=guided`)}>
             <ArrowLeft size={14} />
             {t(language, "返回事件链", "Back to event chain")}
-          </Link>
+          </a>
         </div>
       ) : null}
 

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   classifyWebSource,
+  isCharacterStoryQuestEvidence,
   normalizeSearchPlan,
   searchWebEvidence,
   searchWhitelistedWiki,
@@ -148,6 +149,33 @@ describe("whitelisted external search", () => {
     });
   });
 
+  it("does not treat a prerequisite mention as Story Quest plot evidence", () => {
+    expect(
+      isCharacterStoryQuestEvidence(
+        {
+          id: "prerequisite-only",
+          title: "法尔伽·劳碌之故",
+          url: "https://wiki.biligame.com/ys/法尔伽·劳碌之故",
+          sourceName: "原神WIKI_BWIKI",
+          sourceKind: "trusted_wiki",
+          credibility: "trusted_wiki",
+          factStatus: "trusted_secondary",
+          excerpt:
+            "任务条件：完成法尔伽传说任务第一幕「致予远征之人」。随后与西蒙对话。",
+          external: true,
+          crossLanguage: false,
+        },
+        {
+          coreEntities: ["法尔伽"],
+          aliases: ["Varka"],
+          intent: "story",
+          storyScope: "character_story_quest",
+          queries: ["法尔伽传说任务故事梗概"],
+        },
+      ),
+    ).toBe(false);
+  });
+
   it("drops model-planned queries that drift away from the core entity", () => {
     const plan = normalizeSearchPlan(
       {
@@ -181,7 +209,7 @@ describe("whitelisted external search", () => {
     expect(plan.queries).toEqual(["雷电将军和雷电影的关系"]);
   });
 
-  it("searches Chinese and English wiki providers and ranks trusted evidence", async () => {
+  it("uses only Chinese Wiki providers when Chinese evidence is already sufficient", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       if (url.searchParams.get("prop") === "extracts") {
@@ -239,8 +267,17 @@ describe("whitelisted external search", () => {
     expect(
       fetchMock.mock.calls.some((call) => String(call[0]).includes("/zh/api.php")),
     ).toBe(true);
+    expect(
+      fetchMock.mock.calls.some((call) => {
+        const url = new URL(String(call[0]));
+        return (
+          url.hostname === "genshin-impact.fandom.com" &&
+          url.pathname === "/api.php"
+        );
+      }),
+    ).toBe(false);
     expect(calledHosts).toContain("wiki.biligame.com");
-    expect(results.length).toBeGreaterThanOrEqual(3);
+    expect(results.length).toBeGreaterThanOrEqual(2);
     expect(results.every((result) => result.sourceKind === "trusted_wiki")).toBe(
       true,
     );
@@ -306,7 +343,7 @@ describe("whitelisted external search", () => {
     );
 
     expect(searchedQueries).toContain("法尔伽");
-    expect(searchedQueries).toContain("Varka");
+    expect(searchedQueries).toContain("Varka identity origin");
     expect(searchedQueries).not.toContain("巴尔");
     expect(searchedQueries).not.toContain("欧洛伦");
     expect(results.length).toBeGreaterThan(0);
@@ -412,7 +449,7 @@ describe("whitelisted external search", () => {
     );
   });
 
-  it("keeps relevant long-tail community video hits when wiki search is empty", async () => {
+  it("does not let a community analysis video become the only Story Quest evidence", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       if (url.hostname === "html.duckduckgo.com") {
@@ -448,10 +485,7 @@ describe("whitelisted external search", () => {
       },
     );
 
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0]?.title).toContain("爱可菲");
-    expect(results[0]?.sourceKind).toBe("community");
-    expect(results[0]?.excerpt).toContain("身份背景");
+    expect(results).toEqual([]);
   });
 
   it("opens general web results and promotes page body passages over search snippets", async () => {
@@ -779,7 +813,8 @@ describe("whitelisted external search", () => {
               pages: {
                 "9036": {
                   pageid: 9036,
-                  extract: "愛可菲是原神中的角色，相关资料介绍她的身份和传说任务。",
+                  extract:
+                    "愛可菲是原神中的角色。她的傳說任務第一幕為角色任務，相關頁面整理了任務劇情。",
                 },
               },
             },
@@ -790,12 +825,12 @@ describe("whitelisted external search", () => {
       return new Response(
         JSON.stringify({
           query: {
-            search: [
-              {
-                title: "愛可菲",
-                snippet: "",
-                pageid: 9036,
-              },
+              search: [
+                {
+                  title: "愛可菲傳說任務",
+                  snippet: "",
+                  pageid: 9036,
+                },
             ],
           },
         }),
@@ -818,9 +853,9 @@ describe("whitelisted external search", () => {
     );
 
     expect(results.length).toBeGreaterThan(0);
-    expect(results[0]?.title).toBe("愛可菲");
+    expect(results[0]?.title).toBe("愛可菲傳說任務");
     expect(results[0]?.sourceKind).toBe("trusted_wiki");
-    expect(results[0]?.excerpt).toContain("传说任务");
+    expect(results[0]?.excerpt).toMatch(/传说任务|傳說任務/u);
   });
 
   it("expands story questions toward neutral story text instead of gameplay guides", async () => {
@@ -946,10 +981,24 @@ describe("whitelisted external search", () => {
     ).toBe(false);
   });
 
-  it("expands Chinese Signora death questions to English quest evidence and parsed page text", async () => {
+  it("uses English quest pages only as clues and returns Chinese confirmation", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       const query = url.searchParams.get("srsearch");
+      if (url.hostname === "html.duckduckgo.com") {
+        const webQuery = url.searchParams.get("q") ?? "";
+        if (webQuery.includes("Duel Before the Throne")) {
+          return new Response(
+            `<a class="result__a" href="https://wiki.biligame.com/ys/%E5%BE%A1%E5%89%8D%E5%86%B3%E6%96%97">御前决斗</a>
+             <div class="result__snippet">女士在御前决斗中败北，随后被雷电将军处决。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", { status: 200 });
+      }
+      if (url.hostname === "search.yahoo.com") {
+        return new Response("", { status: 200 });
+      }
       if (url.searchParams.get("action") === "parse") {
         return new Response(
           JSON.stringify({
@@ -988,7 +1037,10 @@ describe("whitelisted external search", () => {
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
-      if (query === "La Signora duel before the throne") {
+      if (
+        url.pathname === "/api.php" &&
+        query === "La Signora story quest storyline"
+      ) {
         return new Response(
           JSON.stringify({
             query: {
@@ -1026,9 +1078,301 @@ describe("whitelisted external search", () => {
       new URL(String(call[0])).searchParams.get("srsearch"),
     );
 
-    expect(searchedQueries).toContain("La Signora duel before the throne");
-    expect(results[0]?.title).toBe("Duel Before the Throne");
-    expect(results[0]?.excerpt).toContain("executed by the Raiden Shogun");
+    expect(searchedQueries).toContain("La Signora story quest storyline");
+    expect(results[0]?.title).toBe("御前决斗");
+    expect(results[0]?.excerpt).toContain("被雷电将军处决");
+    expect(results.every((result) => result.crossLanguage === false)).toBe(true);
+  });
+
+  it("converts English Story Quest clues into Chinese evidence and hides the English pages", async () => {
+    const wikiQueries: string[] = [];
+    const webQueries: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (
+        url.hostname === "html.duckduckgo.com" ||
+        url.hostname === "search.yahoo.com"
+      ) {
+        const webQuery = url.searchParams.get("q") ?? "";
+        if (url.hostname === "html.duckduckgo.com") webQueries.push(webQuery);
+        if (
+          url.hostname === "html.duckduckgo.com" &&
+          (webQuery.includes("To Those Who Embark on the Expedition") ||
+            webQuery.includes("Lupus Majoris Chapter") ||
+            webQuery.includes("天狼之章"))
+        ) {
+          return new Response(
+            `<a class="result__a" href="https://baike.mihoyo.com/ys/obc/content/777/detail">法尔伽传说任务·致踏上远征之人</a>
+             <div class="result__snippet">法尔伽传说任务第一幕讲述远征军归途、罗兰与安德留斯的冲突，以及法尔伽最终在风起地苏醒。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        const pageIds = url.searchParams.get("pageids") ?? "";
+        const pages: Record<string, { pageid: number; extract: string }> = {};
+        if (pageIds.includes("442550")) {
+          pages["442550"] = {
+            pageid: 442550,
+            extract:
+              "Lupus Majoris Chapter is Varka's Story Quest chapter. Act I is To Those Who Embark on the Expedition, whose summary follows the expedition's final battle and return.",
+          };
+        }
+        if (pageIds.includes("443589")) {
+          pages["443589"] = {
+            pageid: 443589,
+            extract:
+              "To Those Who Embark on the Expedition is the first act of Varka's Story Quest, the Lupus Majoris Chapter. It contains Triumphant Warrior, Fated Warrior, and Lonely Warrior.",
+          };
+        }
+        if (pageIds.includes("9001")) {
+          pages["9001"] = {
+            pageid: 9001,
+            extract: "Varka's Secret Stash of Cash is a quest item.",
+          };
+        }
+        return new Response(JSON.stringify({ query: { pages } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.searchParams.get("action") === "parse") {
+        const page = url.searchParams.get("page") ?? "";
+        if (page === "Lupus Majoris Chapter") {
+          return new Response(
+            JSON.stringify({
+              parse: {
+                text: {
+                  "*":
+                    "<p>Other Languages</p><p>Chinese (Simplified) 天狼之章 Tiānláng zhī Zhāng Chinese (Traditional) 天狼之章</p>",
+                },
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({ parse: { text: { "*": "" } } }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      const query = url.searchParams.get("srsearch") ?? "";
+      wikiQueries.push(query);
+      if (
+        url.pathname === "/api.php" &&
+        query.toLowerCase() === "varka story quest plot"
+      ) {
+        return new Response(
+          JSON.stringify({
+            query: {
+              search: [
+                { title: "Lupus Majoris Chapter", snippet: "", pageid: 442550 },
+                {
+                  title: "To Those Who Embark on the Expedition",
+                  snippet: "",
+                  pageid: 443589,
+                },
+                {
+                  title: "Varka's Secret Stash of Cash (2)",
+                  snippet: "A quest item associated with Varka.",
+                  pageid: 9001,
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          query: {
+            search: [
+              {
+                title: "Varka's Secret Stash of Cash (2)",
+                snippet: "A quest item associated with Varka.",
+                pageid: 9001,
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence(
+      "法尔伽传说任务故事梗概",
+      "zh-CN",
+      {
+        plan: {
+          coreEntities: ["法尔伽"],
+          aliases: ["Varka"],
+          intent: "story",
+          storyScope: "character_story_quest",
+          queries: ["法尔伽传说任务故事梗概", "Varka story quest"],
+        },
+      },
+    );
+
+    expect(wikiQueries).toContain("Varka story quest plot");
+    expect(webQueries.some((query) => query.includes("天狼之章"))).toBe(true);
+    expect(
+      webQueries.every(
+        (query) =>
+          /[\u3400-\u9fff]/u.test(query) || /^site:/iu.test(query),
+      ),
+    ).toBe(true);
+    expect(webQueries).not.toContain("Varka story quest");
+    expect(results[0]?.title).toBe("法尔伽传说任务·致踏上远征之人");
+    expect(results[0]?.url).toContain("baike.mihoyo.com");
+    expect(results[0]?.excerpt).toContain("最终在风起地苏醒");
+    expect(results.every((result) => result.crossLanguage === false)).toBe(true);
+    expect(
+      results.some((result) => result.title === "Lupus Majoris Chapter"),
+    ).toBe(false);
+    expect(
+      results.some((result) => result.title.includes("Secret Stash")),
+    ).toBe(false);
+    expect(results[0]?.assessment?.platformKind).toBe(
+      "official_operated_wiki",
+    );
+    expect(wikiQueries).not.toContain("Varka story quest chapter");
+  });
+
+  it("opens a Chinese wiki page directly when web search misses a localized Story Quest title", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (
+        url.hostname === "html.duckduckgo.com" ||
+        url.hostname === "search.yahoo.com"
+      ) {
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }
+      if (
+        url.hostname === "wiki.biligame.com" &&
+        url.searchParams.get("action") === "parse" &&
+        url.searchParams.get("page")?.includes("天狼之章")
+      ) {
+        return new Response(
+          JSON.stringify({
+            parse: {
+              title: "天狼之章",
+              text: {
+                "*": `<main>
+                  <h1>天狼之章</h1>
+                  <p>天狼之章是法尔伽的传说任务章节，第一幕为「致踏上远征之人」。</p>
+                  <p>本幕任务包括凯旋的远征者、命运的远征者与孤独的远征者。</p>
+                </main>`,
+              },
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+          },
+        );
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        const pages =
+          url.searchParams.get("pageids")?.includes("442550") === true
+            ? {
+                "442550": {
+                  pageid: 442550,
+                  extract:
+                    "Lupus Majoris Chapter is Varka's Story Quest chapter.",
+                },
+              }
+            : {};
+        return new Response(JSON.stringify({ query: { pages } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.searchParams.get("action") === "parse") {
+        return new Response(
+          JSON.stringify({
+            parse: {
+              text: {
+                "*":
+                  "<p>Chinese (Simplified) 天狼之章 Tiānláng zhī Zhāng</p>",
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (
+        url.hostname === "genshin-impact.fandom.com" &&
+        url.searchParams.get("srsearch") === "Varka story quest plot"
+      ) {
+        return new Response(
+          JSON.stringify({
+            query: {
+              search: [
+                {
+                  title: "Lupus Majoris Chapter",
+                  snippet: "Varka's Story Quest chapter.",
+                  pageid: 442550,
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response(
+        JSON.stringify({ query: { search: [], pages: {} } }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence(
+      "法尔伽传说任务故事梗概",
+      "zh-CN",
+      {
+        plan: {
+          coreEntities: ["法尔伽"],
+          aliases: ["Varka"],
+          intent: "story",
+          storyScope: "character_story_quest",
+          queries: ["法尔伽传说任务故事梗概"],
+        },
+      },
+    );
+
+    expect(
+      fetchMock.mock.calls.some((call) => {
+        const url = new URL(String(call[0]));
+        return (
+          url.hostname === "wiki.biligame.com" &&
+          url.searchParams.get("page")?.includes("天狼之章") === true
+        );
+      }),
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.some((call) => {
+        const url = new URL(String(call[0]));
+        return (
+          url.hostname === "wiki.biligame.com" &&
+          url.searchParams.get("srsearch") === "法尔伽 传说任务"
+        );
+      }),
+    ).toBe(true);
+    expect(results[0]?.title).toContain("天狼之章");
+    expect(results[0]?.url).toContain("wiki.biligame.com/ys/");
+    expect(results[0]?.excerpt).toContain("法尔伽的传说任务章节");
+    expect(results.every((result) => result.crossLanguage === false)).toBe(true);
+    expect(
+      results.some((result) => result.title === "Lupus Majoris Chapter"),
+    ).toBe(false);
   });
 
   it("emits trace events for web search progress", async () => {

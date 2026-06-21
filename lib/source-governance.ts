@@ -30,6 +30,7 @@ const communityHosts = [
   "hoyolab.com",
   "miyoushe.com",
   "tieba.baidu.com",
+  "baike.baidu.com",
   "zhihu.com",
   "nga.178.com",
   "bbs.nga.cn",
@@ -53,7 +54,7 @@ const loreAnalysisPattern =
 const officialContentPattern =
   /版本更新|维护预告|活动说明|调整说明|开发者公告|角色介绍|角色预告|角色演示|角色PV|特别节目|更新维护|version update|maintenance|official announcement|character teaser|character demo|special program/iu;
 const gameTextPattern =
-  /任务文本|武器故事|圣遗物故事|书籍|物品描述|角色故事|语音|过场动画|quest text|weapon story|artifact lore|book|item description|character story|voice-over/iu;
+  /任务文本|传说任务|傳說任務|武器故事|圣遗物故事|书籍|物品描述|角色故事|语音|过场动画|quest text|story quest|quest type story|quest chapter|weapon story|artifact lore|book|item description|character story|voice-over/iu;
 
 function hostMatches(hostname: string, host: string) {
   return hostname === host || hostname.endsWith(`.${host}`);
@@ -541,6 +542,13 @@ export function sourceAllowedForQuestion(
     input.plan.intent === "relationship" &&
     input.plan.coreEntities.length > 1 &&
     !allEntitiesPresent(citation, input.plan)
+  ) {
+    return false;
+  }
+  if (
+    input.plan.storyScope === "character_story_quest" &&
+    assessment.authority !== "official" &&
+    assessment.authority !== "curated_reference"
   ) {
     return false;
   }

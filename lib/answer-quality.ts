@@ -1,4 +1,5 @@
 import type { AnswerParagraph, Language } from "@/lib/domain";
+import { detectQuestionEntities } from "@/lib/entity-lexicon";
 
 export interface ParsedGeneratedAnswer {
   paragraphs: AnswerParagraph[];
@@ -10,6 +11,7 @@ export type AnswerQualityFailure =
   | "off_topic"
   | "invalid_citation"
   | "authority_overclaim"
+  | "unsupported_negative_claim"
   | "web_noise"
   | "template_heavy";
 
@@ -82,7 +84,10 @@ export function normalizeGeneratedAnswer(answer: ParsedGeneratedAnswer) {
             /女士[（(]愚人众执行官「仆人」[）)]/gu,
             "愚人众执行官「女士」",
           )
-          .replace(/女士[（(]「仆人」[）)]/gu, "「女士」"),
+          .replace(/女士[（(]「仆人」[）)]/gu, "「女士」")
+          .replace(/纳塔克赖|诺德克莱/gu, "挪德卡莱")
+          .replace(/拉兹尔/gu, "雷泽")
+          .replace(/洛赫|洛亨/gu, "洛恩"),
         citationIds: Array.from(new Set(paragraph.citationIds)),
       }))
       .filter((paragraph) => paragraph.text),
@@ -118,12 +123,17 @@ export function matchesAnswerLanguage(value: string, language: Language) {
 
 function salientTerms(question: string, language: Language) {
   if (language === "zh-CN" || containsCjk(question)) {
-    return question
+    const entityTerms = detectQuestionEntities(question).flatMap((entity) => [
+      entity.canonical,
+      ...entity.aliases,
+    ]);
+    const lexicalTerms = question
       .split(
-        /(?:\s+|[，,。.!！?？、；;：:]|和|与|跟|及|同|的|是不是|是否|是谁|是|为什么|怎么|什么|关系|联系|区别|讲了|讲|说|介绍|一下|吗|呢|了)/u,
+        /(?:\s+|[，,。.!！?？、；;：:]|和|与|跟|及|同|的|是不是|是否|是谁|是|为什么|怎么|什么|关系|联系|区别|传说任务|故事梗概|剧情梗概|梗概|故事|剧情|讲了|讲|说|介绍|一下|吗|呢|了)/u,
       )
       .map((term) => term.trim())
       .filter((term) => term.length >= 2);
+    return Array.from(new Set([...entityTerms, ...lexicalTerms]));
   }
   const stopwords = new Set([
     "what",
@@ -185,6 +195,7 @@ export function validateAnswerQuality(input: {
   question: string;
   allowedSourceIds: Set<string>;
   sourceAuthorityById?: Map<string, "official" | "non_official">;
+  sourceTextById?: Map<string, string>;
 }) {
   const failures: AnswerQualityFailure[] = [];
   const text = input.paragraphs.map((paragraph) => paragraph.text).join("\n");
@@ -211,6 +222,26 @@ export function validateAnswerQuality(input: {
     )
   ) {
     failures.push("authority_overclaim");
+  }
+  if (
+    /传说任务|傳說任務|story\s*quest|legend(?:ary)?\s+quest/iu.test(
+      input.question,
+    ) &&
+    input.sourceTextById &&
+    input.paragraphs.some((paragraph) => {
+      const deniesExistence =
+        /(?:还|尚|并)?没有(?:实装|发布|推出|开放|传说任务)|未(?:实装|发布|推出|开放)|不存在(?:相关)?传说任务|官方一直没有发布|no (?:released )?story quest|does not have (?:a )?story quest|has not (?:been )?released/iu.test(
+          paragraph.text,
+        );
+      if (!deniesExistence) return false;
+      return !paragraph.citationIds.some((id) =>
+        /(?:还|尚|并)?没有(?:实装|发布|推出|开放|传说任务)|未(?:实装|发布|推出|开放)|不存在(?:相关)?传说任务|no (?:released )?story quest|does not have (?:a )?story quest|has not (?:been )?released/iu.test(
+          input.sourceTextById?.get(id) ?? "",
+        ),
+      );
+    })
+  ) {
+    failures.push("unsupported_negative_claim");
   }
   if (containsWebNoise(text)) failures.push("web_noise");
   if (isTemplateHeavy(text, input.language)) failures.push("template_heavy");

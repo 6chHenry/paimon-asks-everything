@@ -17,6 +17,7 @@ import type {
   InsightSignal,
   Recommendation,
 } from "@/lib/insights";
+import { clientPath } from "@/lib/client-path";
 import { t } from "@/lib/i18n";
 
 interface InsightPayload {
@@ -97,7 +98,7 @@ export default function InsightsPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/insights", { cache: "no-store" });
+      const response = await fetch(clientPath("/api/insights"), { cache: "no-store" });
       if (!response.ok) throw new Error("load_failed");
       setData((await response.json()) as InsightPayload);
     } catch {

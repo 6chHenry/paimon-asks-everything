@@ -69,4 +69,46 @@ describe("evidence quality", () => {
     expect(selected).toHaveLength(1);
     expect(selected[0]?.title).toBe("丝柯克");
   });
+
+  it("never exposes cross-language evidence to a Chinese answer", () => {
+    const english = citation(
+      "english",
+      "To Those Who Embark on the Expedition",
+      "Varka's Story Quest follows the expedition's return.",
+      "https://genshin-impact.fandom.com/wiki/To_Those_Who_Embark_on_the_Expedition",
+    );
+    english.crossLanguage = true;
+    const chinese = citation(
+      "chinese",
+      "法尔伽传说任务",
+      "法尔伽传说任务讲述远征军的归途。",
+      "https://baike.mihoyo.com/ys/obc/content/777/detail",
+    );
+
+    const selected = selectAnswerEvidence([english, chinese], {
+      question: "法尔伽传说任务故事梗概",
+      intent: "story",
+      language: "zh-CN",
+    });
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toBe("法尔伽传说任务");
+  });
+
+  it("rejects an English Wiki page even when its snippet contains Chinese aliases", () => {
+    const englishWiki = citation(
+      "english-wiki",
+      "Varka",
+      "Varka is the Grand Master. 简体中文名：法尔伽。",
+      "https://genshin-impact.fandom.com/wiki/Varka",
+    );
+
+    const selected = selectAnswerEvidence([englishWiki], {
+      question: "法尔伽是谁",
+      intent: "identity",
+      language: "zh-CN",
+    });
+
+    expect(selected).toEqual([]);
+  });
 });

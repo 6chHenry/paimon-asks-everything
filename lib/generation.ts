@@ -128,14 +128,21 @@ function matchesRequestedLanguage(answer: string, language: Language) {
 
 function salientQuestionTerms(question: string, language: Language) {
   if (language === "zh-CN" || containsCjkText(question)) {
+    const entityTerms = detectQuestionEntities(question).flatMap((entity) => [
+      entity.canonical,
+      ...entity.aliases,
+    ]);
     return Array.from(
       new Set(
-        question
-          .split(
-            /(?:\s+|[，,。.!！?？、；;：:]|和|与|跟|及|同|的|是谁|为什么|怎么|什么|关系|联系|区别|讲了|讲|说|介绍|一下|吗|呢|了)/u,
-          )
-          .map((term) => term.trim())
-          .filter((term) => term.length >= 2),
+        [
+          ...entityTerms,
+          ...question
+            .split(
+              /(?:\s+|[，,。.!！?？、；;：:]|和|与|跟|及|同|的|是谁|为什么|怎么|什么|关系|联系|区别|传说任务|故事梗概|剧情梗概|梗概|故事|剧情|讲了|讲|说|介绍|一下|吗|呢|了)/u,
+            )
+            .map((term) => term.trim())
+            .filter((term) => term.length >= 2),
+        ],
       ),
     );
   }
@@ -798,6 +805,7 @@ function mergeUnderstandingSearchPlan(
         queries: onSubjectQueries.length
           ? [...onSubjectQueries, ...understandingPlan.queries]
           : understandingPlan.queries,
+        storyScope: plan.storyScope ?? understandingPlan.storyScope,
       },
       question,
     ),
@@ -847,6 +855,9 @@ export async function generateGroundedResponse(input: {
   emitTrace?: TraceEmitter;
   understanding?: QuestionUnderstanding;
 }): Promise<GroundedGenerationResult> {
+  const storySynopsis =
+    Boolean(input.deepStory) &&
+    /梗概|概述|概要|summary|synopsis/iu.test(input.question);
   const initialFallback = generationFallback(input);
   const questionUnderstanding = input.understanding;
   const questionEntities =
@@ -872,6 +883,8 @@ export async function generateGroundedResponse(input: {
     const external = selectAnswerEvidence(rawExternal, {
       question: input.question,
       intent: fallbackSearchPlan.intent,
+      plan: fallbackSearchPlan,
+      language: input.language,
     });
     const fallback = generationFallback({ ...input, external });
     await emitTrace(input.emitTrace, {
@@ -938,6 +951,8 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal), {
         question: input.question,
         intent: searchPlan.intent,
+        plan: searchPlan,
+        language: input.language,
       });
       await emitTrace(input.emitTrace, {
         stage: "tool",
@@ -1039,6 +1054,8 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal), {
         question: input.question,
         intent: searchPlan.intent,
+        plan: searchPlan,
+        language: input.language,
       });
       await emitTrace(input.emitTrace, {
         stage: "tool",
@@ -1067,6 +1084,8 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
     const external = selectAnswerEvidence(rawExternal, {
       question: input.question,
       intent: searchPlan.intent,
+      plan: searchPlan,
+      language: input.language,
     });
     const evidenceFallback = generationFallback({ ...input, external });
     const evidence = buildEvidence({ entries: input.entries, external });
@@ -1086,6 +1105,12 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
         ];
       }),
     );
+    const sourceTextById = new Map(
+      evidence.map((item) => [
+        item.id,
+        `${item.title ?? ""} ${item.summary ?? ""} ${item.excerpt ?? ""}`,
+      ]),
+    );
     messages.push({
       role: "user",
       content: JSON.stringify({
@@ -1093,7 +1118,11 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
         question: input.question,
         evidence,
         deepStory: Boolean(input.deepStory),
-        instruction: answerOutputInstruction(Boolean(input.deepStory)),
+        storySynopsis,
+        instruction: answerOutputInstruction(
+          Boolean(input.deepStory),
+          storySynopsis,
+        ),
       }),
     });
 
@@ -1102,7 +1131,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
         model,
         thinking: { type: "disabled" },
         temperature: 0.2,
-        max_tokens: input.deepStory ? 1600 : 800,
+        max_tokens: storySynopsis ? 900 : input.deepStory ? 1600 : 800,
         messages,
       });
     let final = await requestFinalAnswer();
@@ -1116,6 +1145,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
           question: input.question,
           allowedSourceIds,
           sourceAuthorityById,
+          sourceTextById,
         })
       : ["empty"];
 
@@ -1132,6 +1162,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
         question: input.question,
         allowedSourceIds,
         sourceAuthorityById,
+        sourceTextById,
       });
     }
 
@@ -1159,6 +1190,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
             question: input.question,
             allowedSourceIds,
             sourceAuthorityById,
+            sourceTextById,
           })
         : ["empty"];
     }

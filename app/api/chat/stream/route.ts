@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { runAgent } from "@/lib/agent";
 import { checkRateLimit, getRequestRateLimitKey } from "@/lib/rate-limit";
-import { chatRequestSchema } from "@/lib/schemas";
+import { chatRequestSchema, spoilerConfirmationSchema } from "@/lib/schemas";
+import { verifySpoilerToken } from "@/lib/spoiler-token";
 import { formatTraceSse, makeTraceEvent } from "@/lib/trace";
 
 export const runtime = "nodejs";
@@ -25,11 +26,31 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
-  const parsed = chatRequestSchema.safeParse(parsedBody);
-  if (!parsed.success) {
+  const confirmation = spoilerConfirmationSchema.safeParse(parsedBody);
+  const regular = chatRequestSchema.safeParse(parsedBody);
+  if (!confirmation.success && !regular.success) {
     return NextResponse.json(
-      { error: "invalid_request", issues: parsed.error.issues },
+      {
+        error: "invalid_request",
+        issues: regular.success ? [] : regular.error.issues,
+      },
       { status: 400 },
+    );
+  }
+  const confirmedHighRisk = confirmation.success;
+  const data = confirmedHighRisk
+    ? (() => {
+        const { confirmationToken, ...chatRequest } = confirmation.data;
+        if (!verifySpoilerToken(confirmationToken, chatRequest.question)) {
+          return null;
+        }
+        return chatRequest;
+      })()
+    : regular.data;
+  if (!data) {
+    return NextResponse.json(
+      { error: "invalid_or_expired_confirmation" },
+      { status: 403 },
     );
   }
 
@@ -52,7 +73,8 @@ export async function POST(request: Request) {
           message: "派蒙开始拆解问题",
         }),
       );
-      const result = await runAgent(parsed.data, {
+      const result = await runAgent(data, {
+        confirmedHighRisk,
         emitTrace: (event) => send("trace", event),
         emitAnswer: async (answer) => {
           answerSent = true;

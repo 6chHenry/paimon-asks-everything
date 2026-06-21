@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { evaluationCases } from "@/data/evaluation";
 import { usePreferences } from "@/components/preferences-provider";
+import { clientPath } from "@/lib/client-path";
 import { t } from "@/lib/i18n";
 
 interface EvaluationResult {
@@ -50,7 +51,7 @@ export default function EvaluationPage() {
   async function run(caseId?: string) {
     setRunning(caseId ?? "all");
     try {
-      const response = await fetch("/api/evaluation", {
+      const response = await fetch(clientPath("/api/evaluation"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(caseId ? { caseId } : {}),
