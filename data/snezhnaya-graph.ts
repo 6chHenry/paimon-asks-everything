@@ -1,6 +1,32 @@
-import type { SnezhnayaGraphData } from "@/lib/snezhnaya-graph";
+import type {
+  SnezhnayaGraphData,
+  SnezhnayaTextClue,
+} from "@/lib/snezhnaya-graph";
 
 const wiki = "https://genshin-impact.fandom.com/wiki";
+
+function wikiClue({
+  id,
+  title,
+  slug,
+  zh,
+  en,
+}: {
+  id: string;
+  title: string;
+  slug: string;
+  zh: string;
+  en: string;
+}): SnezhnayaTextClue {
+  return {
+    id,
+    title,
+    sourceType: "wiki_text_index",
+    tier: "official_text_index",
+    url: `${wiki}/${slug}`,
+    excerpt: { "zh-CN": zh, en },
+  };
+}
 
 export const snezhnayaGraph: SnezhnayaGraphData = {
   video: {
@@ -30,26 +56,22 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       },
       detail: {
         "zh-CN": [
-          "她尚未正式登场，但神之心收集行动、愚人众执行官和至冬目标都持续指向她。",
-          "第一版把她作为核心节点，但不提前写死她的最终计划。",
+          "多国主线通过神之心收集行动与执行官任务，持续勾勒她对至冬与愚人众的影响。",
+          "她的最终目标仍需结合后续官方剧情判断。",
         ],
         en: [
-          "She has not fully appeared in the story, but the Gnosis campaign, the Harbingers, and Snezhnaya's goals all point back to her.",
-          "The first version treats her as a central node without hard-coding her final plan.",
+          "Archon Quests across several nations outline her influence through the Gnosis campaign and Harbinger missions.",
+          "Her final objective still depends on future official story revelations.",
         ],
       },
       clues: [
-        {
+        wikiClue({
           id: "tsaritsa-gnosis-clue",
-          title: "Gnosis",
-          sourceType: "wiki_text_index",
-          tier: "official_text_index",
-          url: `${wiki}/Gnosis`,
-          excerpt: {
-            "zh-CN": "神之心页面索引了多国主线中愚人众取得神之心的剧情。",
-            en: "The Gnosis page indexes quest text around the Fatui obtaining Gnoses across regions.",
-          },
-        },
+          title: "Tsaritsa",
+          slug: "Tsaritsa",
+          zh: "页面汇总冰之女皇在角色语音、任务台词与至冬相关文本中的称谓和行动线索。",
+          en: "The page indexes references to the Tsaritsa across voice-overs, quests, and Snezhnaya-related text.",
+        }),
       ],
       relatedNodeIds: ["fatui", "gnosis", "pierro", "project-stuzha"],
       suggestedQuestions: {
@@ -76,17 +98,13 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
         ],
       },
       clues: [
-        {
+        wikiClue({
           id: "fatui-harbingers-clue",
           title: "Eleven Fatui Harbingers",
-          sourceType: "wiki_text_index",
-          tier: "official_text_index",
-          url: `${wiki}/Eleven_Fatui_Harbingers`,
-          excerpt: {
-            "zh-CN": "执行官页面索引了各执行官登场、称号和相关剧情。",
-            en: "The Harbingers page indexes titles, appearances, and related story material.",
-          },
-        },
+          slug: "Eleven_Fatui_Harbingers",
+          zh: "页面索引执行官的代号、席位、登场任务与相关角色文本。",
+          en: "The page indexes Harbinger codenames, ranks, quest appearances, and character text.",
+        }),
       ],
       relatedNodeIds: [
         "tsaritsa",
@@ -114,7 +132,16 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
         "zh-CN": ["他是连接至冬、愚人众和坎瑞亚旧事的重要人物。"],
         en: ["He connects Snezhnaya, the Fatui, and older Khaenri'ah threads."],
       },
-      clues: [],
+      imageUrl: "/snezhnaya/avatars/pierro.webp",
+      clues: [
+        wikiClue({
+          id: "pierro-wiki-clue",
+          title: "Pierro",
+          slug: "Pierro",
+          zh: "页面索引丑角的执行官身份、坎瑞亚背景和相关官方登场文本。",
+          en: "The page indexes Pierro's Harbinger identity, Khaenri'ahn background, and official appearances.",
+        }),
+      ],
       relatedNodeIds: ["fatui", "khaenriah-abyss", "tsaritsa"],
       suggestedQuestions: {
         "zh-CN": ["丑角和坎瑞亚有什么关系？"],
@@ -135,7 +162,16 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
         "zh-CN": ["他的相关文本经常涉及人体实验、知识边界和愚人众内部目标。"],
         en: ["His related text often involves human experimentation, knowledge boundaries, and Fatui goals."],
       },
-      clues: [],
+      imageUrl: "/snezhnaya/avatars/dottore.webp",
+      clues: [
+        wikiClue({
+          id: "dottore-wiki-clue",
+          title: "Dottore",
+          slug: "Dottore",
+          zh: "页面汇总博士在须弥主线、角色故事与实验相关文本中的记录。",
+          en: "The page collects Dottore's Sumeru quest appearances, character-story references, and experiment-related text.",
+        }),
+      ],
       relatedNodeIds: ["fatui", "scaramouche", "sandrone"],
       suggestedQuestions: {
         "zh-CN": ["博士和散兵计划有什么关系？"],
@@ -147,16 +183,25 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       label: { "zh-CN": "少女", en: "Columbina" },
       aliases: ["Columbina", "Damselette", "少女"],
       kind: "character",
-      tier: "official_text_implication",
+      tier: "official_explicit",
       summary: {
-        "zh-CN": "信息很少但关注度很高的执行官，适合作为未知风险节点。",
-        en: "A highly watched Harbinger with limited confirmed information.",
+        "zh-CN": "愚人众执行官之一，官方已明确她的身份，但其经历与能力仍保留许多谜团。",
+        en: "A confirmed Fatui Harbinger whose history and abilities still contain many unknowns.",
       },
       detail: {
-        "zh-CN": ["她的确定信息有限，节点详情应保持克制，更多用于承接玩家疑问。"],
-        en: ["Confirmed information about her is limited, so the node should stay conservative and capture player curiosity."],
+        "zh-CN": ["她以「少女」之名出现在执行官相关官方内容中，现有文本可确认其组织身份。"],
+        en: ["Official Harbinger material identifies her by the codename Damselette and confirms her place in the organization."],
       },
-      clues: [],
+      imageUrl: "/snezhnaya/avatars/columbina.webp",
+      clues: [
+        wikiClue({
+          id: "columbina-wiki-clue",
+          title: "Columbina",
+          slug: "Columbina",
+          zh: "页面索引少女的执行官称号、官方形象与相关角色台词。",
+          en: "The page indexes Columbina's Harbinger title, published appearance, and related character dialogue.",
+        }),
+      ],
       relatedNodeIds: ["fatui", "capitano", "arlecchino"],
       suggestedQuestions: {
         "zh-CN": ["少女目前有哪些确定信息？"],
@@ -174,10 +219,19 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
         en: "A playable Harbinger linking the House of the Hearth, Fontaine, and Fatui internal positions.",
       },
       detail: {
-        "zh-CN": ["她是少数已有大量官方文本支撑的执行官节点。"],
-        en: ["She is one of the Harbingers with substantial official text support."],
+        "zh-CN": ["她的角色故事、传说任务与枫丹主线提供了较完整的官方经历。"],
+        en: ["Her character stories, Story Quest, and Fontaine appearances provide a substantial official account."],
       },
-      clues: [],
+      imageUrl: "/snezhnaya/avatars/arlecchino.webp",
+      clues: [
+        wikiClue({
+          id: "arlecchino-wiki-clue",
+          title: "Arlecchino",
+          slug: "Arlecchino",
+          zh: "页面索引仆人的角色故事、传说任务、枫丹主线与壁炉之家资料。",
+          en: "The page indexes Arlecchino's character stories, Story Quest, Fontaine appearances, and House of the Hearth material.",
+        }),
+      ],
       relatedNodeIds: ["fatui", "signora", "tartaglia"],
       suggestedQuestions: {
         "zh-CN": ["仆人在愚人众里是什么立场？"],
@@ -195,10 +249,19 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
         en: "A Harbinger tied to Natlan, honor, and war-story framing.",
       },
       detail: {
-        "zh-CN": ["他的节点可帮助玩家从纳塔线索过渡到至冬。"],
-        en: ["His node helps players move from Natlan clues toward Snezhnaya."],
+        "zh-CN": ["他在纳塔相关剧情中的行动，把战争、荣誉与至冬立场联系起来。"],
+        en: ["His actions in Natlan connect themes of war and honor with Snezhnaya's position."],
       },
-      clues: [],
+      imageUrl: "/snezhnaya/avatars/capitano.webp",
+      clues: [
+        wikiClue({
+          id: "capitano-wiki-clue",
+          title: "Capitano",
+          slug: "Capitano",
+          zh: "页面索引队长的执行官身份、纳塔剧情登场与相关官方台词。",
+          en: "The page indexes Capitano's Harbinger identity, Natlan appearances, and official dialogue.",
+        }),
+      ],
       relatedNodeIds: ["fatui", "columbina", "tsaritsa"],
       suggestedQuestions: {
         "zh-CN": ["队长和至冬主线可能有什么关系？"],
@@ -219,7 +282,16 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
         "zh-CN": ["他的经历把执行官、深渊和丝柯克等后续线索连接起来。"],
         en: ["His story connects the Harbingers, the Abyss, and later clues such as Skirk."],
       },
-      clues: [],
+      imageUrl: "/snezhnaya/avatars/tartaglia.webp",
+      clues: [
+        wikiClue({
+          id: "tartaglia-wiki-clue",
+          title: "Tartaglia",
+          slug: "Tartaglia",
+          zh: "页面索引公子的角色故事、璃月主线、深渊经历与师承资料。",
+          en: "The page indexes Tartaglia's character stories, Liyue appearances, Abyss experience, and training.",
+        }),
+      ],
       relatedNodeIds: ["fatui", "khaenriah-abyss", "arlecchino"],
       suggestedQuestions: {
         "zh-CN": ["公子的深渊经历为什么重要？"],
@@ -243,10 +315,19 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
         en: "A former Harbinger linked to Gnoses, Dottore's experiments, and the Sumeru Archon Quest.",
       },
       detail: {
-        "zh-CN": ["他适合作为理解愚人众如何使用神之心和人造神计划的节点。"],
-        en: ["He helps explain how the Fatui approached Gnoses and the artificial god plan."],
+        "zh-CN": ["须弥主线揭示了愚人众如何利用他、雷神之心与人造神计划。"],
+        en: ["The Sumeru Archon Quest reveals how the Fatui used him, the Electro Gnosis, and the artificial god project."],
       },
-      clues: [],
+      imageUrl: "/snezhnaya/avatars/scaramouche.webp",
+      clues: [
+        wikiClue({
+          id: "scaramouche-wiki-clue",
+          title: "Wanderer",
+          slug: "Wanderer",
+          zh: "页面索引散兵成为流浪者前后的角色故事、任务经历与神之心相关文本。",
+          en: "The page indexes his stories before and after becoming the Wanderer, including quest and Gnosis-related text.",
+        }),
+      ],
       relatedNodeIds: ["fatui", "dottore", "gnosis"],
       suggestedQuestions: {
         "zh-CN": ["散兵和神之心有什么关系？"],
@@ -267,7 +348,16 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
         "zh-CN": ["她的死亡和过往文本都常被用于讨论愚人众代价与执行官命运。"],
         en: ["Her death and backstory are often used to discuss Fatui costs and Harbinger fates."],
       },
-      clues: [],
+      imageUrl: "/snezhnaya/avatars/signora.webp",
+      clues: [
+        wikiClue({
+          id: "signora-wiki-clue",
+          title: "La Signora",
+          slug: "La_Signora",
+          zh: "页面索引女士在蒙德、璃月与稻妻主线中的行动，以及其过往文本。",
+          en: "The page indexes Signora's actions in Mondstadt, Liyue, and Inazuma, together with her backstory text.",
+        }),
+      ],
       relatedNodeIds: ["fatui", "gnosis", "arlecchino"],
       suggestedQuestions: {
         "zh-CN": ["女士为什么死在稻妻？"],
@@ -276,23 +366,32 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
     },
     {
       id: "sandrone",
-      label: { "zh-CN": "桑多涅", en: "Sandrone" },
-      aliases: ["Sandrone", "Marionette", "桑多涅"],
+      label: { "zh-CN": "木偶", en: "Marionette" },
+      aliases: ["Sandrone", "Marionette", "桑多涅", "木偶"],
       kind: "character",
       tier: "official_text_index",
       summary: {
-        "zh-CN": "执行官之一，和机械、人偶、阿兰及玛丽安线索有强关联。",
-        en: "A Harbinger tied to machinery, puppets, Alain, and Mary-Ann clues.",
+        "zh-CN": "愚人众执行官之一，称号为「木偶」，其形象与机械和人偶主题紧密相连。",
+        en: "A Fatui Harbinger known as the Marionette, strongly associated with machinery and puppet imagery.",
       },
       detail: {
-        "zh-CN": ["她适合作为枫丹水仙十字线索通向至冬的桥。"],
-        en: ["She works as a bridge from Fontaine's Narzissenkreuz clues toward Snezhnaya."],
+        "zh-CN": ["枫丹相关文本与社区讨论常把她和阿兰、玛丽安及水仙十字线索放在一起考察，但具体关系仍需区分官方文本与推测。"],
+        en: ["Fontaine text and community discussion often examine her alongside Alain, Mary-Ann, and Narzissenkreuz clues, while the exact relationship still requires separating text from theory."],
       },
-      clues: [],
-      relatedNodeIds: ["fatui", "dottore", "white-birch"],
+      imageUrl: "/snezhnaya/avatars/sandrone.webp",
+      clues: [
+        wikiClue({
+          id: "sandrone-wiki-clue",
+          title: "Sandrone",
+          slug: "Sandrone",
+          zh: "页面索引木偶的执行官称号、官方形象与机械主题相关资料。",
+          en: "The page indexes the Marionette's Harbinger title, published appearance, and machinery-related material.",
+        }),
+      ],
+      relatedNodeIds: ["fatui", "dottore", "project-stuzha"],
       suggestedQuestions: {
-        "zh-CN": ["桑多涅和阿兰是什么关系？"],
-        en: ["What is the relationship between Sandrone and Alain?"],
+        "zh-CN": ["木偶和阿兰是什么关系？"],
+        en: ["What is the relationship between the Marionette and Alain?"],
       },
     },
     {
@@ -306,10 +405,18 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
         en: "A core concept related to the nature of Gnoses and a high-weight Snezhnaya clue.",
       },
       detail: {
-        "zh-CN": ["它应和神之心、天理、降临者等问题一起理解。"],
-        en: ["It should be understood alongside Gnoses, Celestia, and Descender questions."],
+        "zh-CN": ["相关剧情把第三降临者与神之心的来源联系起来，也牵涉降临者与世界秩序的问题。"],
+        en: ["Story revelations connect the Third Descender to the origin of Gnoses and to larger questions about Descenders and the world's order."],
       },
-      clues: [],
+      clues: [
+        wikiClue({
+          id: "third-descender-wiki-clue",
+          title: "Third Descender",
+          slug: "Third_Descender",
+          zh: "页面索引第三降临者身份与神之心来源相关的主线文本。",
+          en: "The page indexes Archon Quest text connecting the Third Descender's identity with the origin of Gnoses.",
+        }),
+      ],
       relatedNodeIds: ["gnosis", "tsaritsa", "khaenriah-abyss"],
       suggestedQuestions: {
         "zh-CN": ["第三降临者和神之心有什么关系？"],
@@ -330,7 +437,15 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
         "zh-CN": ["神之心把七神、愚人众、第三降临者和至冬计划连在一起。"],
         en: ["Gnoses connect the Archons, Fatui, Third Descender, and Snezhnaya's plan."],
       },
-      clues: [],
+      clues: [
+        wikiClue({
+          id: "gnosis-wiki-clue",
+          title: "Gnosis",
+          slug: "Gnosis",
+          zh: "页面索引七枚神之心在各国主线中的流转、用途与来源信息。",
+          en: "The page indexes the seven Gnoses across Archon Quests, including their transfers, uses, and origin.",
+        }),
+      ],
       relatedNodeIds: [
         "tsaritsa",
         "third-descender",
@@ -343,24 +458,32 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       },
     },
     {
-      id: "white-birch",
-      label: { "zh-CN": "白桦", en: "White Birch" },
-      aliases: ["白桦", "white birch"],
-      kind: "text_clue",
-      tier: "official_text_implication",
+      id: "heavenly-principles",
+      label: { "zh-CN": "天理", en: "Heavenly Principles" },
+      aliases: ["天理", "Heavenly Principles", "天理的维系者"],
+      kind: "concept",
+      tier: "official_text_index",
       summary: {
-        "zh-CN": "可能与至冬意象有关的文本关键词，第一版只作为线索展示。",
-        en: "A textual keyword possibly tied to Snezhnaya imagery, shown only as a clue in v1.",
+        "zh-CN": "提瓦特世界秩序中的核心概念，与降临者、坎瑞亚灾变和七神体系密切相关。",
+        en: "A central concept in Teyvat's world order, closely tied to Descenders, the Khaenri'ahn cataclysm, and the Seven.",
       },
       detail: {
-        "zh-CN": ["它不应被写成已确认设定；详情只展示相关文本和可能联想。"],
-        en: ["It should not be treated as confirmed setting; the detail view only shows related text and possible associations."],
+        "zh-CN": ["至冬的神之心收集行动常被放在天理与世界秩序的长期冲突中理解，但女皇的完整计划仍需官方剧情揭示。"],
+        en: ["Snezhnaya's Gnosis campaign is often considered within the long conflict around the Heavenly Principles and the world's order, while the Tsaritsa's complete plan remains unrevealed."],
       },
-      clues: [],
-      relatedNodeIds: ["tsaritsa", "project-stuzha", "sandrone"],
+      clues: [
+        wikiClue({
+          id: "heavenly-principles-wiki-clue",
+          title: "Heavenly Principles",
+          slug: "Heavenly_Principles",
+          zh: "页面索引天理在主线、角色台词与世界观文本中的称谓和相关事件。",
+          en: "The page indexes references to the Heavenly Principles across Archon Quests, dialogue, and world-lore text.",
+        }),
+      ],
+      relatedNodeIds: ["gnosis", "third-descender", "khaenriah-abyss"],
       suggestedQuestions: {
-        "zh-CN": ["白桦在至冬线索里代表什么？"],
-        en: ["What does White Birch represent in Snezhnaya clues?"],
+        "zh-CN": ["天理和冰之女皇的计划有什么关系？"],
+        en: ["How might the Heavenly Principles relate to the Tsaritsa's plan?"],
       },
     },
     {
@@ -370,15 +493,23 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       kind: "event",
       tier: "official_text_implication",
       summary: {
-        "zh-CN": "高关注度计划名，第一版需要明确区分文本信息和推测。",
-        en: "A high-interest project name that needs clear separation between text and theory.",
+        "zh-CN": "与至冬行动有关的计划名，现有信息需要区分明确文本、叙事暗示与推测。",
+        en: "A project name tied to Snezhnayan activity, with confirmed text, narrative implications, and theories requiring clear separation.",
       },
       detail: {
-        "zh-CN": ["可以作为玩家提问入口，但默认不替官方给出完整解释。"],
-        en: ["It can serve as a question entry point, but should not invent a full official explanation."],
+        "zh-CN": ["现有文本尚不足以说明计划的全部目标、参与者和执行方式。"],
+        en: ["Available text does not yet establish the project's complete goals, participants, or methods."],
       },
-      clues: [],
-      relatedNodeIds: ["tsaritsa", "fatui", "white-birch"],
+      clues: [
+        wikiClue({
+          id: "project-stuzha-wiki-clue",
+          title: "Project Stuzha",
+          slug: "Project_Stuzha",
+          zh: "页面汇总严冬计划在任务与角色文本中的已知提及。",
+          en: "The page collects known references to Project Stuzha from quests and character text.",
+        }),
+      ],
+      relatedNodeIds: ["tsaritsa", "fatui", "sandrone"],
       suggestedQuestions: {
         "zh-CN": ["严冬计划目前有哪些可靠信息？"],
         en: ["What reliable information exists about Project Stuzha?"],
@@ -395,10 +526,18 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
         en: "Background linking Pierro, Tartaglia, Descenders, and beyond-the-world story threads.",
       },
       detail: {
-        "zh-CN": ["这个节点帮助玩家把至冬问题放回提瓦特长期主线。"],
-        en: ["This node places Snezhnaya questions back into Teyvat's long-running main story."],
+        "zh-CN": ["坎瑞亚灾变与深渊经历共同影响了丑角、公子和降临者相关叙事。"],
+        en: ["The Khaenri'ahn cataclysm and Abyss experiences shape the stories surrounding Pierro, Tartaglia, and the Descenders."],
       },
-      clues: [],
+      clues: [
+        wikiClue({
+          id: "khaenriah-wiki-clue",
+          title: "Khaenri'ah",
+          slug: "Khaenri%27ah",
+          zh: "页面索引坎瑞亚历史、灾变、遗民与深渊相关主线文本。",
+          en: "The page indexes Khaenri'ah's history, the cataclysm, its survivors, and Abyss-related Archon Quest text.",
+        }),
+      ],
       relatedNodeIds: ["pierro", "tartaglia", "third-descender"],
       suggestedQuestions: {
         "zh-CN": ["坎瑞亚和愚人众有什么关系？"],
@@ -457,11 +596,11 @@ export const snezhnayaGraph: SnezhnayaGraphData = {
       label: { "zh-CN": "深渊经历", en: "Abyss experience" },
     },
     {
-      id: "stuzha-white-birch",
-      from: "project-stuzha",
-      to: "white-birch",
-      tier: "official_text_implication",
-      label: { "zh-CN": "意象线索", en: "imagery clue" },
+      id: "gnosis-heavenly-principles",
+      from: "gnosis",
+      to: "heavenly-principles",
+      tier: "official_text_index",
+      label: { "zh-CN": "世界秩序关联", en: "world-order connection" },
     },
   ],
 };

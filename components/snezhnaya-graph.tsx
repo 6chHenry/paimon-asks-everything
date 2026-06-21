@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -261,41 +262,51 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
         <aside className="snezhnaya-detail">
           {selectedNode ? (
             <>
-              <span className={`snezhnaya-tier tier-${selectedNode.tier}`}>
-                {evidenceTierLabel(selectedNode.tier, language)}
-              </span>
-              <h2>{localize(selectedNode.label, language)}</h2>
+              <div
+                className={[
+                  "snezhnaya-detail-heading",
+                  selectedNode.imageUrl ? "with-portrait" : "",
+                ].join(" ")}
+              >
+                <div>
+                  <span className={`snezhnaya-tier tier-${selectedNode.tier}`}>
+                    {evidenceTierLabel(selectedNode.tier, language)}
+                  </span>
+                  <h2>{localize(selectedNode.label, language)}</h2>
+                </div>
+                {selectedNode.imageUrl ? (
+                  <Image
+                    className="snezhnaya-portrait"
+                    src={selectedNode.imageUrl}
+                    alt={localize(selectedNode.label, language)}
+                    width={144}
+                    height={144}
+                    loading="eager"
+                    unoptimized
+                  />
+                ) : null}
+              </div>
               <p>{localize(selectedNode.summary, language)}</p>
               {selectedNode.detail[language].map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
               <div className="snezhnaya-clues">
                 <h3>{t(language, "文本线索", "Text clues")}</h3>
-                {selectedNode.clues.length ? (
-                  selectedNode.clues.map((clue) => (
-                    <a
-                      key={clue.id}
-                      href={clue.url}
-                      target={clue.url ? "_blank" : undefined}
-                      rel={clue.url ? "noreferrer" : undefined}
-                    >
-                      <b>{clue.title}</b>
-                      <span>
-                        {sourceTypeLabel(clue.sourceType, language)} ·{" "}
-                        {evidenceTierLabel(clue.tier, language)}
-                      </span>
-                      <small>{localize(clue.excerpt, language)}</small>
-                    </a>
-                  ))
-                ) : (
-                  <small>
-                    {t(
-                      language,
-                      "第一版先保留为关系问答入口。",
-                      "Kept as a relationship-question entry in v1.",
-                    )}
-                  </small>
-                )}
+                {selectedNode.clues.map((clue) => (
+                  <a
+                    key={clue.id}
+                    href={clue.url}
+                    target={clue.url ? "_blank" : undefined}
+                    rel={clue.url ? "noreferrer" : undefined}
+                  >
+                    <b>{clue.title}</b>
+                    <span>
+                      {sourceTypeLabel(clue.sourceType, language)} ·{" "}
+                      {evidenceTierLabel(clue.tier, language)}
+                    </span>
+                    <small>{localize(clue.excerpt, language)}</small>
+                  </a>
+                ))}
               </div>
               <div className="snezhnaya-related">
                 <h3>{t(language, "相邻节点", "Related nodes")}</h3>

@@ -867,7 +867,7 @@ main { flex: 1; }
   min-height: 100%;
   padding: 24px 0 28px 28px;
   position: sticky;
-  top: 88px;
+  top: 104px;
 }
 
 .snezhnaya-map-heading {
@@ -1004,6 +1004,29 @@ main { flex: 1; }
 .snezhnaya-ghost-button {
   width: 42px;
   padding: 0;
+}
+
+.snezhnaya-detail-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.snezhnaya-detail-heading > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.snezhnaya-portrait {
+  width: 132px;
+  height: 132px;
+  flex: 0 0 132px;
+  object-fit: cover;
+  object-position: center top;
+  border: 1px solid var(--navy);
+  background: var(--blue-light);
+  box-shadow: 7px 7px 0 rgba(111,146,162,.18);
 }
 
 .snezhnaya-detail h2 {
@@ -1253,4 +1276,5 @@ main { flex: 1; }
   .snezhnaya-relation-bar > div { flex-basis: 100%; }
   .snezhnaya-relation-bar > button:not(.snezhnaya-ghost-button) { flex: 1; }
   .snezhnaya-related { grid-template-columns: 1fr; }
+  .snezhnaya-portrait { width: 104px; height: 104px; flex-basis: 104px; box-shadow: 5px 5px 0 rgba(111,146,162,.18); }
 }

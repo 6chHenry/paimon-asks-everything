@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import {
   buildRelationshipQuestion,
   evidenceTierLabel,
@@ -185,22 +187,33 @@ describe("curated Snezhnaya graph catalog", () => {
         "sandrone",
         "third-descender",
         "gnosis",
-        "white-birch",
+        "heavenly-principles",
         "project-stuzha",
         "khaenriah-abyss",
       ]),
     );
+    expect(ids.has("white-birch")).toBe(false);
   });
 
-  it("marks unresolved keywords as implications or theories, not explicit facts", () => {
-    const whiteBirch = snezhnayaGraph.nodes.find(
-      (node) => node.id === "white-birch",
+  it("uses the agreed labels and evidence tiers for Harbingers", () => {
+    const columbina = snezhnayaGraph.nodes.find(
+      (node) => node.id === "columbina",
+    );
+    const marionette = snezhnayaGraph.nodes.find(
+      (node) => node.id === "sandrone",
     );
     const projectStuzha = snezhnayaGraph.nodes.find(
       (node) => node.id === "project-stuzha",
     );
 
-    expect(whiteBirch?.tier).not.toBe("official_explicit");
+    expect(columbina?.tier).toBe("official_explicit");
+    expect(marionette?.label).toEqual({
+      "zh-CN": "木偶",
+      en: "Marionette",
+    });
+    expect(marionette?.aliases).toEqual(
+      expect.arrayContaining(["Sandrone", "桑多涅"]),
+    );
     expect(projectStuzha?.tier).not.toBe("official_explicit");
   });
 
@@ -208,6 +221,68 @@ describe("curated Snezhnaya graph catalog", () => {
     expect(snezhnayaGraph.video.coverImageUrl).toMatch(/^https?:\/\//u);
     expect(snezhnayaGraph.video.youtubeUrl).toContain("youtube");
     expect(snezhnayaGraph.video.miyousheUrl).toContain("miyoushe");
+  });
+
+  it("provides a bilingual Fandom text clue for every keyword", () => {
+    for (const node of snezhnayaGraph.nodes) {
+      expect(node.clues.length, node.id).toBeGreaterThan(0);
+      for (const clue of node.clues) {
+        expect(clue.sourceType, clue.id).toBe("wiki_text_index");
+        expect(clue.url, clue.id).toMatch(
+          /^https:\/\/genshin-impact\.fandom\.com\/wiki\//u,
+        );
+        expect(clue.excerpt["zh-CN"], clue.id).not.toBe("");
+        expect(clue.excerpt.en, clue.id).not.toBe("");
+      }
+    }
+  });
+
+  it("stores published character portraits as local WebP assets", () => {
+    const portraitNodeIds = [
+      "pierro",
+      "dottore",
+      "columbina",
+      "arlecchino",
+      "capitano",
+      "tartaglia",
+      "scaramouche",
+      "signora",
+      "sandrone",
+    ];
+
+    for (const id of portraitNodeIds) {
+      const node = snezhnayaGraph.nodes.find((item) => item.id === id);
+      expect(node?.imageUrl, id).toMatch(
+        /^\/snezhnaya\/avatars\/[a-z0-9-]+\.webp$/u,
+      );
+      expect(
+        existsSync(
+          path.join(process.cwd(), "public", node?.imageUrl?.slice(1) ?? ""),
+        ),
+        id,
+      ).toBe(true);
+    }
+
+    const tsaritsa = snezhnayaGraph.nodes.find(
+      (node) => node.id === "tsaritsa",
+    );
+    expect(tsaritsa?.imageUrl).toBeUndefined();
+  });
+
+  it("keeps curated copy player-facing", () => {
+    const copy = JSON.stringify(snezhnayaGraph);
+    for (const phrase of [
+      "第一版",
+      "v1",
+      "作为入口",
+      "entry point",
+      "should stay",
+      "should not be treated",
+      "hard-coding",
+      "展示相关文本",
+    ]) {
+      expect(copy).not.toContain(phrase);
+    }
   });
 });
 
