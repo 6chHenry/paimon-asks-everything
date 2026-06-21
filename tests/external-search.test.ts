@@ -449,6 +449,81 @@ describe("whitelisted external search", () => {
     );
   });
 
+  it("broadens relationship searches to community analysis when official media snippets lack the relationship facts", async () => {
+    const searchedQueries: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "html.duckduckgo.com") {
+        const query = url.searchParams.get("q") ?? "";
+        searchedQueries.push(query);
+        if (/富人 博士.*(?:PV|对话|剧情解析|剧情 实录|官方文本)/u.test(query)) {
+          return new Response(
+            `<a class="result__a" href="https://www.gamersky.com/news/202605/2146352.shtml">《原神》的新主线剧情竟成了戒烟宣传片？</a>
+             <div class="result__snippet">剧情PV展示博士和富人的对话。博士提到他给富人换上的肺；富人掌管北国银行，也资助博士的研究。</div>
+             <a class="result__a" href="https://www.bilibili.com/video/BV1DrL26REm2/">富人的肺还是博士给换的</a>
+             <div class="result__snippet">博士与富人的对话，富人的肺还是博士给换的，博士甚至又想出来了个实验点子。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        if (/baike\.mihoyo\.com/u.test(query)) {
+          return new Response(
+            `<a class="result__a" href="https://baike.mihoyo.com/ys/obc/content/508795/detail">剧情PV-「不向光者」</a>
+             <div class="result__snippet">CV：「富人」潘塔罗涅——梁达伟 「博士」多托雷——吴磊</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", { status: 200, headers: { "Content-Type": "text/html" } });
+      }
+      if (url.hostname === "www.gamersky.com") {
+        return new Response(
+          `<html><body><main><p>在剧情PV中，博士多托雷与富人潘塔罗涅对话。博士说富人糟蹋了他特意换上的肺，富人则长期以北国银行的财力支持博士研究。</p></main></body></html>`,
+          { status: 200, headers: { "Content-Type": "text/html" } },
+        );
+      }
+      if (url.hostname === "www.bilibili.com") {
+        return new Response(
+          `<html><body><title>富人的肺还是博士给换的</title><p>博士与富人的对话，富人的肺还是博士给换的。</p></body></html>`,
+          { status: 200, headers: { "Content-Type": "text/html" } },
+        );
+      }
+      if (url.searchParams.get("prop") === "extracts") {
+        return new Response(JSON.stringify({ query: { pages: {} } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ query: { search: [] } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence("富人和博士是什么关系", "zh-CN", {
+      plan: {
+        coreEntities: ["富人", "博士"],
+        aliases: ["Pantalone", "Dottore", "潘塔罗涅", "多托雷"],
+        intent: "relationship",
+        storyScope: "character_story_quest",
+        queries: [
+          "富人 潘塔罗涅 剧情",
+          "富人 传说任务",
+          "富人 传说任务 中文WIKI 剧情",
+          "site:zhihu.com 富人 传说任务 剧情",
+          "富人 博士 关系",
+        ],
+      },
+    });
+
+    expect(
+      searchedQueries.some((query) =>
+        /富人 博士.*(?:PV|对话|剧情解析|剧情 实录|官方文本)/u.test(query),
+      ),
+    ).toBe(true);
+    expect(results.some((result) => /换上的肺|资助博士/u.test(result.excerpt))).toBe(true);
+    expect(results.some((result) => result.sourceKind === "community")).toBe(true);
+  });
+
   it("does not let a community analysis video become the only Story Quest evidence", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));

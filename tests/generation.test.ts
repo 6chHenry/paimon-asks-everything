@@ -673,7 +673,8 @@ describe("grounded generation", () => {
                           arguments: JSON.stringify({
                             coreEntities: [],
                             aliases: [],
-                            intent: "general",
+                            intent: "story",
+                            storyScope: "character_story_quest",
                             queries: ["关系 原神"],
                             language: "zh-CN",
                           }),
@@ -767,6 +768,11 @@ describe("grounded generation", () => {
 
     expect(llmCalls).toBe(2);
     expect(result.searchPlan.coreEntities).toEqual(["雷电将军", "雷电影"]);
+    expect(result.searchPlan.intent).toBe("relationship");
+    expect(result.searchPlan.storyScope).toBeUndefined();
+    expect(
+      searchedQueries.some((query) => query.includes("雷电将军 雷电影 PV 对话")),
+    ).toBe(true);
     expect(searchedQueries.some((query) => query.includes("雷电将军"))).toBe(true);
     expect(result.answer).toContain("雷电将军");
   });

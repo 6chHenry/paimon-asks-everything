@@ -180,4 +180,29 @@ describe("source governance", () => {
       }),
     ).toBe(false);
   });
+
+  it("classifies story cut and full-dialogue videos as game text references without making them official", () => {
+    const assessment = assessSourceRule({
+      url: "https://www.bilibili.com/video/BV1DrL26REm2/",
+      title: "富人和博士全对话彩蛋，6.6主线剧情cut合集",
+      excerpt:
+        "博士与富人的对话，富人的肺还是博士给换的，剧情PV和游戏内主线cut。",
+    });
+
+    expect(assessment.contentKind).toBe("game_text_reference");
+    expect(assessment.authority).toBe("community_analysis");
+    expect(assessment.signals).toContain("story-cut-reference");
+  });
+
+  it("classifies relationship dialogue snippets as game text references", () => {
+    const assessment = assessSourceRule({
+      url: "https://www.douyin.com/search/%E5%AF%8C%E4%BA%BA%E5%8D%9A%E5%A3%AB",
+      title: "富人和博士对话什么意思 - 抖音",
+      excerpt: "巴老师看博士富人唠嗑得知富人烟瘾大到需要换肺：博士亲手换的吗",
+    });
+
+    expect(assessment.contentKind).toBe("game_text_reference");
+    expect(assessment.authority).toBe("community_analysis");
+    expect(assessment.signals).toContain("dialogue-reference");
+  });
 });

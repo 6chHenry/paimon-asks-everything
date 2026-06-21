@@ -772,12 +772,23 @@ function mergeUnderstandingSearchPlan(
 ) {
   if (!understanding) return mergeQuestionEntityAnchors(plan, question);
   const understandingPlan = searchPlanFromUnderstanding(understanding, question);
+  const mergedIntent =
+    understanding.intent === "relationship" || understanding.intent === "identity"
+      ? understanding.intent
+      : plan.intent === "general"
+        ? understanding.intent
+        : plan.intent;
+  const mergedStoryScope =
+    mergedIntent === "relationship"
+      ? undefined
+      : (plan.storyScope ?? understandingPlan.storyScope);
   if (!understanding.entities.length) {
     return mergeQuestionEntityAnchors(
       {
         ...plan,
-        intent: plan.intent === "general" ? understanding.intent : plan.intent,
+        intent: mergedIntent,
         queries: plan.queries.length ? plan.queries : understandingPlan.queries,
+        storyScope: mergedStoryScope,
       },
       question,
     );
@@ -801,11 +812,14 @@ function mergeUnderstandingSearchPlan(
           ...onSubjectCoreEntities,
         ],
         aliases: [...understandingPlan.aliases, ...onSubjectAliases],
-        intent: plan.intent === "general" ? understanding.intent : plan.intent,
-        queries: onSubjectQueries.length
-          ? [...onSubjectQueries, ...understandingPlan.queries]
-          : understandingPlan.queries,
-        storyScope: plan.storyScope ?? understandingPlan.storyScope,
+        intent: mergedIntent,
+        queries:
+          mergedIntent === "relationship"
+            ? [...understandingPlan.queries, ...onSubjectQueries]
+            : onSubjectQueries.length
+              ? [...onSubjectQueries, ...understandingPlan.queries]
+              : understandingPlan.queries,
+        storyScope: mergedStoryScope,
       },
       question,
     ),

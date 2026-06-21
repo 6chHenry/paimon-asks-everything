@@ -71,6 +71,28 @@ describe("controlled retrieval", () => {
     expect(result.entries).toHaveLength(0);
   });
 
+  it("does not mix unrelated controlled evidence into generated graph relationship prompts", () => {
+    const result = retrieveControlled({
+      question: [
+        "请基于官方剧情文本、官方文本索引和可信资料，解释「富人」和「博士」之间是否存在已确认关系、文本暗示、社区推测或未证实内容。",
+        "可信 wiki 收录的游戏内文本、任务台词、武器/圣遗物/角色故事原文可以作为官方文本索引使用。",
+        "不要把社区推测说成官方事实。请用中文回答，并给出来源。",
+      ].join("\n"),
+      language: "zh-CN",
+      progress: "nodkrai",
+      spoilerPreference: "full",
+      focus: ["story", "character"],
+      allowHighRisk: true,
+    });
+
+    expect(
+      result.entries.some((entry) => entry.conceptId === "sandrone-alain-creation"),
+    ).toBe(false);
+    expect(
+      result.entries.some((entry) => entry.conceptId === "gnosis-nodkrai"),
+    ).toBe(false);
+  });
+
   it("retrieves the new Gnosis knowledge line for a preheat follow-up", () => {
     const result = retrieveControlled({
       question: "冰之女皇已经明确说过为什么收集神之心吗？",

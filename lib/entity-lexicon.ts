@@ -25,6 +25,16 @@ const questionEntities: QuestionEntity[] = [
     aliases: ["La Signora", "Signora", "罗莎琳", "Rosalyne"],
     kind: "character",
   },
+  {
+    canonical: "富人",
+    aliases: ["Pantalone", "Regrator", "潘塔罗涅"],
+    kind: "character",
+  },
+  {
+    canonical: "博士",
+    aliases: ["Dottore", "Il Dottore", "多托雷"],
+    kind: "character",
+  },
 ];
 
 function normalized(value: string) {
@@ -100,23 +110,34 @@ function pushCandidate(
 
 function inferQuestionEntities(question: string): QuestionEntity[] {
   const candidates: QuestionEntity[] = [];
+  let hasRelationshipCandidates = false;
   const normalizedQuestion = question
     .normalize("NFKC")
     .replace(/\s+/gu, " ")
     .trim();
 
+  const quotedRelationMatch = normalizedQuestion.match(
+    /[「"']([^」"']{1,18})[」"'](?:和|与|跟|同)[「"']([^」"']{1,18})[」"'][^。！？.!?]{0,80}(?:关系|联系|区别)/u,
+  );
+  if (quotedRelationMatch) {
+    pushCandidate(candidates, quotedRelationMatch[1] ?? "", { allowShort: true });
+    pushCandidate(candidates, quotedRelationMatch[2] ?? "", { allowShort: true });
+    hasRelationshipCandidates = true;
+  }
+
   const relationMatch = normalizedQuestion.match(
-    /^(.{2,18}?)(?:和|与|跟|同)(.{2,18}?)(?:之间)?(?:的)?(?:关系|联系|区别)/u,
+    /^(.{2,18}?)(?:和|与|跟|同)(.{2,18}?)(?:之间)?(?:的)?(?:是(?:什么|啥))?(?:关系|联系|区别)/u,
   );
   if (relationMatch) {
     pushCandidate(candidates, relationMatch[1] ?? "", { allowShort: true });
     pushCandidate(candidates, relationMatch[2] ?? "", { allowShort: true });
+    hasRelationshipCandidates = true;
   }
 
   const predicateMatch = normalizedQuestion.match(
     /^(.{2,18}?)(?:是(?:不是)?|是不是|是谁|为什么|为何|怎么|如何|传说任务|故事|背景|身份|设定|死在|死亡|讲了什么|讲什么|说了什么)/u,
   );
-  if (predicateMatch) {
+  if (!hasRelationshipCandidates && predicateMatch) {
     pushCandidate(candidates, predicateMatch[1] ?? "");
   }
 

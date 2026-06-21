@@ -37,6 +37,18 @@ describe("entity lexicon", () => {
         kind: "character",
       },
     ]);
+    expect(detectQuestionEntities("桑多涅和阿兰是什么关系？")).toEqual([
+      {
+        canonical: "桑多涅",
+        aliases: ["Sandrone", "木偶", "Marionette"],
+        kind: "character",
+      },
+      {
+        canonical: "阿兰",
+        aliases: [],
+        kind: "character",
+      },
+    ]);
     expect(detectQuestionEntities("将军和影的关系")).toEqual([
       {
         canonical: "将军",

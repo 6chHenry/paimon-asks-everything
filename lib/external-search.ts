@@ -709,9 +709,39 @@ function lexicalRelevanceScore(citation: Citation, plan: SearchPlan) {
 }
 
 function expandedQueries(plan: SearchPlan, question: string, language: Language) {
-  const queries = [...plan.queries];
+  const queries: string[] = [];
   const subject = plan.coreEntities[0] || plan.aliases[0];
+  const relationshipSubject =
+    plan.coreEntities.length >= 2
+      ? `${plan.coreEntities[0]} ${plan.coreEntities[1]}`
+      : undefined;
   const latinAlias = plan.aliases.find((alias) => /[a-z]/iu.test(alias));
+  const latinRelationshipSubject =
+    plan.aliases.filter((alias) => /[a-z]/iu.test(alias)).length >= 2
+      ? plan.aliases.filter((alias) => /[a-z]/iu.test(alias)).slice(0, 2).join(" ")
+      : undefined;
+  if (plan.intent === "relationship" && relationshipSubject) {
+    if (language === "zh-CN") {
+      queries.push(
+        `${relationshipSubject} 关系`,
+        `${relationshipSubject} PV 对话`,
+        `${relationshipSubject} 剧情解析`,
+        `${relationshipSubject} 主线 对话`,
+        `${relationshipSubject} 剧情 实录`,
+        `${relationshipSubject} 官方文本`,
+        `site:bilibili.com ${relationshipSubject} 对话`,
+        `site:zhihu.com ${relationshipSubject} 剧情`,
+        `site:gamersky.com ${relationshipSubject} 剧情`,
+      );
+    } else {
+      queries.push(
+        `${latinRelationshipSubject ?? relationshipSubject} relationship`,
+        `${latinRelationshipSubject ?? relationshipSubject} dialogue`,
+        `${latinRelationshipSubject ?? relationshipSubject} story analysis`,
+      );
+    }
+  }
+  queries.push(...plan.queries);
   if (subject) {
     const identityLike =
       plan.intent === "identity" ||
@@ -793,7 +823,7 @@ function expandedQueries(plan: SearchPlan, question: string, language: Language)
   }
   return Array.from(new Set(queries.map((query) => cleanSearchValue(query)))).slice(
     0,
-    16,
+    plan.intent === "relationship" ? 24 : 16,
   );
 }
 
@@ -1560,6 +1590,21 @@ function tieredQueries(plan: SearchPlan, question: string, language: Language) {
           `site:baike.baidu.com ${plan.coreEntities[0]} 原神`,
         ]
       : [];
+  const relationshipCommunity =
+    language === "zh-CN" &&
+    plan.intent === "relationship" &&
+    plan.coreEntities.length >= 2
+      ? [
+          `${plan.coreEntities[0]} ${plan.coreEntities[1]} PV 对话`,
+          `${plan.coreEntities[0]} ${plan.coreEntities[1]} 剧情解析`,
+          `${plan.coreEntities[0]} ${plan.coreEntities[1]} 主线 对话`,
+          `${plan.coreEntities[0]} ${plan.coreEntities[1]} 剧情 实录`,
+          `${plan.coreEntities[0]} ${plan.coreEntities[1]} 官方文本`,
+          `site:bilibili.com ${plan.coreEntities[0]} ${plan.coreEntities[1]} 对话`,
+          `site:zhihu.com ${plan.coreEntities[0]} ${plan.coreEntities[1]} 剧情`,
+          `site:gamersky.com ${plan.coreEntities[0]} ${plan.coreEntities[1]} 剧情`,
+        ]
+      : [];
   const second =
     plan.intent === "story" || plan.intent === "identity"
       ? [
@@ -1571,8 +1616,14 @@ function tieredQueries(plan: SearchPlan, question: string, language: Language) {
           ...remaining,
           ...chineseCommunity,
         ].filter((query, index, values) => values.indexOf(query) === index)
-      : [...remaining, ...chineseCommunity];
-  return { first: boundedFirst, second: second.slice(0, 16), entityLookup };
+      : [...relationshipCommunity, ...remaining, ...chineseCommunity].filter(
+          (query, index, values) => values.indexOf(query) === index,
+        );
+  return {
+    first: boundedFirst,
+    second: second.slice(0, plan.intent === "relationship" ? 20 : 16),
+    entityLookup,
+  };
 }
 
 export async function searchWebEvidence(
@@ -1580,12 +1631,16 @@ export async function searchWebEvidence(
   language: Language,
   options: { emitTrace?: TraceEmitter; plan?: Partial<SearchPlan> } = {},
 ): Promise<Citation[]> {
-  const plan = normalizeSearchPlan(options.plan, question);
+  const normalizedPlan = normalizeSearchPlan(options.plan, question);
+  const plan =
+    normalizedPlan.intent === "relationship"
+      ? { ...normalizedPlan, storyScope: undefined }
+      : normalizedPlan;
   await emitTrace(options.emitTrace, {
     stage: "search",
     status: "running",
     message: "去网上找找资料",
-    detail: question,
+    detail: `intent=${plan.intent}; storyScope=${plan.storyScope ?? "none"}; entities=${plan.coreEntities.join(", ")}; question=${question}`,
   });
   const tiers = tieredQueries(plan, question, language);
   const planEntities = [...plan.coreEntities, ...plan.aliases];
@@ -1715,7 +1770,9 @@ export async function searchWebEvidence(
       : [];
   const firstTierSufficient =
     language === "zh-CN"
-      ? plan.storyScope === "character_story_quest"
+      ? plan.intent === "relationship"
+        ? false
+        : plan.storyScope === "character_story_quest"
         ? firstRanked
             .filter(isChineseAnswerEvidence)
             .some((citation) =>

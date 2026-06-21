@@ -111,4 +111,39 @@ describe("evidence quality", () => {
 
     expect(selected).toEqual([]);
   });
+
+  it("keeps relationship story-cut evidence even when platform snippets are generic", () => {
+    const video = citation(
+      "video",
+      "巴老师看博士富人唠嗑得知富人烟瘾大到需要换肺：博士亲手换的吗",
+      "更多实用攻略教学，热门游戏视频7*24小时持续更新。",
+      "https://www.bilibili.com/video/BV-test/",
+    );
+    video.sourceKind = "community";
+    video.credibility = "community";
+    video.factStatus = "community_analysis";
+    video.assessment = {
+      platformKind: "video_platform",
+      publisherKind: "unknown",
+      contentKind: "game_text_reference",
+      authority: "community_analysis",
+      signals: ["video-platform", "story-cut-reference"],
+      confidence: "low",
+    };
+
+    const selected = selectAnswerEvidence([video], {
+      question: "富人和博士的关系",
+      intent: "relationship",
+      language: "zh-CN",
+      plan: {
+        coreEntities: ["富人", "博士"],
+        aliases: ["Pantalone", "Dottore"],
+        intent: "relationship",
+        queries: ["富人 博士 关系"],
+      },
+    });
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toContain("换肺");
+  });
 });

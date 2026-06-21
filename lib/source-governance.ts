@@ -55,6 +55,10 @@ const officialContentPattern =
   /版本更新|维护预告|活动说明|调整说明|开发者公告|角色介绍|角色预告|角色演示|角色PV|特别节目|更新维护|version update|maintenance|official announcement|character teaser|character demo|special program/iu;
 const gameTextPattern =
   /任务文本|传说任务|傳說任務|武器故事|圣遗物故事|书籍|物品描述|角色故事|语音|过场动画|quest text|story quest|quest type story|quest chapter|weapon story|artifact lore|book|item description|character story|voice-over/iu;
+const storyCutPattern =
+  /剧情\s*(?:cut|纯享|合集|录屏|实录|全对话)|主线\s*剧情|全对话|剧情PV|story\s*cut|full\s*dialogue|recorded\s*(?:quest|story)|quest\s*recording/iu;
+const dialogueReferencePattern =
+  /(?:剧情|主线|任务)?(?:完整)?(?:全)?对话|剧情彩蛋|剧情片段|主线片段|角色互动|story\s*dialogue|dialogue\s*(?:clip|recording)|character\s*interaction/iu;
 
 function hostMatches(hostname: string, host: string) {
   return hostname === host || hostname.endsWith(`.${host}`);
@@ -234,6 +238,18 @@ function ruleContentKind(
           ? "character_profile"
           : "announcement",
       signals: ["official-content-format"],
+    };
+  }
+  if (storyCutPattern.test(combined)) {
+    return {
+      contentKind: "game_text_reference",
+      signals: ["story-cut-reference"],
+    };
+  }
+  if (dialogueReferencePattern.test(combined)) {
+    return {
+      contentKind: "game_text_reference",
+      signals: ["dialogue-reference"],
     };
   }
   if (gameTextPattern.test(combined)) {

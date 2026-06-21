@@ -82,6 +82,22 @@ describe("question understanding", () => {
     expect(reconciled.agreement).toBe("confirmed");
   });
 
+  it("recognizes generated graph relationship prompts without model review", () => {
+    const question = [
+      "请基于官方剧情文本、官方文本索引和可信资料，解释「富人」和「博士」之间是否存在已确认关系、文本暗示、社区推测或未证实内容。",
+      "可信 wiki 收录的游戏内文本、任务台词、武器/圣遗物/角色故事原文可以作为官方文本索引使用。",
+      "不要把社区推测说成官方事实。请用中文回答，并给出来源。",
+    ].join("\n");
+    const rule = ruleUnderstandQuestion(question, "zh-CN");
+
+    expect(rule.entities.map((entity) => entity.canonical)).toEqual([
+      "富人",
+      "博士",
+    ]);
+    expect(rule.intent).toBe("relationship");
+    expect(shouldUseModelQuestionUnderstanding(question, rule)).toBe(false);
+  });
+
   it("asks the model to review the raw question only", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";

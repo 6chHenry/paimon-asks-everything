@@ -6,6 +6,7 @@ import type {
   Progress,
   SpoilerPreference,
 } from "@/lib/domain";
+import { detectQuestionEntities, type QuestionEntity } from "@/lib/entity-lexicon";
 
 const progressRank: Record<Progress, number> = {
   unknown: 0,
@@ -139,6 +140,35 @@ function isRelationshipQuestion(question: string) {
   ].some((term) => normalized.includes(term));
 }
 
+function normalizeForMatch(value: string) {
+  return value.normalize("NFKC").toLowerCase();
+}
+
+function entryText(entry: KnowledgeEntry) {
+  return normalizeForMatch(
+    [
+      entry.title,
+      entry.summary,
+      entry.content,
+      ...entry.aliases,
+      ...entry.tags,
+    ].join(" "),
+  );
+}
+
+function entryMentionsEntity(entry: KnowledgeEntry, entity: QuestionEntity) {
+  const haystack = entryText(entry);
+  return [entity.canonical, ...entity.aliases].some((name) =>
+    haystack.includes(normalizeForMatch(name)),
+  );
+}
+
+function relationshipEntities(question: string) {
+  return detectQuestionEntities(question)
+    .filter((entity) => entity.kind === "character" || entity.kind === "story")
+    .slice(0, 2);
+}
+
 export interface RetrievalResult {
   entries: Array<KnowledgeEntry & { score: number; crossLanguage: boolean }>;
   blockedHighRisk: KnowledgeEntry[];
@@ -165,20 +195,15 @@ export function retrieveControlled({
   const terms = expandedTerms(question);
   const specificTerms = terms.filter(isSpecificTerm);
   const wantsRelationship = isRelationshipQuestion(question);
+  const requiredRelationshipEntities = wantsRelationship
+    ? relationshipEntities(question)
+    : [];
   const maxSpoiler = allowHighRisk ? 3 : allowedSpoilerLevel(spoilerPreference);
   const blockedHighRisk: KnowledgeEntry[] = [];
 
   const scored = knowledgeEntries
     .map((entry) => {
-      const haystack = [
-        entry.title,
-        entry.summary,
-        entry.content,
-        ...entry.aliases,
-        ...entry.tags,
-      ]
-        .join(" ")
-        .toLowerCase();
+      const haystack = entryText(entry);
       let score = 0;
       let specificScore = 0;
       for (const term of terms) {
@@ -193,6 +218,15 @@ export function retrieveControlled({
         }
       }
       if (specificTerms.length && specificScore === 0) {
+        score = 0;
+      }
+      if (
+        wantsRelationship &&
+        requiredRelationshipEntities.length >= 2 &&
+        !requiredRelationshipEntities.every((entity) =>
+          entryMentionsEntity(entry, entity),
+        )
+      ) {
         score = 0;
       }
       if (score > 0) {

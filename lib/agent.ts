@@ -171,10 +171,10 @@ export async function runAgent(
     status: "complete",
     message: "看懂问题啦",
     detail: questionUnderstanding.entities.length
-      ? `${eventClassification.questionCategory} / ${questionUnderstanding.entities
+      ? `${eventClassification.questionCategory} · ${questionUnderstanding.intent} / ${questionUnderstanding.entities
           .map((entity) => entity.canonical)
           .join(", ")}`
-      : eventClassification.questionCategory,
+      : `${eventClassification.questionCategory} · ${questionUnderstanding.intent}`,
   });
 
   const retrieval = retrieveControlled({
