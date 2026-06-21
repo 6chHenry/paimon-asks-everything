@@ -93,6 +93,26 @@ describe("controlled retrieval", () => {
     ).toBe(false);
   });
 
+  it("retrieves confirmed Pantalone-Dottore interactions for their relationship question", () => {
+    const result = retrieveControlled({
+      question: "富人和博士是什么关系？",
+      language: "zh-CN",
+      progress: "nodkrai",
+      spoilerPreference: "full",
+      focus: ["story", "character"],
+      allowHighRisk: true,
+    });
+
+    expect(
+      result.entries.some(
+        (entry) =>
+          entry.conceptId === "pantalone-dottore-confirmed-relationship" &&
+          entry.content.includes("更换肺部") &&
+          entry.content.includes("长期资助博士的研究"),
+      ),
+    ).toBe(true);
+  });
+
   it("retrieves the new Gnosis knowledge line for a preheat follow-up", () => {
     const result = retrieveControlled({
       question: "冰之女皇已经明确说过为什么收集神之心吗？",

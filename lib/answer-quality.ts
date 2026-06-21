@@ -243,6 +243,28 @@ export function validateAnswerQuality(input: {
   ) {
     failures.push("unsupported_negative_claim");
   }
+  if (
+    /关系|關係|联系|聯繫|互动|互動|合作|对话|對話|relationship|connection|interaction|cooperation|dialogue/iu.test(
+      input.question,
+    ) &&
+    input.sourceTextById
+  ) {
+    const negativeRelationshipClaim =
+      /(?:(?:并|並)?(?:没有|沒有)|並無|并无|不存在|未曾|从未|從未|尚未发现|尚未發現|尚无|尚無)[^。！？.!?]{0,36}(?:关系|關係|联系|聯繫|互动|互動|合作|对话|對話)|no\s+(?:confirmed\s+|direct\s+|known\s+|special\s+)*(?:relationship|connection|interaction|cooperation|dialogue)|never\s+(?:spoke|interacted|cooperated)/iu;
+    const positiveRelationshipEvidence =
+      /对话|對話|台词|臺詞|互动|互動|合作|联手|聯手|资助|資助|支持|投资|投資|治疗|治療|医治|醫治|换(?:上|过|了)?[^，。；,.!?]{0,12}(?:肺|身体|身體|器官)|換(?:上|過|了)?[^，。；,.!?]{0,12}(?:肺|身體|器官)|救(?:下|过|了)?|救(?:下|過|了)?|创造|創造|制造|製造|改造|委托|委託|命令|交易|冲突|衝突|反对|反對|杀死|殺死|告别|告別|告辞|告辭|dialogue|conversation|interact(?:ion|ed)?|cooperat(?:e|ion)|fund(?:ed|ing)?|financ(?:e|ed|ing)|treat(?:ed|ment)?|replace(?:d)?[^.!?]{0,20}(?:lung|organ)|saved?|created?|killed?|opposed?|farewell/iu;
+    const suppliedEvidenceHasInteraction = [...input.sourceTextById.values()].some(
+      (sourceText) => positiveRelationshipEvidence.test(sourceText),
+    );
+    const hasUnsupportedNegative = input.paragraphs.some((paragraph) => {
+      if (!negativeRelationshipClaim.test(paragraph.text)) return false;
+      if (suppliedEvidenceHasInteraction) return true;
+      return !paragraph.citationIds.some((id) =>
+        negativeRelationshipClaim.test(input.sourceTextById?.get(id) ?? ""),
+      );
+    });
+    if (hasUnsupportedNegative) failures.push("unsupported_negative_claim");
+  }
   if (containsWebNoise(text)) failures.push("web_noise");
   if (isTemplateHeavy(text, input.language)) failures.push("template_heavy");
   return Array.from(new Set(failures));

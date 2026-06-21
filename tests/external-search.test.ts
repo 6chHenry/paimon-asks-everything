@@ -3,9 +3,12 @@ import {
   classifyWebSource,
   isCharacterStoryQuestEvidence,
   normalizeSearchPlan,
+  selectCandidatesForAssessment,
+  searchGeneralWeb,
   searchWebEvidence,
   searchWhitelistedWiki,
 } from "@/lib/external-search";
+import type { Citation } from "@/lib/domain";
 
 describe("whitelisted external search", () => {
   afterEach(() => {
@@ -520,8 +523,161 @@ describe("whitelisted external search", () => {
         /富人 博士.*(?:PV|对话|剧情解析|剧情 实录|官方文本)/u.test(query),
       ),
     ).toBe(true);
+    expect(searchedQueries).toEqual(
+      expect.arrayContaining([
+        "富人 博士 换肺",
+        "富人 博士 北国银行 资助",
+        "富人 博士 合作 研究",
+      ]),
+    );
     expect(results.some((result) => /换上的肺|资助博士/u.test(result.excerpt))).toBe(true);
     expect(results.some((result) => result.sourceKind === "community")).toBe(true);
+  });
+
+  it("reserves assessment slots for direct relationship interactions", () => {
+    const plan = normalizeSearchPlan(
+      {
+        coreEntities: ["富人", "博士"],
+        aliases: ["Pantalone", "Dottore", "潘塔罗涅", "多托雷"],
+        intent: "relationship",
+        queries: ["富人 博士 关系"],
+      },
+      "富人和博士是什么关系？",
+    );
+    const genericWikiResults: Citation[] = Array.from(
+      { length: 18 },
+      (_, index) => ({
+        id: `wiki-${index}`,
+        title: index === 0 ? "愚人众十一执行官" : `至冬资料索引 ${index}`,
+        url: `https://genshin-impact.fandom.com/zh/wiki/reference-${index}`,
+        sourceName: "Genshin Impact Wiki 中文",
+        sourceKind: "trusted_wiki",
+        credibility: "trusted_wiki",
+        factStatus: "trusted_secondary",
+        excerpt:
+          "富人和博士都是愚人众执行官。本页收录执行官名单、席位和角色索引。",
+        external: true,
+        crossLanguage: false,
+        assessment: {
+          platformKind: "general_web",
+          publisherKind: "verified_aggregator",
+          contentKind: "neutral_reference",
+          authority: "curated_reference",
+          signals: ["verified-reference-wiki"],
+          confidence: "medium",
+        },
+      }),
+    );
+    const directDialogue: Citation = {
+      id: "dialogue",
+      title: "富人与博士主线完整对话",
+      url: "https://www.bilibili.com/video/BV-direct-dialogue/",
+      sourceName: "bilibili",
+      sourceKind: "community",
+      credibility: "community",
+      factStatus: "community_analysis",
+      excerpt:
+        "剧情实录中，博士说富人糟蹋了他特意换上的肺；富人表示北国银行长期资助博士的研究。",
+      external: true,
+      crossLanguage: false,
+      assessment: {
+        platformKind: "video_platform",
+        publisherKind: "unknown",
+        contentKind: "game_text_reference",
+        authority: "community_analysis",
+        signals: ["story-cut-reference"],
+        confidence: "low",
+      },
+    };
+
+    const selected = selectCandidatesForAssessment(
+      [...genericWikiResults, directDialogue],
+      plan,
+      "富人和博士是什么关系？",
+      16,
+    );
+
+    expect(selected).toHaveLength(16);
+    expect(
+      selected.some((citation) => citation.url.includes("BV-direct-dialogue")),
+    ).toBe(true);
+  });
+
+  it("uses Sogou as a Chinese web-search fallback for direct interaction evidence", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "www.sogou.com") {
+          return new Response(
+            `<div class="rb">
+              <h3 class="vr-title"><a href="/link?url=direct-story">富人与博士主线对话</a></h3>
+              <div class="text-layout">博士曾为富人换肺，富人通过北国银行长期资助博士研究。</div>
+            </div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("富人 博士 换肺", {
+      enrich: false,
+    });
+
+    expect(results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "富人与博士主线对话",
+          excerpt: expect.stringContaining("北国银行长期资助博士研究"),
+        }),
+      ]),
+    );
+  });
+
+  it("keeps Pantalone-Dottore search terms scoped to that relationship", async () => {
+    const searchedQueries: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "html.duckduckgo.com") {
+          searchedQueries.push(url.searchParams.get("q") ?? "");
+          return new Response("", {
+            status: 200,
+            headers: { "Content-Type": "text/html" },
+          });
+        }
+        if (url.searchParams.get("prop") === "extracts") {
+          return new Response(JSON.stringify({ query: { pages: {} } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ query: { search: [] } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+
+    await searchWebEvidence("雷电将军和雷电影是什么关系", "zh-CN", {
+      plan: {
+        coreEntities: ["雷电将军", "雷电影"],
+        aliases: ["Raiden Shogun", "Raiden Ei"],
+        intent: "relationship",
+        queries: ["雷电将军 雷电影 关系"],
+      },
+    });
+
+    expect(
+      searchedQueries.some((query) =>
+        /换肺|北国银行|合作 研究/u.test(query),
+      ),
+    ).toBe(false);
   });
 
   it("does not let a community analysis video become the only Story Quest evidence", async () => {

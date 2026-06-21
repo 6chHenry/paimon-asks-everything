@@ -11,5 +11,8 @@ describe("answer prompt", () => {
     expect(prompt).toContain("do not dismiss reproduced in-game dialogue as mere speculation");
     expect(prompt).toContain("concrete in-game event");
     expect(prompt).toContain("creator's interpretation");
+    expect(prompt).toContain("Never infer \"no relationship\"");
+    expect(prompt).toContain("requires a cited source that explicitly states that absence");
+    expect(prompt).toContain("acknowledge that event");
   });
 });

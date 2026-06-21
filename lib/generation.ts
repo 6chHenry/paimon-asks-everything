@@ -274,7 +274,11 @@ function directExternalEvidenceAnswer({
     .join("\n\n");
 }
 
-function preferReviewedEvidence(citations: Citation[]) {
+function preferReviewedEvidence(
+  citations: Citation[],
+  plan?: SearchPlan,
+) {
+  if (plan?.intent === "relationship") return citations;
   const reliable = citations.filter(
     (citation) =>
       citation.assessment?.authority === "official" ||
@@ -962,7 +966,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
         emitTrace: input.emitTrace,
         plan: searchPlan,
       });
-      searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal), {
+      searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal, searchPlan), {
         question: input.question,
         intent: searchPlan.intent,
         plan: searchPlan,
@@ -1065,7 +1069,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
         emitTrace: input.emitTrace,
         plan: searchPlan,
       });
-      searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal), {
+      searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal, searchPlan), {
         question: input.question,
         intent: searchPlan.intent,
         plan: searchPlan,
@@ -1094,6 +1098,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
 
     const rawExternal = preferReviewedEvidence(
       searchedExternal.length ? searchedExternal : input.external,
+      searchPlan,
     );
     const external = selectAnswerEvidence(rawExternal, {
       question: input.question,

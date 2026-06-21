@@ -72,6 +72,56 @@ const pairs: PairSeed[] = [
     },
   },
   {
+    conceptId: "pantalone-dottore-confirmed-relationship",
+    zh: {
+      title: "富人与博士的已确认合作关系",
+      content:
+        "官方剧情PV「不向光者」中的直接对话确认，富人潘塔罗涅与博士多托雷并非只有执行官同僚这一层关系。博士曾为富人更换肺部；富人则以北国银行的财力长期资助博士的研究。两人的已确认关系包括医疗或人体改造层面的往来，以及资助者与研究者的长期合作。现有文本可以证明合作和直接互动，但不足以把两人定义为私人好友，也不能据此延伸社区玩笑或配对解读。",
+      summary: "官方剧情对话确认博士曾为富人换肺，富人长期资助博士研究。",
+      aliases: [
+        "富人",
+        "潘塔罗涅",
+        "Pantalone",
+        "Regrator",
+        "博士",
+        "多托雷",
+        "Dottore",
+        "Il Dottore",
+        "北国银行",
+        "换肺",
+      ],
+    },
+    en: {
+      title: "Pantalone and Dottore's confirmed working relationship",
+      content:
+        "Direct dialogue in the official story video The Lightless confirms that Pantalone and Dottore are more than merely two Harbingers in the same organization. Dottore replaced Pantalone's lung, while Pantalone used the Northland Bank's wealth to fund Dottore's research over an extended period. The text establishes medical or bodily intervention and a long-running patron-researcher relationship, but it does not by itself establish private friendship or validate fandom shipping interpretations.",
+      summary:
+        "Official story dialogue confirms that Dottore replaced Pantalone's lung and that Pantalone funded Dottore's research.",
+      aliases: [
+        "Pantalone",
+        "Regrator",
+        "富人",
+        "潘塔罗涅",
+        "Dottore",
+        "Il Dottore",
+        "博士",
+        "多托雷",
+        "Northland Bank",
+      ],
+    },
+    tags: ["pantalone", "dottore", "fatui", "relationship", "story"],
+    contentType: "character",
+    spoilerLevel: 2,
+    minimumProgress: "nodkrai",
+    factStatus: "official_explicit",
+    source: {
+      title: "Story PV: The Lightless",
+      url: "https://www.youtube.com/watch?v=Kzr3CtT00Nw",
+      sourceName: "Genshin Impact",
+      sourceKind: "official",
+    },
+  },
+  {
     conceptId: "alain-guillotin",
     zh: {
       title: "阿兰·吉约丹与枫丹机械研究",

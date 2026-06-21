@@ -217,16 +217,23 @@ export function retrieveControlled({
           if (specificTerms.includes(term)) specificScore += 2;
         }
       }
-      if (specificTerms.length && specificScore === 0) {
-        score = 0;
-      }
+      const matchesRequiredRelationshipEntities =
+        wantsRelationship &&
+        requiredRelationshipEntities.length >= 2 &&
+        requiredRelationshipEntities.every((entity) =>
+          entryMentionsEntity(entry, entity),
+        );
       if (
         wantsRelationship &&
         requiredRelationshipEntities.length >= 2 &&
-        !requiredRelationshipEntities.every((entity) =>
-          entryMentionsEntity(entry, entity),
-        )
+        !matchesRequiredRelationshipEntities
       ) {
+        score = 0;
+      } else if (matchesRequiredRelationshipEntities) {
+        score += 8;
+        specificScore += 8;
+      }
+      if (specificTerms.length && specificScore === 0) {
         score = 0;
       }
       if (score > 0) {

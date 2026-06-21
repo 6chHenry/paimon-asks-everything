@@ -113,6 +113,52 @@ describe("answer quality", () => {
     expect(failures).not.toContain("unsupported_negative_claim");
   });
 
+  it("rejects a no-relationship conclusion when supplied evidence records direct interaction", () => {
+    const failures = validateAnswerQuality({
+      paragraphs: [
+        {
+          text: "富人和博士之间没有任何已确认的直接关系或互动。",
+          citationIds: ["external-1"],
+        },
+      ],
+      language: "zh-CN",
+      question: "富人和博士是什么关系？",
+      allowedSourceIds: new Set(["external-1", "external-2"]),
+      sourceTextById: new Map([
+        [
+          "external-1",
+          "富人与博士同为愚人众执行官，分别位列第九席和第二席。",
+        ],
+        [
+          "external-2",
+          "剧情对话中，博士提到为富人换上的肺；富人表示北国银行长期资助博士研究。",
+        ],
+      ]),
+    });
+
+    expect(failures).toContain("unsupported_negative_claim");
+  });
+
+  it("rejects traditional-Chinese omission claims when interaction evidence exists", () => {
+    const failures = validateAnswerQuality({
+      paragraphs: [
+        {
+          text: "目前資料中並沒有提及他們之間有合作、衝突或其他特殊關聯。",
+          citationIds: ["external-1"],
+        },
+      ],
+      language: "zh-CN",
+      question: "富人和博士是什么关系？",
+      allowedSourceIds: new Set(["external-1", "external-2"]),
+      sourceTextById: new Map([
+        ["external-1", "两人同为愚人众执行官。"],
+        ["external-2", "富人表示北国银行长期资助博士的研究。"],
+      ]),
+    });
+
+    expect(failures).toContain("unsupported_negative_claim");
+  });
+
   it("uses the character entity instead of treating a long Chinese Story Quest request as one token", () => {
     const failures = validateAnswerQuality({
       paragraphs: [

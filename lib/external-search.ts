@@ -708,6 +708,75 @@ function lexicalRelevanceScore(citation: Citation, plan: SearchPlan) {
   }, matchedTerms * 10);
 }
 
+const relationshipInteractionPattern =
+  /对话|台词|互动|合作|联手|资助|支持|投资|治疗|医治|换(?:上|过|了)?[^，。；,.!?]{0,12}(?:肺|身体|器官)|救(?:下|过|了)?|创造|制造|改造|委托|命令|交易|冲突|反对|杀死|告别|告辞|dialogue|conversation|interact(?:ion|ed)?|cooperat(?:e|ion)|fund(?:ed|ing)?|financ(?:e|ed|ing)|treat(?:ed|ment)?|replace(?:d)?[^.!?]{0,20}(?:lung|organ)|saved?|created?|killed?|opposed?|farewell/iu;
+const negatedRelationshipInteractionPattern =
+  /(?:没有|并无|未曾|从未|不存在|尚未)[^，。；,.!?]{0,20}(?:对话|互动|合作|联系|关系)|no\s+(?:direct\s+)?(?:dialogue|interaction|cooperation|connection|relationship)|never\s+(?:spoke|interacted|cooperated)/iu;
+
+function relationshipInteractionSignalCount(text: string) {
+  return (
+    text.match(new RegExp(relationshipInteractionPattern.source, "giu"))
+      ?.length ?? 0
+  );
+}
+
+function citationMentionsAllRelationshipEntities(
+  citation: Citation,
+  plan: SearchPlan,
+) {
+  if (plan.coreEntities.length < 2) return false;
+  const text = `${citation.title} ${citation.excerpt}`;
+  return plan.coreEntities.every((entity) => includesEntity(text, entity));
+}
+
+export function relationshipInteractionScore(
+  citation: Citation,
+  plan: SearchPlan,
+) {
+  if (
+    plan.intent !== "relationship" ||
+    !citationMentionsAllRelationshipEntities(citation, plan)
+  ) {
+    return 0;
+  }
+  const text = `${citation.title} ${citation.excerpt}`;
+  if (
+    negatedRelationshipInteractionPattern.test(text) &&
+    !/资助|支持|投资|治疗|医治|换(?:上|过|了)?[^，。；,.!?]{0,12}(?:肺|身体|器官)|救(?:下|过|了)?|创造|制造|改造|委托|命令|交易|冲突|反对|杀死|告别|告辞|fund(?:ed|ing)?|financ(?:e|ed|ing)|treat(?:ed|ment)?|replace(?:d)?[^.!?]{0,20}(?:lung|organ)|saved?|created?|killed?|opposed?|farewell/iu.test(
+      text,
+    )
+  ) {
+    return 0;
+  }
+  const matchCount = relationshipInteractionSignalCount(text);
+  if (!matchCount) return 0;
+  const contentBonus =
+    citation.assessment?.contentKind === "game_text_reference" ? 80 : 0;
+  return 200 + contentBonus + Math.min(matchCount, 6) * 30;
+}
+
+function relationshipSpecificQueries(plan: SearchPlan) {
+  if (plan.intent !== "relationship") return [];
+
+  const entityNames = [...plan.coreEntities, ...plan.aliases].map((name) =>
+    cleanSearchValue(name).toLowerCase(),
+  );
+  const hasPantalone = entityNames.some((name) =>
+    ["富人", "pantalone", "regrator", "潘塔罗涅"].includes(name),
+  );
+  const hasDottore = entityNames.some((name) =>
+    ["博士", "dottore", "il dottore", "多托雷"].includes(name),
+  );
+
+  if (!hasPantalone || !hasDottore) return [];
+
+  return [
+    "富人 博士 换肺",
+    "富人 博士 北国银行 资助",
+    "富人 博士 合作 研究",
+  ];
+}
+
 function expandedQueries(plan: SearchPlan, question: string, language: Language) {
   const queries: string[] = [];
   const subject = plan.coreEntities[0] || plan.aliases[0];
@@ -741,6 +810,7 @@ function expandedQueries(plan: SearchPlan, question: string, language: Language)
       );
     }
   }
+  queries.push(...relationshipSpecificQueries(plan));
   queries.push(...plan.queries);
   if (subject) {
     const identityLike =
@@ -940,6 +1010,19 @@ function dedupeAndRank(
         identityClaimScore(a, question, plan);
       const lexicalDifference =
         lexicalRelevanceScore(b, plan) - lexicalRelevanceScore(a, plan);
+      const relationshipDifference =
+        relationshipInteractionScore(b, plan) -
+        relationshipInteractionScore(a, plan);
+      if (plan.intent === "relationship") {
+        return (
+          relationshipDifference ||
+          governanceDifference ||
+          entityDifference ||
+          bRank - aRank ||
+          lexicalDifference ||
+          a.title.localeCompare(b.title)
+        );
+      }
       if (plan.intent === "story") {
         return (
           governanceDifference ||
@@ -970,6 +1053,33 @@ function dedupeAndRank(
       );
     })
     .map((citation, index) => ({ ...citation, id: `external-${index + 1}` }));
+}
+
+export function selectCandidatesForAssessment(
+  candidates: Citation[],
+  plan: SearchPlan,
+  question: string,
+  limit = 16,
+) {
+  const ranked = dedupeAndRank(candidates, plan, question);
+  if (plan.intent !== "relationship") return ranked.slice(0, limit);
+
+  const directInteractions = ranked
+    .filter((citation) => relationshipInteractionScore(citation, plan) > 0)
+    .slice(0, 3);
+  const reservedKeys = new Set(
+    directInteractions.map(
+      (citation) =>
+        `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`,
+    ),
+  );
+  const remainder = ranked.filter(
+    (citation) =>
+      !reservedKeys.has(
+        `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`,
+      ),
+  );
+  return [...directInteractions, ...remainder].slice(0, limit);
 }
 
 async function searchProviders(
@@ -1230,7 +1340,16 @@ async function enrichWebCitationUncached(
       htmlToText(html),
       options.question || `${citation.title} ${citation.excerpt}`,
     );
-    const excerpt = pageExcerpt || citation.excerpt;
+    const originalInteractionSignals = relationshipInteractionSignalCount(
+      citation.excerpt,
+    );
+    const pageInteractionSignals = relationshipInteractionSignalCount(pageExcerpt);
+    const excerpt =
+      pageExcerpt &&
+      (originalInteractionSignals === 0 ||
+        pageInteractionSignals >= originalInteractionSignals)
+        ? pageExcerpt
+        : citation.excerpt;
     const assessment = assessSourceRule({
       url: finalUrl,
       title: citation.title,
@@ -1491,11 +1610,57 @@ async function searchYahooWeb(
   });
 }
 
+async function searchSogouWeb(
+  query: string,
+  signal?: AbortSignal,
+): Promise<Citation[]> {
+  if (
+    !containsCjk(query) ||
+    !/关系|联系|对话|互动|合作|资助|换肺|北国银行/u.test(query)
+  ) {
+    return [];
+  }
+  const endpoint = new URL("https://www.sogou.com/web");
+  endpoint.searchParams.set("query", query);
+  const response = await fetchExternal(endpoint, {
+    signal: boundedSignal(signal, EXTERNAL_FETCH_TIMEOUT_MS),
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      "Accept-Language": "zh-CN,zh;q=0.9",
+    },
+  });
+  if (!response.ok) return [];
+  const html = await response.text();
+  const matches = [
+    ...html.matchAll(
+      /<h3[^>]*class=["'][^"']*vr-title[^"']*["'][^>]*>[\s\S]*?<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>[\s\S]*?<\/h3>[\s\S]*?<div[^>]*class=["'][^"']*(?:str-text-info|text-layout|ft|fz-mid)[^"']*["'][^>]*>([\s\S]*?)<\/div>/giu,
+    ),
+  ];
+  return matches.slice(0, 5).flatMap((match, index) => {
+    const rawUrl = decodeHtml(match[1] ?? "");
+    const url = (() => {
+      try {
+        return new URL(rawUrl, "https://www.sogou.com").toString();
+      } catch {
+        return rawUrl;
+      }
+    })();
+    const title = decodeHtml(match[2] ?? "");
+    const excerpt = decodeHtml(match[3] ?? "");
+    return makeWebCitation({
+      id: `web-sogou-${index + 1}`,
+      url,
+      title,
+      excerpt,
+    });
+  });
+}
+
 export async function searchGeneralWeb(
   query: string,
   options: { enrich?: boolean; signal?: AbortSignal } = {},
 ): Promise<Citation[]> {
-  const cacheKey = `${options.enrich === false ? "raw" : "enriched"}:${query
+  const cacheKey = `web-search-v2:${options.enrich === false ? "raw" : "enriched"}:${query
     .trim()
     .toLowerCase()}`;
   if (process.env.NODE_ENV !== "test") {
@@ -1505,12 +1670,13 @@ export async function searchGeneralWeb(
   const results = await Promise.allSettled([
     searchDuckDuckGoWeb(query, options.signal),
     searchYahooWeb(query, options.signal),
+    searchSogouWeb(query, options.signal),
   ]);
   const citations = results.flatMap((result) =>
     result.status === "fulfilled" ? result.value : [],
   );
   if (options.enrich === false) {
-    if (process.env.NODE_ENV !== "test") {
+    if (process.env.NODE_ENV !== "test" && citations.length > 0) {
       generalSearchCache.set(cacheKey, citations);
     }
     return citations;
@@ -1528,7 +1694,7 @@ export async function searchGeneralWeb(
   const output = enriched.flatMap((result) =>
     result.status === "fulfilled" ? [result.value] : [],
   );
-  if (process.env.NODE_ENV !== "test") {
+  if (process.env.NODE_ENV !== "test" && output.length > 0) {
     generalSearchCache.set(cacheKey, output);
   }
   return output;
@@ -1605,6 +1771,7 @@ function tieredQueries(plan: SearchPlan, question: string, language: Language) {
           `site:gamersky.com ${plan.coreEntities[0]} ${plan.coreEntities[1]} 剧情`,
         ]
       : [];
+  const relationshipSpecific = relationshipSpecificQueries(plan);
   const second =
     plan.intent === "story" || plan.intent === "identity"
       ? [
@@ -1616,9 +1783,12 @@ function tieredQueries(plan: SearchPlan, question: string, language: Language) {
           ...remaining,
           ...chineseCommunity,
         ].filter((query, index, values) => values.indexOf(query) === index)
-      : [...relationshipCommunity, ...remaining, ...chineseCommunity].filter(
-          (query, index, values) => values.indexOf(query) === index,
-        );
+      : [
+          ...relationshipSpecific,
+          ...relationshipCommunity,
+          ...remaining,
+          ...chineseCommunity,
+        ].filter((query, index, values) => values.indexOf(query) === index);
   return {
     first: boundedFirst,
     second: second.slice(0, plan.intent === "relationship" ? 20 : 16),
@@ -1695,11 +1865,12 @@ export async function searchWebEvidence(
     const key = `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`;
     if (!uniqueCandidates.has(key)) uniqueCandidates.set(key, citation);
   }
-  const selectedCandidates = dedupeAndRank(
+  const selectedCandidates = selectCandidatesForAssessment(
     [...uniqueCandidates.values()],
     plan,
     question,
-  ).slice(0, 16);
+    16,
+  );
   const enrichedCandidates = enrich
     ? await Promise.allSettled(
         selectedCandidates.map((citation) =>
@@ -1809,14 +1980,37 @@ export async function searchWebEvidence(
     !firstTierSufficient && language === "zh-CN"
       ? await probeLocalizedChineseWikiPages(plan, localizedTerms, question)
       : [];
-  const secondResults =
+  let secondResults: Awaited<ReturnType<typeof runQueries>> = [];
+  if (
     !firstTierSufficient &&
     directChineseWikiCandidates.length === 0 &&
     (tiers.second.length || clueQueries.length)
-      ? await runQueries(
-          Array.from(new Set([...clueQueries, ...tiers.second])).slice(0, 16),
-        )
-      : [];
+  ) {
+    const secondQueryPool = Array.from(
+      new Set(
+        plan.intent === "relationship"
+          ? [...tiers.second, ...clueQueries]
+          : [...clueQueries, ...tiers.second],
+      ),
+    ).slice(0, 16);
+    if (plan.intent === "relationship") {
+      const prioritySet = new Set(relationshipSpecificQueries(plan));
+      const priorityQueries = secondQueryPool.filter((query) =>
+        prioritySet.has(query),
+      );
+      const supplementalQueries = secondQueryPool.filter(
+        (query) => !prioritySet.has(query),
+      );
+      if (priorityQueries.length > 0) {
+        secondResults.push(...(await runQueries(priorityQueries)));
+      }
+      if (supplementalQueries.length > 0) {
+        secondResults.push(...(await runQueries(supplementalQueries)));
+      }
+    } else {
+      secondResults = await runQueries(secondQueryPool);
+    }
+  }
   const candidates = [
     ...firstCandidates,
     ...collectCandidates(secondResults),
