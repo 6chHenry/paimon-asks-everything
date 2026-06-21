@@ -18,9 +18,11 @@ import type { ChatResult } from "@/lib/domain";
 import { t } from "@/lib/i18n";
 import {
   buildRelationshipQuestion,
+  cleanRelationshipAnswerForDisplay,
   evidenceTierLabel,
   initialSnezhnayaNodeId,
   localize,
+  nodeDetailFacts,
   type SnezhnayaEdge,
   type SnezhnayaGraphData,
   type SnezhnayaNode,
@@ -126,6 +128,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
   const [answer, setAnswer] = useState<ChatResult | null>(null);
   const [loadingRelation, setLoadingRelation] = useState(false);
   const [relationError, setRelationError] = useState("");
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const selectedNode = graph.nodes.find((node) => node.id === selectedId);
   const relationNodes = relationIds
@@ -149,17 +152,18 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
     });
   }
 
-  async function analyzeRelationship() {
-    if (relationNodes.length !== 2) return;
+  async function analyzeRelationship(targetNodes = relationNodes) {
+    if (targetNodes.length !== 2) return;
     setLoadingRelation(true);
     setRelationError("");
     setAnswer(null);
     setTraceEvents([]);
+    setRelationIds([targetNodes[0].id, targetNodes[1].id]);
 
     const question = buildRelationshipQuestion({
       language,
-      left: relationNodes[0],
-      right: relationNodes[1],
+      left: targetNodes[0],
+      right: targetNodes[1],
     });
 
     try {
@@ -198,7 +202,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
             setTraceEvents((current) => [...current, payload as TraceEvent]);
           }
           if (parsed.event === "answer") {
-            setAnswer(payload as ChatResult);
+            setAnswer(cleanRelationshipAnswerForDisplay(payload as ChatResult));
           }
           if (parsed.event === "error") {
             throw new Error("stream_error");
@@ -422,7 +426,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
             <button
               type="button"
               disabled={relationNodes.length !== 2 || loadingRelation}
-              onClick={analyzeRelationship}
+              onClick={() => void analyzeRelationship()}
             >
               {loadingRelation ? (
                 <LoaderCircle className="spin" size={16} />
@@ -494,6 +498,14 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
               {selectedNode.detail[language].map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
+              <button
+                type="button"
+                className="snezhnaya-detail-open"
+                onClick={() => setDetailOpen(true)}
+              >
+                <Sparkles size={15} />
+                {t(language, "展开详情", "Open details")}
+              </button>
               <div className="snezhnaya-clues">
                 <h3>{t(language, "文本线索", "Text clues")}</h3>
                 {selectedNode.clues.map((clue) => (
@@ -532,6 +544,147 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
           ) : null}
         </aside>
       </div>
+
+      {detailOpen && selectedNode ? (
+        <div
+          className="snezhnaya-detail-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="snezhnaya-detail-title"
+        >
+          <div className="snezhnaya-detail-dialog">
+            <button
+              type="button"
+              className="snezhnaya-detail-close"
+              onClick={() => setDetailOpen(false)}
+            >
+              {t(language, "关闭", "Close")}
+            </button>
+            <section className="snezhnaya-detail-profile">
+              <div className="snezhnaya-detail-profile-copy">
+                <span className={`snezhnaya-tier tier-${selectedNode.tier}`}>
+                  {evidenceTierLabel(selectedNode.tier, language)}
+                </span>
+                <h2 id="snezhnaya-detail-title">
+                  {localize(selectedNode.label, language)}
+                </h2>
+                <p>{localize(selectedNode.summary, language)}</p>
+              </div>
+              {selectedNode.imageUrl ? (
+                <Image
+                  className="snezhnaya-detail-hero-portrait"
+                  src={selectedNode.imageUrl}
+                  alt={localize(selectedNode.label, language)}
+                  width={220}
+                  height={220}
+                  unoptimized
+                />
+              ) : null}
+            </section>
+
+            <section className="snezhnaya-detail-facts">
+              {nodeDetailFacts(selectedNode, language).map((fact) => (
+                <div key={`${fact.label}-${fact.value}`}>
+                  <span>{fact.label}</span>
+                  <strong>{fact.value}</strong>
+                </div>
+              ))}
+            </section>
+
+            <section className="snezhnaya-detail-main">
+              <article>
+                <h3>{t(language, "完整介绍", "Profile")}</h3>
+                {selectedNode.detail[language].map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </article>
+              <article>
+                <h3>{t(language, "可信文本线索", "Grounded text clues")}</h3>
+                <div className="snezhnaya-detail-clue-grid">
+                  {selectedNode.clues.map((clue) => (
+                    <a
+                      key={clue.id}
+                      href={clue.url}
+                      target={clue.url ? "_blank" : undefined}
+                      rel={clue.url ? "noreferrer" : undefined}
+                    >
+                      <span>
+                        {sourceTypeLabel(clue.sourceType, language)} ·{" "}
+                        {evidenceTierLabel(clue.tier, language)}
+                      </span>
+                      <b>{clue.title}</b>
+                      <small>{localize(clue.excerpt, language)}</small>
+                    </a>
+                  ))}
+                </div>
+              </article>
+            </section>
+
+            <section className="snezhnaya-detail-relations">
+              <div>
+                <h3>{t(language, "关联节点", "Related nodes")}</h3>
+                <p>
+                  {t(
+                    language,
+                    "切换节点查看详情，或直接分析两者关系。",
+                    "Switch to a node's details, or analyze the relationship directly.",
+                  )}
+                </p>
+              </div>
+              <div className="snezhnaya-detail-relation-grid">
+                {selectedNode.relatedNodeIds.map((id) => {
+                  const related = nodeMap.get(id);
+                  if (!related) return null;
+                  return (
+                    <div key={id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedId(related.id);
+                          setAnswer(null);
+                          setRelationError("");
+                          setTraceEvents([]);
+                        }}
+                      >
+                        {localize(related.label, language)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDetailOpen(false);
+                          void analyzeRelationship([selectedNode, related]);
+                        }}
+                      >
+                        {t(language, "分析关系", "Analyze")}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="snezhnaya-detail-questions">
+                <h3>{t(language, "推荐追问", "Suggested questions")}</h3>
+                {selectedNode.suggestedQuestions[language].map((question) => (
+                  <button
+                    type="button"
+                    key={question}
+                    onClick={() => {
+                      const related = selectedNode.relatedNodeIds
+                        .map((id) => nodeMap.get(id))
+                        .find((node): node is SnezhnayaNode => Boolean(node));
+                      if (related) {
+                        setDetailOpen(false);
+                        void analyzeRelationship([selectedNode, related]);
+                      }
+                    }}
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
+        </div>
+      ) : null}
 
       {traceEvents.length || loadingRelation ? (
         <TraceTimeline

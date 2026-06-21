@@ -42,8 +42,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       "zh-CN": "先用一支短片进入至冬氛围，再顺着关键词回忆前置线索。",
       en: "Start with the Snezhnaya mood, then revisit the clues behind the keywords.",
     },
-    coverImageUrl:
-      "https://img.youtube.com/vi/RGFJa2mwD8E/maxresdefault.jpg",
+    coverImageUrl: "/snezhnaya/snezhnaya-cover.jpg",
     youtubeUrl: "https://www.youtube.com/watch?v=RGFJa2mwD8E",
     miyousheUrl: "https://www.miyoushe.com/ys",
   },
@@ -141,8 +140,14 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
         en: "The first Fatui Harbinger, strongly associated with Khaenri'ah background threads.",
       },
       detail: {
-        "zh-CN": ["他是连接至冬、愚人众和坎瑞亚旧事的重要人物。"],
-        en: ["He connects Snezhnaya, the Fatui, and older Khaenri'ah threads."],
+        "zh-CN": [
+          "他是愚人众的统括者，也是执行官体系中最接近至冬战略核心的人物之一。",
+          "坎瑞亚背景让他天然连接灾变、深渊和反抗天理的长期叙事，因此适合作为理解女皇计划的入口。",
+        ],
+        en: [
+          "He is the Fatui Director and one of the figures closest to the strategic center of Snezhnaya's agenda.",
+          "His Khaenri'ahn background links him to the Cataclysm, the Abyss, and the long narrative of resisting the Heavenly Principles.",
+        ],
       },
       imageUrl: "/snezhnaya/avatars/pierro.webp",
       clues: [
@@ -248,8 +253,14 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
         en: "A playable Harbinger linking the House of the Hearth, Fontaine, and Fatui internal positions.",
       },
       detail: {
-        "zh-CN": ["她的角色故事、传说任务与枫丹主线提供了较完整的官方经历。"],
-        en: ["Her character stories, Story Quest, and Fontaine appearances provide a substantial official account."],
+        "zh-CN": [
+          "她的角色故事、传说任务与枫丹主线提供了较完整的官方经历，尤其是壁炉之家、血亲观念与执行官身份的冲突。",
+          "与其他未完整登场的执行官相比，仆人的资料更适合用作事实锚点，而不是只作为至冬氛围线索。",
+        ],
+        en: [
+          "Her character stories, Story Quest, and Fontaine appearances provide a substantial official account, especially around the House of the Hearth, family, and Harbinger identity.",
+          "Compared with Harbingers who have not fully appeared, Arlecchino works better as a factual anchor than as a mere Snezhnaya mood clue.",
+        ],
       },
       imageUrl: "/snezhnaya/avatars/arlecchino.webp",
       clues: [
@@ -314,8 +325,14 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
         en: "One of the earliest major Harbingers, linking Abyss experience, training, and Fatui operations.",
       },
       detail: {
-        "zh-CN": ["他的经历把执行官、深渊和丝柯克等后续线索连接起来。"],
-        en: ["His story connects the Harbingers, the Abyss, and later clues such as Skirk."],
+        "zh-CN": [
+          "他的经历把执行官、深渊和丝柯克等后续线索连接起来，也是玩家最早能从个人故事中接触至冬家庭与军政体系的角色。",
+          "公子的节点重点不在推测未来立场，而在回顾他已经确认的深渊经历、师承关系和愚人众职责。",
+        ],
+        en: [
+          "His story connects the Harbingers, the Abyss, and later clues such as Skirk, while also introducing players to Snezhnayan family and military-political structures.",
+          "This node focuses on confirmed Abyss experience, training, and Fatui duties rather than guessing his future position.",
+        ],
       },
       imageUrl: "/snezhnaya/avatars/tartaglia.webp",
       clues: [
@@ -594,8 +611,14 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
         en: "A key object across Archon Quests and the core target of the Fatui collection campaign.",
       },
       detail: {
-        "zh-CN": ["神之心把七神、愚人众、第三降临者和至冬计划连在一起。"],
-        en: ["Gnoses connect the Archons, Fatui, Third Descender, and Snezhnaya's plan."],
+        "zh-CN": [
+          "神之心把七神、愚人众、第三降临者和至冬计划连在一起，是这张图谱里最重要的物件节点。",
+          "它既是各国主线中被交易、夺取或交出的目标，也是理解天理秩序与第三降临者遗骸设定的关键入口。",
+        ],
+        en: [
+          "Gnoses connect the Archons, the Fatui, the Third Descender, and Snezhnaya's plan, making them the graph's most important object node.",
+          "They are traded, taken, or surrendered across Archon Quests and also give players a clear way into the Heavenly Principles and Third Descender lore.",
+        ],
       },
       clues: [
         wikiClue({
@@ -700,8 +723,14 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
         en: "Background linking Pierro, Tartaglia, Descenders, and beyond-the-world story threads.",
       },
       detail: {
-        "zh-CN": ["坎瑞亚灾变与深渊经历共同影响了丑角、公子和降临者相关叙事。"],
-        en: ["The Khaenri'ahn cataclysm and Abyss experiences shape the stories surrounding Pierro, Tartaglia, and the Descenders."],
+        "zh-CN": [
+          "坎瑞亚灾变与深渊经历共同影响了丑角、公子和降临者相关叙事，是至冬线索背后的长期世界观背景。",
+          "这个节点用于提醒玩家：愚人众并不只是一个国家组织，它的许多行动和成员经历都与五百年前的灾变及世界外侧力量相连。",
+        ],
+        en: [
+          "The Khaenri'ahn Cataclysm and Abyss experiences shape the stories surrounding Pierro, Tartaglia, and the Descenders, forming long-running context behind Snezhnaya clues.",
+          "This node reminds players that the Fatui are not merely a national organization; many of their actions and members connect to the Cataclysm and powers beyond the world.",
+        ],
       },
       clues: [
         wikiClue({

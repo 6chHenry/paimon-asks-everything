@@ -3,7 +3,9 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import {
   buildRelationshipQuestion,
+  cleanRelationshipAnswerForDisplay,
   evidenceTierLabel,
+  nodeDetailFacts,
   initialSnezhnayaNodeId,
   validateSnezhnayaGraph,
   type SnezhnayaGraphData,
@@ -308,7 +310,9 @@ describe("curated Snezhnaya graph catalog", () => {
   });
 
   it("provides video links without requiring an iframe", () => {
-    expect(snezhnayaGraph.video.coverImageUrl).toMatch(/^https?:\/\//u);
+    expect(snezhnayaGraph.video.coverImageUrl).toMatch(
+      /^(?:https?:\/\/|\/)/u,
+    );
     expect(snezhnayaGraph.video.youtubeUrl).toContain("youtube");
     expect(snezhnayaGraph.video.miyousheUrl).toContain("miyoushe");
   });
@@ -392,5 +396,80 @@ describe("Snezhnaya graph UI helpers", () => {
         nodes: [],
       }),
     ).toBe("");
+  });
+
+  it("builds structured detail facts with seat, status, aliases, and evidence", () => {
+    const marionette = snezhnayaGraph.nodes.find(
+      (node) => node.id === "sandrone",
+    );
+    expect(marionette).toBeDefined();
+
+    const facts = nodeDetailFacts(marionette!, "zh-CN");
+    expect(facts).toEqual(
+      expect.arrayContaining([
+        { label: "名称", value: "木偶" },
+        { label: "席位", value: "第 7 席" },
+        expect.objectContaining({ label: "别名" }),
+        expect.objectContaining({ label: "状态" }),
+        { label: "可信度", value: "官方文本索引" },
+      ]),
+    );
+  });
+
+  it("requires every curated node to have enough detail for an expanded detail page", () => {
+    for (const node of snezhnayaGraph.nodes) {
+      expect(node.summary["zh-CN"].length, `${node.id}:zh-summary`).toBeGreaterThan(16);
+      expect(node.summary.en.length, `${node.id}:en-summary`).toBeGreaterThan(24);
+      expect(node.detail["zh-CN"].join("").length, `${node.id}:zh-detail`).toBeGreaterThan(34);
+      expect(node.detail.en.join("").length, `${node.id}:en-detail`).toBeGreaterThan(54);
+      expect(node.suggestedQuestions["zh-CN"].length, `${node.id}:zh-questions`).toBeGreaterThan(0);
+      expect(node.suggestedQuestions.en.length, `${node.id}:en-questions`).toBeGreaterThan(0);
+    }
+  });
+
+  it("removes prose source parentheticals from relationship answers without dropping citations", () => {
+    const cleaned = cleanRelationshipAnswerForDisplay({
+      status: "answered",
+      answer:
+        "木偶和博士存在直接冲突（来自 Dottore 页面）。这不是普通同僚关系（来源：external-2）。",
+      answerParagraphs: [
+        {
+          text: "Sandrone opposed Dottore (from Dottore page). The source remains cited.",
+          citationIds: ["external-2"],
+        },
+      ],
+      language: "zh-CN",
+      answerMode: "evidence_answer",
+      claims: [],
+      citations: [
+        {
+          id: "external-2",
+          title: "Dottore",
+          url: "https://genshin-impact.fandom.com/wiki/Dottore",
+          sourceName: "Genshin Impact Wiki",
+          sourceKind: "trusted_wiki",
+          credibility: "trusted_wiki",
+          factStatus: "trusted_secondary",
+          excerpt: "Indexed story text.",
+          external: true,
+          crossLanguage: false,
+        },
+      ],
+      spoilerAction: "none",
+      usedExternalSources: true,
+      confidence: "medium",
+      eventClassification: {
+        questionCategory: "story",
+        confusionTopic: "relationship",
+      },
+      eventRecorded: false,
+    });
+
+    expect(cleaned.answer).toBe("木偶和博士存在直接冲突。这不是普通同僚关系。");
+    expect(cleaned.answerParagraphs?.[0]).toEqual({
+      text: "Sandrone opposed Dottore. The source remains cited.",
+      citationIds: ["external-2"],
+    });
+    expect(cleaned.citations).toHaveLength(1);
   });
 });

@@ -1,4 +1,5 @@
 import type { Language } from "@/lib/domain";
+import type { ChatResult } from "@/lib/domain";
 
 export type SnezhnayaNodeKind =
   | "character"
@@ -138,6 +139,64 @@ export function localize(value: LocalizedText, language: Language) {
 
 export function initialSnezhnayaNodeId(graph: SnezhnayaGraphData) {
   return graph.nodes[0]?.id ?? "";
+}
+
+export function nodeDetailFacts(node: SnezhnayaNode, language: Language) {
+  const facts: Array<{ label: string; value: string }> = [];
+  const isZh = language === "zh-CN";
+  facts.push({ label: isZh ? "名称" : "Name", value: localize(node.label, language) });
+  facts.push({ label: isZh ? "类型" : "Type", value: node.kind.replace("_", " ") });
+  if (node.harbingerRank) {
+    facts.push({
+      label: isZh ? "席位" : "Seat",
+      value: isZh ? `第 ${node.harbingerRank} 席` : `Seat ${node.harbingerRank}`,
+    });
+  }
+  if (node.aliases.length) {
+    facts.push({
+      label: isZh ? "别名" : "Aliases",
+      value: node.aliases.join(" / "),
+    });
+  }
+  if (node.statusLabel) {
+    facts.push({
+      label: isZh ? "状态" : "Status",
+      value: localize(node.statusLabel, language),
+    });
+  }
+  facts.push({
+    label: isZh ? "可信度" : "Evidence",
+    value: evidenceTierLabel(node.tier, language),
+  });
+  return facts;
+}
+
+const sourceParentheticalPatterns = [
+  /[（(]\s*(?:来自|来源|资料来自|参考|出处)\s*[:：]?\s*[^()（）]{1,80}?[)）]/giu,
+  /[（(]\s*(?:from|source|via|according to)\s*[:：]?\s*[^()（）]{1,80}?[)）]/giu,
+];
+
+function cleanSourceParentheticals(text: string) {
+  let cleaned = text;
+  for (const pattern of sourceParentheticalPatterns) {
+    cleaned = cleaned.replace(pattern, "");
+  }
+  return cleaned
+    .replace(/\s+([，。！？；：,.!?;:])/gu, "$1")
+    .replace(/([。！？.!?])\s*([。！？.!?])+/gu, "$1")
+    .replace(/[ \t]{2,}/gu, " ")
+    .trim();
+}
+
+export function cleanRelationshipAnswerForDisplay(result: ChatResult): ChatResult {
+  return {
+    ...result,
+    answer: cleanSourceParentheticals(result.answer),
+    answerParagraphs: result.answerParagraphs?.map((paragraph) => ({
+      ...paragraph,
+      text: cleanSourceParentheticals(paragraph.text),
+    })),
+  };
 }
 
 export function validateSnezhnayaGraph(graph: SnezhnayaGraphData) {
