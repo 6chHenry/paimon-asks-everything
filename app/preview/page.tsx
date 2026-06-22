@@ -280,9 +280,6 @@ export default function PreviewPage() {
             CAPABILITY PREVIEW
           </span>
           <h1>问派蒙能力验收台</h1>
-          <p>
-            用固定问题快速检查实体识别、联网检索、来源治理、引用渲染和流式体验。
-          </p>
         </div>
         <div className="preview-status">
           <Gauge size={18} />

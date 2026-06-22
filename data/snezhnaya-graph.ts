@@ -50,7 +50,12 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "tsaritsa",
       label: { "zh-CN": "冰之女皇", en: "Tsaritsa" },
-      aliases: ["女皇", "冰神", "The Tsaritsa"],
+      identity: {
+        otherNames: [
+          { "zh-CN": "女皇", en: "The Tsaritsa" },
+          { "zh-CN": "冰神", en: "Cryo Archon" },
+        ],
+      },
       kind: "character",
       tier: "official_text_index",
       summary: {
@@ -91,7 +96,9 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "fatui",
       label: { "zh-CN": "愚人众", en: "Fatui" },
-      aliases: ["Fatui", "愚人眾"],
+      identity: {
+        otherNames: [{ "zh-CN": "愚人众", en: "Fatui" }],
+      },
       kind: "organization",
       tier: "official_explicit",
       summary: {
@@ -132,7 +139,14 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "pierro",
       label: { "zh-CN": "丑角", en: "Pierro" },
-      aliases: ["Pierro", "The Jester", "丑角"],
+      identity: {
+        harbingerName: { "zh-CN": "皮耶罗", en: "Pierro" },
+        codename: { "zh-CN": "丑角", en: "The Jester" },
+        titles: [
+          { "zh-CN": "愚人众统括官", en: "Director of the Fatui Harbingers" },
+          { "zh-CN": "最初的愚者", en: "The First Fatuus" },
+        ],
+      },
       kind: "character",
       tier: "official_text_index",
       summary: {
@@ -173,7 +187,11 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "dottore",
       label: { "zh-CN": "博士", en: "Il Dottore" },
-      aliases: ["Dottore", "博士"],
+      identity: {
+        harbingerName: { "zh-CN": "多托雷", en: "Il Dottore" },
+        codename: { "zh-CN": "博士", en: "The Doctor" },
+        personalNames: [{ "zh-CN": "赞迪克", en: "Zandik" }],
+      },
       kind: "character",
       tier: "official_text_index",
       summary: {
@@ -209,7 +227,22 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "columbina",
       label: { "zh-CN": "少女", en: "Columbina" },
-      aliases: ["Columbina", "Damselette", "少女"],
+      identity: {
+        harbingerName: { "zh-CN": "哥伦比娅", en: "Columbina" },
+        codename: { "zh-CN": "少女", en: "Damselette" },
+        personalNames: [
+          { "zh-CN": "库塔尔", en: "Kuutar" },
+          {
+            "zh-CN": "哥伦比娅・希珀塞莱尼娅",
+            en: "Columbina Hyposelenia",
+          },
+        ],
+        titles: [
+          { "zh-CN": "月神", en: "Moon Goddess" },
+          { "zh-CN": "三月女神", en: "Trilune Goddess" },
+          { "zh-CN": "月之少女", en: "Moon Maiden" },
+        ],
+      },
       kind: "character",
       tier: "official_explicit",
       summary: {
@@ -245,7 +278,12 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "arlecchino",
       label: { "zh-CN": "仆人", en: "Arlecchino" },
-      aliases: ["Arlecchino", "The Knave", "仆人"],
+      identity: {
+        harbingerName: { "zh-CN": "阿蕾奇诺", en: "Arlecchino" },
+        codename: { "zh-CN": "仆人", en: "The Knave" },
+        personalNames: [{ "zh-CN": "佩露薇利", en: "Peruere" }],
+        titles: [{ "zh-CN": "父亲", en: "Father" }],
+      },
       kind: "character",
       tier: "official_explicit",
       summary: {
@@ -281,7 +319,11 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "capitano",
       label: { "zh-CN": "队长", en: "Capitano" },
-      aliases: ["Capitano", "The Captain", "队长"],
+      identity: {
+        harbingerName: { "zh-CN": "卡皮塔诺", en: "Il Capitano" },
+        codename: { "zh-CN": "队长", en: "The Captain" },
+        personalNames: [{ "zh-CN": "瑟雷恩", en: "Thrain" }],
+      },
       kind: "character",
       tier: "official_text_index",
       summary: {
@@ -317,7 +359,11 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "tartaglia",
       label: { "zh-CN": "公子", en: "Tartaglia" },
-      aliases: ["Childe", "Tartaglia", "Ajax", "公子"],
+      identity: {
+        harbingerName: { "zh-CN": "达达利亚", en: "Tartaglia" },
+        codename: { "zh-CN": "公子", en: "Childe" },
+        personalNames: [{ "zh-CN": "阿贾克斯", en: "Ajax" }],
+      },
       kind: "character",
       tier: "official_explicit",
       summary: {
@@ -353,13 +399,22 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "scaramouche",
       label: { "zh-CN": "散兵", en: "Scaramouche" },
-      aliases: [
-        "Wanderer",
-        "Scaramouche",
-        "Balladeer",
-        "散兵",
-        "流浪者",
-      ],
+      identity: {
+        harbingerName: { "zh-CN": "斯卡拉姆齐", en: "Scaramouche" },
+        codename: { "zh-CN": "散兵", en: "The Balladeer" },
+        personalNames: [
+          { "zh-CN": "国崩", en: "Kunikuzushi" },
+          { "zh-CN": "倾奇者", en: "Kabukimono" },
+          { "zh-CN": "流浪者", en: "Wanderer" },
+        ],
+        titles: [
+          { "zh-CN": "正机之神", en: "Shouki no Kami" },
+          {
+            "zh-CN": "七叶寂照秘密主",
+            en: "Everlasting Lord of Arcane Wisdom",
+          },
+        ],
+      },
       kind: "character",
       tier: "official_explicit",
       summary: {
@@ -395,7 +450,20 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "signora",
       label: { "zh-CN": "女士", en: "Signora" },
-      aliases: ["La Signora", "Signora", "女士"],
+      identity: {
+        harbingerName: { "zh-CN": "席诺拉", en: "La Signora" },
+        codename: { "zh-CN": "女士", en: "The Fair Lady" },
+        personalNames: [
+          {
+            "zh-CN": "罗莎琳·克鲁兹希卡·洛厄法特",
+            en: "Rosalyne-Kruzchka Lohefalter",
+          },
+        ],
+        titles: [
+          { "zh-CN": "炎之魔女", en: "Crimson Witch of Flame" },
+          { "zh-CN": "焚尽的炽炎魔女", en: "Crimson Witch of Embers" },
+        ],
+      },
       kind: "character",
       tier: "official_explicit",
       summary: {
@@ -431,7 +499,13 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "sandrone",
       label: { "zh-CN": "木偶", en: "Marionette" },
-      aliases: ["Sandrone", "Marionette", "桑多涅", "木偶"],
+      identity: {
+        harbingerName: { "zh-CN": "桑多涅", en: "Sandrone" },
+        codename: { "zh-CN": "木偶", en: "Marionette" },
+        personalNames: [
+          { "zh-CN": "吉约丹（姓氏）", en: "Guillotin (surname)" },
+        ],
+      },
       kind: "character",
       tier: "official_text_index",
       summary: {
@@ -467,7 +541,11 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "pulcinella",
       label: { "zh-CN": "公鸡", en: "The Rooster" },
-      aliases: ["Pulcinella", "The Rooster", "公鸡", "普契涅拉"],
+      identity: {
+        harbingerName: { "zh-CN": "普契涅拉", en: "Pulcinella" },
+        codename: { "zh-CN": "公鸡", en: "The Rooster" },
+        titles: [{ "zh-CN": "至冬市长", en: "Mayor of Snezhnaya" }],
+      },
       kind: "character",
       tier: "official_explicit",
       summary: {
@@ -503,7 +581,16 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "pantalone",
       label: { "zh-CN": "富人", en: "Regrator" },
-      aliases: ["Pantalone", "Regrator", "富人", "潘塔罗涅"],
+      identity: {
+        harbingerName: { "zh-CN": "潘塔罗涅", en: "Pantalone" },
+        codename: { "zh-CN": "富人", en: "Regrator" },
+        personalNames: [
+          {
+            "zh-CN": "费奥潘・谢尔盖耶维奇・维克塞",
+            en: "Feofan Sergeyevich Veksel",
+          },
+        ],
+      },
       kind: "character",
       tier: "official_explicit",
       summary: {
@@ -539,7 +626,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "unknown-tenth",
       label: { "zh-CN": "第十席", en: "Tenth Seat" },
-      aliases: ["第十席", "Tenth Harbinger", "Unknown Tenth"],
+      identity: {},
       kind: "character",
       tier: "official_text_index",
       summary: {
@@ -574,7 +661,9 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "third-descender",
       label: { "zh-CN": "第三降临者", en: "Third Descender" },
-      aliases: ["第三降临者", "Third Descender"],
+      identity: {
+        otherNames: [{ "zh-CN": "第三降临者", en: "Third Descender" }],
+      },
       kind: "concept",
       tier: "official_text_index",
       summary: {
@@ -603,7 +692,12 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "gnosis",
       label: { "zh-CN": "神之心", en: "Gnoses" },
-      aliases: ["Gnosis", "Gnoses", "神之心"],
+      identity: {
+        otherNames: [
+          { "zh-CN": "神之心", en: "Gnosis" },
+          { "zh-CN": "七枚神之心", en: "Gnoses" },
+        ],
+      },
       kind: "item",
       tier: "official_explicit",
       summary: {
@@ -643,7 +737,15 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "heavenly-principles",
       label: { "zh-CN": "天理", en: "Heavenly Principles" },
-      aliases: ["天理", "Heavenly Principles", "天理的维系者"],
+      identity: {
+        otherNames: [
+          { "zh-CN": "天理", en: "Heavenly Principles" },
+          {
+            "zh-CN": "天理的维系者",
+            en: "Sustainer of Heavenly Principles",
+          },
+        ],
+      },
       kind: "concept",
       tier: "official_text_index",
       summary: {
@@ -672,7 +774,12 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "project-stuzha",
       label: { "zh-CN": "严冬计划", en: "Project Stuzha" },
-      aliases: ["严冬计划", "Project Stuzha", "Stuzha"],
+      identity: {
+        otherNames: [
+          { "zh-CN": "严冬计划", en: "Project Stuzha" },
+          { "zh-CN": "严冬", en: "Stuzha" },
+        ],
+      },
       kind: "event",
       tier: "official_text_implication",
       summary: {
@@ -715,7 +822,12 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     {
       id: "khaenriah-abyss",
       label: { "zh-CN": "坎瑞亚与深渊", en: "Khaenri'ah and the Abyss" },
-      aliases: ["Khaenri'ah", "Abyss", "坎瑞亚", "深渊"],
+      identity: {
+        otherNames: [
+          { "zh-CN": "坎瑞亚", en: "Khaenri'ah" },
+          { "zh-CN": "深渊", en: "Abyss" },
+        ],
+      },
       kind: "concept",
       tier: "official_text_index",
       summary: {
@@ -754,20 +866,24 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       from: "tsaritsa",
       to: "heavenly-principles",
       tier: "official_text_index",
-      label: { "zh-CN": "反抗世界秩序", en: "rebels against the world order" },
+      label: { "zh-CN": "对抗", en: "opposes" },
       direction: "bidirectional",
       tone: "opposition",
       showLabel: true,
+      path: "M 450 117 L 450 196",
+      labelPosition: { x: 414, y: 143, width: 72, height: 24 },
     },
     {
       id: "tsaritsa-project-stuzha",
       from: "tsaritsa",
       to: "project-stuzha",
       tier: "official_text_index",
-      label: { "zh-CN": "监督", en: "oversees" },
+      label: { "zh-CN": "推动严冬计划", en: "drives Project Stuzha" },
       direction: "forward",
       tone: "plan",
       showLabel: true,
+      path: "M 370 235 C 330 235 292 245 264 245",
+      labelPosition: { x: 230, y: 171, width: 116, height: 24 },
     },
     {
       id: "tsaritsa-fatui",
@@ -778,6 +894,8 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       direction: "forward",
       tone: "command",
       showLabel: true,
+      path: "M 450 274 L 450 320",
+      labelPosition: { x: 550, y: 288, width: 54, height: 24 },
     },
     {
       id: "fatui-pierro",
@@ -787,7 +905,8 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       label: { "zh-CN": "统括执行官", en: "directs the Harbingers" },
       direction: "forward",
       tone: "command",
-      showLabel: true,
+      showLabel: false,
+      path: "M 450 386 L 450 418",
     },
     {
       id: "tsaritsa-gnosis",
@@ -798,26 +917,32 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       direction: "forward",
       tone: "lore",
       showLabel: true,
+      path: "M 530 235 C 575 230 610 240 636 245",
+      labelPosition: { x: 552, y: 294, width: 106, height: 24 },
     },
     {
       id: "gnosis-third-descender",
       from: "gnosis",
       to: "third-descender",
       tier: "official_text_index",
-      label: { "zh-CN": "遗骸来源", en: "origin in remains" },
+      label: { "zh-CN": "遗骸铸成", en: "made from remains" },
       direction: "forward",
       tone: "lore",
       showLabel: true,
+      path: "M 711 211 L 711 122",
+      labelPosition: { x: 735, y: 151, width: 86, height: 24 },
     },
     {
       id: "pierro-khaenriah",
       from: "pierro",
       to: "khaenriah-abyss",
       tier: "official_text_index",
-      label: { "zh-CN": "坎瑞亚遗民", en: "Khaenri'ahn survivor" },
+      label: { "zh-CN": "坎瑞亚旧事", en: "Khaenri'ahn past" },
       direction: "forward",
       tone: "lore",
       showLabel: true,
+      path: "M 525 451 C 780 500 875 540 875 625 L 875 815 C 875 850 730 875 525 887",
+      labelPosition: { x: 682, y: 831, width: 108, height: 24 },
     },
   ],
 };
@@ -831,29 +956,29 @@ type NodeVisual = {
 };
 
 const nodeVisuals: Record<string, NodeVisual> = {
-  "heavenly-principles": {
+  "project-stuzha": {
     graphGroup: "sovereign",
-    graphPosition: { x: 12, y: 9 },
+    graphPosition: { x: 21, y: 25 },
   },
   tsaritsa: {
     graphGroup: "sovereign",
-    graphPosition: { x: 50, y: 9 },
+    graphPosition: { x: 50, y: 24 },
   },
-  "project-stuzha": {
+  "heavenly-principles": {
     graphGroup: "sovereign",
-    graphPosition: { x: 88, y: 9 },
+    graphPosition: { x: 50, y: 8 },
   },
   fatui: {
     graphGroup: "organization",
-    graphPosition: { x: 50, y: 22 },
+    graphPosition: { x: 50, y: 36 },
   },
   pierro: {
     graphGroup: "director",
-    graphPosition: { x: 50, y: 35 },
+    graphPosition: { x: 50, y: 46 },
   },
   capitano: {
     graphGroup: "harbinger",
-    graphPosition: { x: 8, y: 52 },
+    graphPosition: { x: 10, y: 62 },
     harbingerRank: 1,
     status: "dormant",
     statusLabel: {
@@ -863,7 +988,7 @@ const nodeVisuals: Record<string, NodeVisual> = {
   },
   dottore: {
     graphGroup: "harbinger",
-    graphPosition: { x: 25, y: 52 },
+    graphPosition: { x: 26, y: 62 },
     harbingerRank: 2,
     status: "deceased",
     statusLabel: {
@@ -873,7 +998,7 @@ const nodeVisuals: Record<string, NodeVisual> = {
   },
   columbina: {
     graphGroup: "harbinger",
-    graphPosition: { x: 42, y: 52 },
+    graphPosition: { x: 42, y: 62 },
     harbingerRank: 3,
     status: "former",
     statusLabel: {
@@ -883,14 +1008,14 @@ const nodeVisuals: Record<string, NodeVisual> = {
   },
   arlecchino: {
     graphGroup: "harbinger",
-    graphPosition: { x: 59, y: 52 },
+    graphPosition: { x: 58, y: 62 },
     harbingerRank: 4,
     status: "active",
     statusLabel: { "zh-CN": "现役", en: "Active" },
   },
   pulcinella: {
     graphGroup: "harbinger",
-    graphPosition: { x: 76, y: 52 },
+    graphPosition: { x: 74, y: 62 },
     harbingerRank: 5,
     status: "active",
     statusLabel: {
@@ -900,7 +1025,7 @@ const nodeVisuals: Record<string, NodeVisual> = {
   },
   scaramouche: {
     graphGroup: "harbinger",
-    graphPosition: { x: 93, y: 52 },
+    graphPosition: { x: 90, y: 62 },
     harbingerRank: 6,
     status: "former",
     statusLabel: {
@@ -910,7 +1035,7 @@ const nodeVisuals: Record<string, NodeVisual> = {
   },
   sandrone: {
     graphGroup: "harbinger",
-    graphPosition: { x: 16, y: 68 },
+    graphPosition: { x: 18, y: 76.5 },
     harbingerRank: 7,
     status: "deceased",
     statusLabel: {
@@ -920,7 +1045,7 @@ const nodeVisuals: Record<string, NodeVisual> = {
   },
   signora: {
     graphGroup: "harbinger",
-    graphPosition: { x: 33, y: 68 },
+    graphPosition: { x: 34, y: 76.5 },
     harbingerRank: 8,
     status: "deceased",
     statusLabel: {
@@ -930,14 +1055,14 @@ const nodeVisuals: Record<string, NodeVisual> = {
   },
   pantalone: {
     graphGroup: "harbinger",
-    graphPosition: { x: 50, y: 68 },
+    graphPosition: { x: 50, y: 76.5 },
     harbingerRank: 9,
     status: "active",
     statusLabel: { "zh-CN": "现役", en: "Active" },
   },
   "unknown-tenth": {
     graphGroup: "harbinger",
-    graphPosition: { x: 67, y: 68 },
+    graphPosition: { x: 66, y: 76.5 },
     harbingerRank: 10,
     status: "unknown",
     statusLabel: {
@@ -947,22 +1072,22 @@ const nodeVisuals: Record<string, NodeVisual> = {
   },
   tartaglia: {
     graphGroup: "harbinger",
-    graphPosition: { x: 84, y: 68 },
+    graphPosition: { x: 82, y: 76.5 },
     harbingerRank: 11,
     status: "active",
     statusLabel: { "zh-CN": "现役", en: "Active" },
   },
-  "khaenriah-abyss": {
-    graphGroup: "lore",
-    graphPosition: { x: 18, y: 89 },
-  },
   gnosis: {
     graphGroup: "lore",
-    graphPosition: { x: 50, y: 89 },
+    graphPosition: { x: 79, y: 25 },
   },
   "third-descender": {
     graphGroup: "lore",
-    graphPosition: { x: 82, y: 89 },
+    graphPosition: { x: 79, y: 9 },
+  },
+  "khaenriah-abyss": {
+    graphGroup: "lore",
+    graphPosition: { x: 50, y: 90.5 },
   },
 };
 

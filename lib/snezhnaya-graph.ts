@@ -54,6 +54,21 @@ export interface SnezhnayaGraphPosition {
   y: number;
 }
 
+export interface SnezhnayaGraphSize {
+  width: number;
+  height: number;
+}
+
+export interface SnezhnayaGraphRect extends SnezhnayaGraphPosition {
+  width: number;
+  height: number;
+}
+
+export const SNEZHNAYA_GRAPH_CANVAS: SnezhnayaGraphSize = {
+  width: 900,
+  height: 980,
+};
+
 export interface SnezhnayaVideoMeta {
   title: LocalizedText;
   description: LocalizedText;
@@ -71,10 +86,18 @@ export interface SnezhnayaTextClue {
   excerpt: LocalizedText;
 }
 
+export interface SnezhnayaNodeIdentity {
+  harbingerName?: LocalizedText;
+  codename?: LocalizedText;
+  personalNames?: LocalizedText[];
+  titles?: LocalizedText[];
+  otherNames?: LocalizedText[];
+}
+
 export interface SnezhnayaNode {
   id: string;
   label: LocalizedText;
-  aliases: string[];
+  identity?: SnezhnayaNodeIdentity;
   kind: SnezhnayaNodeKind;
   tier: SnezhnayaEvidenceTier;
   graphGroup?: SnezhnayaGraphGroup;
@@ -99,6 +122,8 @@ export interface SnezhnayaEdge {
   direction?: SnezhnayaEdgeDirection;
   tone?: SnezhnayaEdgeTone;
   showLabel?: boolean;
+  path?: string;
+  labelPosition?: SnezhnayaGraphRect;
 }
 
 export interface SnezhnayaGraphData {
@@ -141,21 +166,60 @@ export function initialSnezhnayaNodeId(graph: SnezhnayaGraphData) {
   return graph.nodes[0]?.id ?? "";
 }
 
+export function updateRelationshipSelection(
+  currentIds: string[],
+  clickedId: string,
+) {
+  if (currentIds.includes(clickedId)) {
+    return currentIds.filter((id) => id !== clickedId);
+  }
+  if (currentIds.length < 2) return [...currentIds, clickedId];
+  return [currentIds[1], clickedId];
+}
+
 export function nodeDetailFacts(node: SnezhnayaNode, language: Language) {
   const facts: Array<{ label: string; value: string }> = [];
   const isZh = language === "zh-CN";
+  const undisclosed = isZh ? "尚未公开" : "Not disclosed";
+  const formatNames = (names: LocalizedText[] | undefined) =>
+    names?.length
+      ? names.map((name) => `${name.en} / ${name["zh-CN"]}`).join(" · ")
+      : undisclosed;
+  const identity = node.identity;
+  const isHarbingerProfile =
+    node.graphGroup === "harbinger" || node.graphGroup === "director";
+
   facts.push({ label: isZh ? "名称" : "Name", value: localize(node.label, language) });
-  facts.push({ label: isZh ? "类型" : "Type", value: node.kind.replace("_", " ") });
   if (node.harbingerRank) {
     facts.push({
       label: isZh ? "席位" : "Seat",
       value: isZh ? `第 ${node.harbingerRank} 席` : `Seat ${node.harbingerRank}`,
     });
   }
-  if (node.aliases.length) {
+  if (isHarbingerProfile || identity?.harbingerName) {
     facts.push({
-      label: isZh ? "别名" : "Aliases",
-      value: node.aliases.join(" / "),
+      label: isZh ? "执行官名" : "Harbinger name",
+      value: identity?.harbingerName
+        ? formatNames([identity.harbingerName])
+        : undisclosed,
+    });
+    facts.push({
+      label: isZh ? "面具名 / 代号" : "Mask name / Codename",
+      value: identity?.codename ? formatNames([identity.codename]) : undisclosed,
+    });
+    facts.push({
+      label: isZh ? "本名 / 旧名" : "Personal / Former names",
+      value: formatNames(identity?.personalNames),
+    });
+    facts.push({
+      label: isZh ? "称号" : "Titles",
+      value: formatNames(identity?.titles),
+    });
+  }
+  if (identity?.otherNames?.length) {
+    facts.push({
+      label: isZh ? "其他名称" : "Other names",
+      value: formatNames(identity.otherNames),
     });
   }
   if (node.statusLabel) {
@@ -164,10 +228,6 @@ export function nodeDetailFacts(node: SnezhnayaNode, language: Language) {
       value: localize(node.statusLabel, language),
     });
   }
-  facts.push({
-    label: isZh ? "可信度" : "Evidence",
-    value: evidenceTierLabel(node.tier, language),
-  });
   return facts;
 }
 
@@ -197,6 +257,113 @@ export function cleanRelationshipAnswerForDisplay(result: ChatResult): ChatResul
       text: cleanSourceParentheticals(paragraph.text),
     })),
   };
+}
+
+const nodeDimensionsByGroup: Record<SnezhnayaGraphGroup, SnezhnayaGraphSize> = {
+  sovereign: { width: 160, height: 78 },
+  organization: { width: 170, height: 66 },
+  director: { width: 150, height: 66 },
+  harbinger: { width: 92, height: 64 },
+  lore: { width: 150, height: 68 },
+};
+
+export function snezhnayaNodeDimensions(node: SnezhnayaNode) {
+  if (node.id === "project-stuzha") return { width: 150, height: 64 };
+  return node.graphGroup
+    ? nodeDimensionsByGroup[node.graphGroup]
+    : nodeDimensionsByGroup.lore;
+}
+
+export function snezhnayaNodeRect(
+  node: SnezhnayaNode,
+): SnezhnayaGraphRect | null {
+  if (!node.graphPosition) return null;
+  const size = snezhnayaNodeDimensions(node);
+  return {
+    x:
+      (node.graphPosition.x / 100) * SNEZHNAYA_GRAPH_CANVAS.width -
+      size.width / 2,
+    y:
+      (node.graphPosition.y / 100) * SNEZHNAYA_GRAPH_CANVAS.height -
+      size.height / 2,
+    width: size.width,
+    height: size.height,
+  };
+}
+
+function rectsOverlap(
+  left: SnezhnayaGraphRect,
+  right: SnezhnayaGraphRect,
+  padding = 0,
+) {
+  return !(
+    left.x + left.width + padding <= right.x ||
+    right.x + right.width + padding <= left.x ||
+    left.y + left.height + padding <= right.y ||
+    right.y + right.height + padding <= left.y
+  );
+}
+
+export function validateSnezhnayaGraphLayout(graph: SnezhnayaGraphData) {
+  const errors: string[] = [];
+  const rects = graph.nodes
+    .map((node) => ({ node, rect: snezhnayaNodeRect(node) }))
+    .filter(
+      (
+        entry,
+      ): entry is { node: SnezhnayaNode; rect: SnezhnayaGraphRect } =>
+        Boolean(entry.rect),
+    );
+
+  for (const { node, rect } of rects) {
+    if (
+      rect.x < 24 ||
+      rect.y < 24 ||
+      rect.x + rect.width > SNEZHNAYA_GRAPH_CANVAS.width - 24 ||
+      rect.y + rect.height > SNEZHNAYA_GRAPH_CANVAS.height - 24
+    ) {
+      errors.push(`node:${node.id}:bounds`);
+    }
+  }
+
+  for (let index = 0; index < rects.length; index += 1) {
+    for (let other = index + 1; other < rects.length; other += 1) {
+      if (rectsOverlap(rects[index].rect, rects[other].rect, 24)) {
+        errors.push(
+          `node:${rects[index].node.id}:overlap:${rects[other].node.id}`,
+        );
+      }
+    }
+  }
+
+  const ranks = new Set<number>();
+  for (const node of graph.nodes.filter(
+    (item) => item.graphGroup === "harbinger",
+  )) {
+    if (!node.harbingerRank) {
+      errors.push(`node:${node.id}:rank`);
+    } else if (ranks.has(node.harbingerRank)) {
+      errors.push(`node:${node.id}:rank-duplicate`);
+    } else {
+      ranks.add(node.harbingerRank);
+    }
+  }
+
+  for (const edge of graph.edges) {
+    if (edge.showLabel && !edge.labelPosition) {
+      errors.push(`edge:${edge.id}:label-position`);
+    }
+    if (!edge.showLabel || !edge.labelPosition) continue;
+    for (const { node, rect } of rects) {
+      if (rectsOverlap(edge.labelPosition, rect, 14)) {
+        errors.push(`edge:${edge.id}:label-overlap:${node.id}`);
+      }
+    }
+  }
+
+  if (graph.edges.length > 8) errors.push("edges:too-many");
+
+  return errors;
 }
 
 export function validateSnezhnayaGraph(graph: SnezhnayaGraphData) {
@@ -262,7 +429,18 @@ export function validateSnezhnayaGraph(graph: SnezhnayaGraphData) {
 
 function nodeContext(node: SnezhnayaNode, language: Language) {
   const label = localize(node.label, language);
-  const aliases = node.aliases.length ? ` (${node.aliases.join(", ")})` : "";
+  const identityNames = node.identity
+    ? [
+        node.identity.harbingerName,
+        node.identity.codename,
+        ...(node.identity.personalNames ?? []),
+        ...(node.identity.titles ?? []),
+        ...(node.identity.otherNames ?? []),
+      ]
+        .filter((name): name is LocalizedText => Boolean(name))
+        .flatMap((name) => [name["zh-CN"], name.en])
+    : [];
+  const aliases = identityNames.length ? ` (${identityNames.join(", ")})` : "";
   const clues = node.clues
     .slice(0, 4)
     .map((clue) => `${clue.title}: ${localize(clue.excerpt, language)}`)

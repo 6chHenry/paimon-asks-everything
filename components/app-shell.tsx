@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { BarChart3, Flame, FlaskConical, MessageCircleMore, Sparkles, TestTube2 } from "lucide-react";
+import { BarChart3, Flame, MessageCircleMore, Sparkles, TestTube2 } from "lucide-react";
 import { usePreferences } from "@/components/preferences-provider";
 import { clientPath } from "@/lib/client-path";
 
@@ -10,12 +10,6 @@ const navigation = [
   { href: "/ask", labelZh: "问派蒙", labelEn: "Ask", icon: MessageCircleMore },
   { href: "/preview", labelZh: "能力预览", labelEn: "Preview", icon: TestTube2 },
   { href: "/insights", labelZh: "发行洞察", labelEn: "Insights", icon: BarChart3 },
-  {
-    href: "/evaluation",
-    labelZh: "技术评测",
-    labelEn: "Evaluation",
-    icon: FlaskConical,
-  },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

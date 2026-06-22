@@ -13,17 +13,16 @@ import {
 import { GnosisTimeline } from "@/components/gnosis-timeline";
 import { RelationMap } from "@/components/relation-map";
 import { usePreferences } from "@/components/preferences-provider";
+import { defaultPreheatTopicId } from "@/data/preheat-topics";
 import { clientPath } from "@/lib/client-path";
 import type { PreheatDepth } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
 import type { PreheatView } from "@/lib/preheat";
 
-const defaultTopic = "why-fatui-collect-gnoses";
-
 export default function PreheatPage() {
   const { preferences } = usePreferences();
   const language = preferences.language;
-  const [topicId, setTopicId] = useState(defaultTopic);
+  const [topicId, setTopicId] = useState(defaultPreheatTopicId);
   const [depth, setDepth] = useState<PreheatDepth>("guided");
   const [data, setData] = useState<PreheatView | null>(null);
   const [selectedTimelineId, setSelectedTimelineId] = useState<string>();
@@ -33,7 +32,7 @@ export default function PreheatPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setTopicId(params.get("topicId") || defaultTopic);
+    setTopicId(params.get("topicId") || defaultPreheatTopicId);
     const requestedDepth = params.get("depth");
     if (requestedDepth === "guided" || requestedDepth === "research") {
       setDepth(requestedDepth);

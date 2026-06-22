@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { preheatTopics } from "@/data/preheat-topics";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import {
+  defaultPreheatTopicId,
+  preheatTopics,
+} from "@/data/preheat-topics";
 import {
   getPreheatView,
   isValidPreheatTarget,
@@ -15,6 +20,36 @@ const base = {
 };
 
 describe("preheat orchestration", () => {
+  it("defaults the player-facing preheat to the seven Gnosis journeys", () => {
+    expect(defaultPreheatTopicId).toBe("seven-gnosis-journeys");
+    expect(
+      preheatTopics.find((topic) => topic.id === defaultPreheatTopicId)
+        ?.titleZh,
+    ).toBe("七枚神之心分别经历了什么？");
+  });
+
+  it("removes developer-facing copy and the public evaluation page", () => {
+    const topicsSource = readFileSync(
+      path.join(process.cwd(), "data", "preheat-topics.ts"),
+      "utf8",
+    );
+    const previewSource = readFileSync(
+      path.join(process.cwd(), "app", "preview", "page.tsx"),
+      "utf8",
+    );
+    const shellSource = readFileSync(
+      path.join(process.cwd(), "components", "app-shell.tsx"),
+      "utf8",
+    );
+
+    expect(topicsSource).not.toContain("暗示和猜想留在详情层");
+    expect(previewSource).not.toContain("用固定问题快速检查实体识别");
+    expect(shellSource).not.toContain("/evaluation");
+    expect(
+      existsSync(path.join(process.cwd(), "app", "evaluation", "page.tsx")),
+    ).toBe(false);
+  });
+
   it("keeps the curated catalog internally consistent", () => {
     expect(preheatTopics).toHaveLength(3);
     expect(validatePreheatCatalog()).toEqual([]);

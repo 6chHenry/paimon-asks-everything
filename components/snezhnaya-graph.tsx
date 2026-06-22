@@ -17,12 +17,13 @@ import { clientPath } from "@/lib/client-path";
 import type { ChatResult } from "@/lib/domain";
 import { t } from "@/lib/i18n";
 import {
+  SNEZHNAYA_GRAPH_CANVAS,
   buildRelationshipQuestion,
   cleanRelationshipAnswerForDisplay,
-  evidenceTierLabel,
   initialSnezhnayaNodeId,
   localize,
   nodeDetailFacts,
+  updateRelationshipSelection,
   type SnezhnayaEdge,
   type SnezhnayaGraphData,
   type SnezhnayaNode,
@@ -77,13 +78,14 @@ function edgePath(
   edge: SnezhnayaEdge,
   nodeMap: Map<string, SnezhnayaNode>,
 ) {
+  if (edge.path) return edge.path;
   const from = nodeMap.get(edge.from)?.graphPosition;
   const to = nodeMap.get(edge.to)?.graphPosition;
   if (!from || !to) return "";
-  const x1 = from.x * 10;
-  const y1 = from.y * 9;
-  const x2 = to.x * 10;
-  const y2 = to.y * 9;
+  const x1 = (from.x / 100) * SNEZHNAYA_GRAPH_CANVAS.width;
+  const y1 = (from.y / 100) * SNEZHNAYA_GRAPH_CANVAS.height;
+  const x2 = (to.x / 100) * SNEZHNAYA_GRAPH_CANVAS.width;
+  const y2 = (to.y / 100) * SNEZHNAYA_GRAPH_CANVAS.height;
   const midX = (x1 + x2) / 2;
   const midY = (y1 + y2) / 2;
   const bend =
@@ -103,12 +105,19 @@ function edgeLabelPosition(
   edge: SnezhnayaEdge,
   nodeMap: Map<string, SnezhnayaNode>,
 ) {
+  if (edge.labelPosition) return edge.labelPosition;
   const from = nodeMap.get(edge.from)?.graphPosition;
   const to = nodeMap.get(edge.to)?.graphPosition;
-  if (!from || !to) return { x: 0, y: 0 };
+  if (!from || !to) return { x: 0, y: 0, width: 90, height: 24 };
   return {
-    x: ((from.x + to.x) / 2) * 10,
-    y: ((from.y + to.y) / 2) * 9 - (edge.tone === "opposition" ? 18 : 7),
+    x:
+      (((from.x + to.x) / 2) / 100) * SNEZHNAYA_GRAPH_CANVAS.width -
+      45,
+    y:
+      (((from.y + to.y) / 2) / 100) * SNEZHNAYA_GRAPH_CANVAS.height -
+      (edge.tone === "opposition" ? 30 : 18),
+    width: 90,
+    height: 24,
   };
 }
 
@@ -129,6 +138,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
   const [loadingRelation, setLoadingRelation] = useState(false);
   const [relationError, setRelationError] = useState("");
   const [detailOpen, setDetailOpen] = useState(false);
+  const [highlightedId, setHighlightedId] = useState("");
 
   const selectedNode = graph.nodes.find((node) => node.id === selectedId);
   const relationNodes = relationIds
@@ -139,17 +149,18 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
     [graph.nodes],
   );
 
-  function toggleRelationNode(node: SnezhnayaNode) {
+  function selectGraphNode(node: SnezhnayaNode) {
     setSelectedId(node.id);
     setAnswer(null);
     setRelationError("");
     setTraceEvents([]);
-    setRelationIds((current) => {
-      if (current.includes(node.id)) {
-        return current.filter((id) => id !== node.id);
-      }
-      return [...current.slice(-1), node.id];
-    });
+  }
+
+  function toggleRelationNode(node: SnezhnayaNode) {
+    selectGraphNode(node);
+    setRelationIds((current) =>
+      updateRelationshipSelection(current, node.id),
+    );
   }
 
   async function analyzeRelationship(targetNodes = relationNodes) {
@@ -262,7 +273,23 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
               )}
             </strong>
           </div>
-          <div className="snezhnaya-map-viewport">
+          <div className="snezhnaya-map-tools">
+            <div className="snezhnaya-map-legend">
+              {(
+                [
+                  ["active", "现役", "Active"],
+                  ["former", "前席 / 脱离", "Former / departed"],
+                  ["deceased", "死亡 / 躯体毁损", "Dead / body lost"],
+                  ["dormant", "融合休眠", "Dormant"],
+                  ["unknown", "身份未知", "Unknown"],
+                ] as const
+              ).map(([status, zh, en]) => (
+                <span key={status} className={`status-${status}`}>
+                  <i />
+                  {t(language, zh, en)}
+                </span>
+              ))}
+            </div>
             <div className="snezhnaya-map-pan-hint">
               {t(
                 language,
@@ -270,7 +297,19 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                 "Drag horizontally on narrow screens to view every seat",
               )}
             </div>
+          </div>
+          <div className="snezhnaya-map-viewport">
             <div className="snezhnaya-map-canvas">
+              <div className="snezhnaya-map-zone zone-top" aria-hidden="true">
+                {t(language, "天理 / 世界秩序", "Heavenly Principles / World Order")}
+              </div>
+              <div className="snezhnaya-map-zone zone-axis" aria-hidden="true">
+                {t(language, "秩序与反叛的边界", "Boundary of order and rebellion")}
+              </div>
+              <div className="snezhnaya-map-zone zone-bottom" aria-hidden="true">
+                {t(language, "至冬 / 愚人众战略档案", "Snezhnaya / Fatui strategic archive")}
+              </div>
+              <div className="snezhnaya-conflict-rift" aria-hidden="true" />
               <div className="snezhnaya-harbinger-field" aria-hidden="true">
                 <span>
                   {t(
@@ -281,8 +320,11 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                 </span>
               </div>
               <svg
-                className="snezhnaya-edges"
-                viewBox="0 0 1000 900"
+                className={[
+                  "snezhnaya-edges",
+                  highlightedId ? "has-highlight" : "",
+                ].join(" ")}
+                viewBox={`0 0 ${SNEZHNAYA_GRAPH_CANVAS.width} ${SNEZHNAYA_GRAPH_CANVAS.height}`}
                 aria-hidden="true"
               >
                 <defs>
@@ -309,22 +351,22 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                     <path d="M 0 0 L 10 5 L 0 10 z" />
                   </marker>
                 </defs>
-                <path
-                  className="snezhnaya-roster-spine"
-                  d="M 500 315 L 500 400 Q 500 425 475 425 L 85 425 M 500 425 L 930 425"
-                />
-                <path
-                  className="snezhnaya-roster-arc"
-                  d="M 75 480 Q 500 390 935 480"
-                />
-                <path
-                  className="snezhnaya-roster-arc secondary"
-                  d="M 155 625 Q 500 555 845 625"
-                />
                 {graph.edges.map((edge) => {
                   const labelPosition = edgeLabelPosition(edge, nodeMap);
+                  const isHighlighted = highlightedId
+                    ? edge.from === highlightedId || edge.to === highlightedId
+                    : false;
+                  const isDimmed = Boolean(highlightedId && !isHighlighted);
                   return (
-                    <g key={edge.id} className={`edge-${edge.tone ?? "lore"}`}>
+                    <g
+                      key={edge.id}
+                      className={[
+                        "snezhnaya-edge-group",
+                        `edge-${edge.tone ?? "lore"}`,
+                        isHighlighted ? "is-highlighted" : "",
+                        isDimmed ? "is-dimmed" : "",
+                      ].join(" ")}
+                    >
                       <path
                         className="snezhnaya-edge"
                         d={edgePath(edge, nodeMap)}
@@ -340,14 +382,24 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                         }
                       />
                       {edge.showLabel ? (
-                        <text
+                        <g
                           className="snezhnaya-edge-label"
-                          x={labelPosition.x}
-                          y={labelPosition.y}
-                          textAnchor="middle"
+                          transform={`translate(${labelPosition.x} ${labelPosition.y})`}
                         >
-                          {localize(edge.label, language)}
-                        </text>
+                          <rect
+                            className="snezhnaya-edge-label-bg"
+                            width={labelPosition.width}
+                            height={labelPosition.height}
+                            rx="6"
+                          />
+                          <text
+                            x={labelPosition.width / 2}
+                            y={labelPosition.height / 2 + 3}
+                            textAnchor="middle"
+                          >
+                            {localize(edge.label, language)}
+                          </text>
+                        </g>
                       ) : null}
                     </g>
                   );
@@ -355,12 +407,17 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
               </svg>
               {graph.nodes.map((node) => {
                 const position = node.graphPosition;
+                const relationIndex = relationIds.indexOf(node.id);
+                const relationSlot =
+                  relationIndex >= 0 ? (relationIndex === 0 ? "A" : "B") : "";
                 if (!position) return null;
                 return (
                   <button
                     key={node.id}
                     type="button"
                     data-node-id={node.id}
+                    data-relation-slot={relationSlot || undefined}
+                    aria-pressed={relationIndex >= 0}
                     style={{
                       left: `${position.x}%`,
                       top: `${position.y}%`,
@@ -379,8 +436,20 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                         ? ` · ${localize(node.statusLabel, language)}`
                         : ""
                     }`}
+                    onMouseEnter={() => setHighlightedId(node.id)}
+                    onMouseLeave={() => setHighlightedId("")}
+                    onFocus={() => setHighlightedId(node.id)}
+                    onBlur={() => setHighlightedId("")}
                     onClick={() => toggleRelationNode(node)}
                   >
+                    {relationSlot ? (
+                      <small
+                        className={`snezhnaya-node-selection-index slot-${relationSlot.toLowerCase()}`}
+                        aria-hidden="true"
+                      >
+                        {relationSlot}
+                      </small>
+                    ) : null}
                     {node.harbingerRank ? (
                       <small className="snezhnaya-rank">
                         {String(node.harbingerRank).padStart(2, "0")}
@@ -395,32 +464,41 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                   </button>
                 );
               })}
-              <div className="snezhnaya-map-legend">
-                {(
-                  [
-                    ["active", "现役", "Active"],
-                    ["former", "前席 / 脱离", "Former / departed"],
-                    ["deceased", "死亡 / 躯体毁损", "Dead / body lost"],
-                    ["dormant", "融合休眠", "Dormant"],
-                    ["unknown", "身份未知", "Unknown"],
-                  ] as const
-                ).map(([status, zh, en]) => (
-                  <span key={status} className={`status-${status}`}>
-                    <i />
-                    {t(language, zh, en)}
-                  </span>
-                ))}
-              </div>
             </div>
           </div>
           <div className="snezhnaya-relation-bar">
             <div>
               {relationNodes.length ? (
-                relationNodes.map((node) => (
-                  <span key={node.id}>{localize(node.label, language)}</span>
-                ))
+                <>
+                  {relationNodes.map((node, index) => (
+                    <span
+                      key={node.id}
+                      className={`snezhnaya-relation-chip slot-${
+                        index === 0 ? "a" : "b"
+                      }`}
+                    >
+                      <b>{index === 0 ? "A" : "B"}</b>
+                      {localize(node.label, language)}
+                    </span>
+                  ))}
+                  {relationNodes.length === 1 ? (
+                    <span className="snezhnaya-relation-prompt">
+                      {t(
+                        language,
+                        "再选择一个节点作为 B",
+                        "Select another node as B",
+                      )}
+                    </span>
+                  ) : null}
+                </>
               ) : (
-                <span>{t(language, "先选择节点", "Select nodes")}</span>
+                <span className="snezhnaya-relation-prompt">
+                  {t(
+                    language,
+                    "点击图中节点选择 A",
+                    "Select node A on the map",
+                  )}
+                </span>
               )}
             </div>
             <button
@@ -461,9 +539,6 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                 ].join(" ")}
               >
                 <div>
-                  <span className={`snezhnaya-tier tier-${selectedNode.tier}`}>
-                    {evidenceTierLabel(selectedNode.tier, language)}
-                  </span>
                   <h2>{localize(selectedNode.label, language)}</h2>
                 </div>
                 {selectedNode.imageUrl ? (
@@ -507,7 +582,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                 {t(language, "展开详情", "Open details")}
               </button>
               <div className="snezhnaya-clues">
-                <h3>{t(language, "文本线索", "Text clues")}</h3>
+                <h3>{t(language, "Wiki 信息", "Wiki information")}</h3>
                 {selectedNode.clues.map((clue) => (
                   <a
                     key={clue.id}
@@ -517,8 +592,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                   >
                     <b>{clue.title}</b>
                     <span>
-                      {sourceTypeLabel(clue.sourceType, language)} ·{" "}
-                      {evidenceTierLabel(clue.tier, language)}
+                      {sourceTypeLabel(clue.sourceType, language)}
                     </span>
                     <small>{localize(clue.excerpt, language)}</small>
                   </a>
@@ -562,9 +636,6 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
             </button>
             <section className="snezhnaya-detail-profile">
               <div className="snezhnaya-detail-profile-copy">
-                <span className={`snezhnaya-tier tier-${selectedNode.tier}`}>
-                  {evidenceTierLabel(selectedNode.tier, language)}
-                </span>
                 <h2 id="snezhnaya-detail-title">
                   {localize(selectedNode.label, language)}
                 </h2>
@@ -599,7 +670,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                 ))}
               </article>
               <article>
-                <h3>{t(language, "可信文本线索", "Grounded text clues")}</h3>
+                <h3>{t(language, "Wiki 信息", "Wiki information")}</h3>
                 <div className="snezhnaya-detail-clue-grid">
                   {selectedNode.clues.map((clue) => (
                     <a
@@ -609,8 +680,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
                       rel={clue.url ? "noreferrer" : undefined}
                     >
                       <span>
-                        {sourceTypeLabel(clue.sourceType, language)} ·{" "}
-                        {evidenceTierLabel(clue.tier, language)}
+                        {sourceTypeLabel(clue.sourceType, language)}
                       </span>
                       <b>{clue.title}</b>
                       <small>{localize(clue.excerpt, language)}</small>

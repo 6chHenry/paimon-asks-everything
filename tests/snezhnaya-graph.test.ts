@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
+  SNEZHNAYA_GRAPH_CANVAS,
   buildRelationshipQuestion,
   cleanRelationshipAnswerForDisplay,
   evidenceTierLabel,
   nodeDetailFacts,
   initialSnezhnayaNodeId,
+  updateRelationshipSelection,
   validateSnezhnayaGraph,
+  validateSnezhnayaGraphLayout,
   type SnezhnayaGraphData,
 } from "@/lib/snezhnaya-graph";
 import { snezhnayaGraph } from "@/data/snezhnaya-graph";
@@ -30,7 +33,12 @@ const sampleGraph: SnezhnayaGraphData = {
     {
       id: "tsaritsa",
       label: { "zh-CN": "冰之女皇", en: "Tsaritsa" },
-      aliases: ["女皇", "冰神"],
+      identity: {
+        otherNames: [
+          { "zh-CN": "女皇", en: "The Tsaritsa" },
+          { "zh-CN": "冰神", en: "Cryo Archon" },
+        ],
+      },
       kind: "character",
       tier: "official_text_index",
       graphGroup: "sovereign",
@@ -65,7 +73,9 @@ const sampleGraph: SnezhnayaGraphData = {
     {
       id: "gnosis",
       label: { "zh-CN": "神之心", en: "Gnoses" },
-      aliases: ["神之心"],
+      identity: {
+        otherNames: [{ "zh-CN": "神之心", en: "Gnosis" }],
+      },
       kind: "concept",
       tier: "official_explicit",
       graphGroup: "lore",
@@ -101,6 +111,17 @@ const sampleGraph: SnezhnayaGraphData = {
 };
 
 describe("snezhnaya graph helpers", () => {
+  it("builds an ordered two-node relationship selection", () => {
+    expect(updateRelationshipSelection([], "a")).toEqual(["a"]);
+    expect(updateRelationshipSelection(["a"], "b")).toEqual(["a", "b"]);
+    expect(updateRelationshipSelection(["a", "b"], "c")).toEqual(["b", "c"]);
+  });
+
+  it("removes a node when an already selected node is clicked", () => {
+    expect(updateRelationshipSelection(["a", "b"], "a")).toEqual(["b"]);
+    expect(updateRelationshipSelection(["a", "b"], "b")).toEqual(["a"]);
+  });
+
   it("validates a complete curated graph", () => {
     expect(validateSnezhnayaGraph(sampleGraph)).toEqual([]);
   });
@@ -287,6 +308,66 @@ describe("curated Snezhnaya graph catalog", () => {
     );
   });
 
+  it("uses a portrait-oriented 900 by 980 conflict-map canvas", () => {
+    expect(SNEZHNAYA_GRAPH_CANVAS).toEqual({ width: 900, height: 980 });
+  });
+
+  it("validates the conflict-map geometry safety rules", () => {
+    expect(validateSnezhnayaGraphLayout(snezhnayaGraph)).toEqual([]);
+  });
+
+  it("keeps visible relationship labels as explicit capsules", () => {
+    const visibleEdges = snezhnayaGraph.edges.filter((edge) => edge.showLabel);
+
+    expect(visibleEdges.map((edge) => edge.label["zh-CN"])).toEqual([
+      "对抗",
+      "推动严冬计划",
+      "统领",
+      "收集神之心",
+      "遗骸铸成",
+      "坎瑞亚旧事",
+    ]);
+
+    for (const edge of visibleEdges) {
+      expect(edge.labelPosition, edge.id).toEqual(
+        expect.objectContaining({
+          x: expect.any(Number),
+          y: expect.any(Number),
+          width: expect.any(Number),
+          height: expect.any(Number),
+        }),
+      );
+      expect(edge.path, edge.id).toMatch(/^M /u);
+    }
+  });
+
+  it("renders the status legend outside the map canvas and uses SVG label capsules", () => {
+    const source = readFileSync(
+      path.join(process.cwd(), "components", "snezhnaya-graph.tsx"),
+      "utf8",
+    );
+
+    expect(source.indexOf("snezhnaya-map-legend")).toBeGreaterThan(-1);
+    expect(source.indexOf("snezhnaya-map-legend")).toBeLessThan(
+      source.indexOf("snezhnaya-map-viewport"),
+    );
+    expect(source).toContain("snezhnaya-edge-label-bg");
+    expect(source).toContain("onMouseEnter");
+    expect(source).toContain("onFocus");
+  });
+
+  it("presents clues as Wiki information without evidence badges", () => {
+    const source = readFileSync(
+      path.join(process.cwd(), "components", "snezhnaya-graph.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain('"Wiki 信息", "Wiki information"');
+    expect(source).not.toContain('"可信文本线索", "Grounded text clues"');
+    expect(source).not.toContain("evidenceTierLabel(selectedNode.tier");
+    expect(source).not.toContain("evidenceTierLabel(clue.tier");
+  });
+
   it("uses the agreed labels and evidence tiers for Harbingers", () => {
     const columbina = snezhnayaGraph.nodes.find(
       (node) => node.id === "columbina",
@@ -303,10 +384,73 @@ describe("curated Snezhnaya graph catalog", () => {
       "zh-CN": "木偶",
       en: "Marionette",
     });
-    expect(marionette?.aliases).toEqual(
-      expect.arrayContaining(["Sandrone", "桑多涅"]),
-    );
+    expect(marionette?.identity).toMatchObject({
+      harbingerName: { "zh-CN": "桑多涅", en: "Sandrone" },
+      codename: { "zh-CN": "木偶", en: "Marionette" },
+    });
     expect(projectStuzha?.tier).not.toBe("official_explicit");
+  });
+
+  it("stores Harbinger identities by semantic role instead of generic aliases", () => {
+    const identities = Object.fromEntries(
+      snezhnayaGraph.nodes.map((node) => [node.id, node.identity]),
+    );
+
+    expect(identities.capitano).toMatchObject({
+      harbingerName: { "zh-CN": "卡皮塔诺", en: "Il Capitano" },
+      codename: { "zh-CN": "队长", en: "The Captain" },
+      personalNames: [{ "zh-CN": "瑟雷恩", en: "Thrain" }],
+    });
+    expect(identities.dottore).toMatchObject({
+      harbingerName: { "zh-CN": "多托雷", en: "Il Dottore" },
+      codename: { "zh-CN": "博士", en: "The Doctor" },
+      personalNames: [{ "zh-CN": "赞迪克", en: "Zandik" }],
+    });
+    expect(identities.columbina).toMatchObject({
+      harbingerName: { "zh-CN": "哥伦比娅", en: "Columbina" },
+      codename: { "zh-CN": "少女", en: "Damselette" },
+      personalNames: expect.arrayContaining([
+        { "zh-CN": "库塔尔", en: "Kuutar" },
+        {
+          "zh-CN": "哥伦比娅・希珀塞莱尼娅",
+          en: "Columbina Hyposelenia",
+        },
+      ]),
+    });
+    expect(identities.arlecchino).toMatchObject({
+      harbingerName: { "zh-CN": "阿蕾奇诺", en: "Arlecchino" },
+      codename: { "zh-CN": "仆人", en: "The Knave" },
+      personalNames: [{ "zh-CN": "佩露薇利", en: "Peruere" }],
+    });
+    expect(identities.tartaglia).toMatchObject({
+      harbingerName: { "zh-CN": "达达利亚", en: "Tartaglia" },
+      codename: { "zh-CN": "公子", en: "Childe" },
+      personalNames: [{ "zh-CN": "阿贾克斯", en: "Ajax" }],
+    });
+    expect(identities.signora).toMatchObject({
+      harbingerName: { "zh-CN": "席诺拉", en: "La Signora" },
+      codename: { "zh-CN": "女士", en: "The Fair Lady" },
+      personalNames: [
+        {
+          "zh-CN": "罗莎琳·克鲁兹希卡·洛厄法特",
+          en: "Rosalyne-Kruzchka Lohefalter",
+        },
+      ],
+    });
+    expect(identities.pantalone).toMatchObject({
+      harbingerName: { "zh-CN": "潘塔罗涅", en: "Pantalone" },
+      codename: { "zh-CN": "富人", en: "Regrator" },
+      personalNames: [
+        {
+          "zh-CN": "费奥潘・谢尔盖耶维奇・维克塞",
+          en: "Feofan Sergeyevich Veksel",
+        },
+      ],
+    });
+
+    for (const node of snezhnayaGraph.nodes) {
+      expect(node, node.id).not.toHaveProperty("aliases");
+    }
   });
 
   it("provides video links without requiring an iframe", () => {
@@ -398,7 +542,7 @@ describe("Snezhnaya graph UI helpers", () => {
     ).toBe("");
   });
 
-  it("builds structured detail facts with seat, status, aliases, and evidence", () => {
+  it("builds player-facing identity facts without type or evidence metadata", () => {
     const marionette = snezhnayaGraph.nodes.find(
       (node) => node.id === "sandrone",
     );
@@ -409,11 +553,14 @@ describe("Snezhnaya graph UI helpers", () => {
       expect.arrayContaining([
         { label: "名称", value: "木偶" },
         { label: "席位", value: "第 7 席" },
-        expect.objectContaining({ label: "别名" }),
+        { label: "执行官名", value: "Sandrone / 桑多涅" },
+        { label: "面具名 / 代号", value: "Marionette / 木偶" },
+        expect.objectContaining({ label: "本名 / 旧名" }),
         expect.objectContaining({ label: "状态" }),
-        { label: "可信度", value: "官方文本索引" },
       ]),
     );
+    expect(facts.map((fact) => fact.label)).not.toContain("类型");
+    expect(facts.map((fact) => fact.label)).not.toContain("可信度");
   });
 
   it("requires every curated node to have enough detail for an expanded detail page", () => {

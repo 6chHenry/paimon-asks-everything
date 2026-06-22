@@ -1,10 +1,10 @@
 import type { PreheatTopic } from "@/lib/domain";
 
-export const defaultPreheatTopicId = "why-fatui-collect-gnoses";
+export const defaultPreheatTopicId = "seven-gnosis-journeys";
 
 export const preheatTopics: PreheatTopic[] = [
   {
-    id: defaultPreheatTopicId,
+    id: "why-fatui-collect-gnoses",
     titleZh: "愚人众为什么收集神之心？",
     titleEn: "Why are the Fatui collecting Gnoses?",
     introZh:
@@ -57,13 +57,12 @@ export const preheatTopics: PreheatTopic[] = [
     ],
   },
   {
-    id: "seven-gnosis-journeys",
+    id: defaultPreheatTopicId,
     titleZh: "七枚神之心分别经历了什么？",
     titleEn: "What happened to each of the seven Gnoses?",
-    introZh:
-      "这条时间线只放已经在正式剧情中发生的流转事件。暗示和猜想留在详情层，避免把“可能如何使用”混成“已经发生什么”。",
+    introZh: "这条时间线只放已经在正式剧情中发生的流转事件。",
     introEn:
-      "This timeline contains only transfers that occurred in released story content. Implications and theories remain in the detail layer so possible uses are never confused with confirmed events.",
+      "This timeline contains only transfers that occurred in released story content.",
     heroConceptIds: [
       "gnosis-mondstadt",
       "gnosis-sumeru",

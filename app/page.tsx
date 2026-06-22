@@ -7,7 +7,10 @@ import { ChoiceGrid, Field } from "@/components/field";
 import { PreheatNote } from "@/components/preheat-note";
 import { usePreferences } from "@/components/preferences-provider";
 import { SnezhnayaGraph } from "@/components/snezhnaya-graph";
-import { preheatTopics } from "@/data/preheat-topics";
+import {
+  defaultPreheatTopicId,
+  preheatTopics,
+} from "@/data/preheat-topics";
 import { snezhnayaGraph } from "@/data/snezhnaya-graph";
 import type {
   Focus,
@@ -30,10 +33,12 @@ export default function HomePage() {
   const { preferences, setPreferences } = usePreferences();
   const language = preferences.language;
   const isZh = language === "zh-CN";
-  const [topicId, setTopicId] = useState(preheatTopics[0].id);
+  const [topicId, setTopicId] = useState(defaultPreheatTopicId);
   const [depth, setDepth] = useState<PreheatDepth>("guided");
   const topic =
-    preheatTopics.find((item) => item.id === topicId) ?? preheatTopics[0];
+    preheatTopics.find((item) => item.id === topicId) ??
+    preheatTopics.find((item) => item.id === defaultPreheatTopicId) ??
+    preheatTopics[0];
 
   const profileItems = (Object.keys(labels.profile) as Profile[]).map(
     (value) => ({
