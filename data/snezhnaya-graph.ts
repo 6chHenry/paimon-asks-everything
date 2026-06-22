@@ -44,7 +44,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
     },
     coverImageUrl: "/snezhnaya/snezhnaya-cover.jpg",
     youtubeUrl: "https://www.youtube.com/watch?v=RGFJa2mwD8E",
-    miyousheUrl: "https://www.miyoushe.com/ys",
+    miyousheUrl: "https://www.miyoushe.com/ys/article/76088726",
   },
   nodes: [
     {

@@ -180,11 +180,10 @@ export function updateRelationshipSelection(
 export function nodeDetailFacts(node: SnezhnayaNode, language: Language) {
   const facts: Array<{ label: string; value: string }> = [];
   const isZh = language === "zh-CN";
-  const undisclosed = isZh ? "尚未公开" : "Not disclosed";
   const formatNames = (names: LocalizedText[] | undefined) =>
     names?.length
       ? names.map((name) => `${name.en} / ${name["zh-CN"]}`).join(" · ")
-      : undisclosed;
+      : null;
   const identity = node.identity;
   const isHarbingerProfile =
     node.graphGroup === "harbinger" || node.graphGroup === "director";
@@ -197,30 +196,30 @@ export function nodeDetailFacts(node: SnezhnayaNode, language: Language) {
     });
   }
   if (isHarbingerProfile || identity?.harbingerName) {
-    facts.push({
-      label: isZh ? "执行官名" : "Harbinger name",
-      value: identity?.harbingerName
-        ? formatNames([identity.harbingerName])
-        : undisclosed,
-    });
-    facts.push({
-      label: isZh ? "面具名 / 代号" : "Mask name / Codename",
-      value: identity?.codename ? formatNames([identity.codename]) : undisclosed,
-    });
-    facts.push({
-      label: isZh ? "本名 / 旧名" : "Personal / Former names",
-      value: formatNames(identity?.personalNames),
-    });
-    facts.push({
-      label: isZh ? "称号" : "Titles",
-      value: formatNames(identity?.titles),
-    });
+    const harbingerName = identity?.harbingerName
+      ? formatNames([identity.harbingerName])
+      : null;
+    if (harbingerName) {
+      facts.push({ label: isZh ? "执行官名" : "Harbinger name", value: harbingerName });
+    }
+    const codename = identity?.codename ? formatNames([identity.codename]) : null;
+    if (codename) {
+      facts.push({ label: isZh ? "面具名 / 代号" : "Mask name / Codename", value: codename });
+    }
+    const personalNames = formatNames(identity?.personalNames);
+    if (personalNames) {
+      facts.push({ label: isZh ? "本名 / 旧名" : "Personal / Former names", value: personalNames });
+    }
+    const titles = formatNames(identity?.titles);
+    if (titles) {
+      facts.push({ label: isZh ? "称号" : "Titles", value: titles });
+    }
   }
   if (identity?.otherNames?.length) {
-    facts.push({
-      label: isZh ? "其他名称" : "Other names",
-      value: formatNames(identity.otherNames),
-    });
+    const otherNames = formatNames(identity.otherNames);
+    if (otherNames) {
+      facts.push({ label: isZh ? "其他名称" : "Other names", value: otherNames });
+    }
   }
   if (node.statusLabel) {
     facts.push({
