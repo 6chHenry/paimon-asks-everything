@@ -2,6 +2,8 @@
 
 **在线体验：** [paimon-asks-everything.vercel.app](https://paimon-asks-everything.vercel.app/)
 
+![banner](figures/banner.png)
+
 面向《原神》国际化发行场景的 AI Agent Demo —— 为玩家提供证据约束的中英文问答，同时为运营团队沉淀匿名洞察与发行决策建议。
 
 ## 功能概览
@@ -54,6 +56,8 @@ SUPABASE_SERVICE_ROLE_KEY=
 - 存在 `HTTP_PROXY` / `HTTPS_PROXY` 时通过代理访问模型接口。
 
 ## 核心架构
+
+![设计思维导图](figures/%E8%AE%BE%E8%AE%A1%E6%80%9D%E7%BB%B4%E5%AF%BC%E5%9B%BE.png)
 
 ```
 用户偏好（进度 / 剧透 / 语言）
