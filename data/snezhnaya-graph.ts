@@ -33,19 +33,40 @@ function wikiClue({
 }
 
 const snezhnayaGraphBase: SnezhnayaGraphData = {
-  video: {
-    title: {
-      "zh-CN": "至冬生态短片",
-      en: "Snezhnaya Ecology Short",
+  videos: [
+    {
+      title: {
+        "zh-CN": "至冬生态短片",
+        en: "Snezhnaya Ecology Short",
+      },
+      description: {
+        "zh-CN": "先用一支短片进入至冬氛围，再顺着关键词回忆前置线索。",
+        en: "Start with the Snezhnaya mood, then revisit the clues behind the keywords.",
+      },
+      coverImageUrl: "/snezhnaya/snezhnaya-cover.jpg",
+      youtubeUrls: {
+        "zh-CN": "https://www.youtube.com/watch?v=_Uq5k9rHTiM",
+        en: "https://www.youtube.com/watch?v=RGFJa2mwD8E",
+      },
+      miyousheUrl: "https://www.miyoushe.com/ys/article/76088726",
     },
-    description: {
-      "zh-CN": "先用一支短片进入至冬氛围，再顺着关键词回忆前置线索。",
-      en: "Start with the Snezhnaya mood, then revisit the clues behind the keywords.",
+    {
+      title: {
+        "zh-CN": "超越PV——「骤雪」",
+        en: "Beyond PV — Sudden Snow",
+      },
+      description: {
+        "zh-CN": "至冬国最新超越PV，感受骤雪之下的冰封世界。",
+        en: "The latest Snezhnaya Beyond PV — experience the frozen world beneath the sudden snow.",
+      },
+      coverImageUrl: "/snezhnaya/sudden-snow-cover.jpg",
+      youtubeUrls: {
+        "zh-CN": "https://www.youtube.com/watch?v=UVWVEg0pp4Y",
+        en: "https://www.youtube.com/watch?v=y2Zcmcbrm9s",
+      },
+      miyousheUrl: "https://www.miyoushe.com/ys/article/76245042",
     },
-    coverImageUrl: "/snezhnaya/snezhnaya-cover.jpg",
-    youtubeUrl: "https://www.youtube.com/watch?v=RGFJa2mwD8E",
-    miyousheUrl: "https://www.miyoushe.com/ys/article/76088726",
-  },
+  ],
   nodes: [
     {
       id: "tsaritsa",

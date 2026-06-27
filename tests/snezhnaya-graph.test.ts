@@ -16,19 +16,24 @@ import {
 import { snezhnayaGraph } from "@/data/snezhnaya-graph";
 
 const sampleGraph: SnezhnayaGraphData = {
-  video: {
-    title: {
-      "zh-CN": "至冬生态短片",
-      en: "Snezhnaya Ecology Short",
+  videos: [
+    {
+      title: {
+        "zh-CN": "至冬生态短片",
+        en: "Snezhnaya Ecology Short",
+      },
+      description: {
+        "zh-CN": "跟着派蒙先看至冬的第一眼。",
+        en: "A first look at Snezhnaya with Paimon.",
+      },
+      coverImageUrl: "/snezhnaya-cover.jpg",
+      youtubeUrls: {
+        "zh-CN": "https://www.youtube.com/watch?v=test",
+        en: "https://www.youtube.com/watch?v=test",
+      },
+      miyousheUrl: "https://www.miyoushe.com/ys/article/test",
     },
-    description: {
-      "zh-CN": "跟着派蒙先看至冬的第一眼。",
-      en: "A first look at Snezhnaya with Paimon.",
-    },
-    coverImageUrl: "/snezhnaya-cover.jpg",
-    youtubeUrl: "https://www.youtube.com/watch?v=test",
-    miyousheUrl: "https://www.miyoushe.com/ys/article/test",
-  },
+  ],
   nodes: [
     {
       id: "tsaritsa",
@@ -454,11 +459,11 @@ describe("curated Snezhnaya graph catalog", () => {
   });
 
   it("provides video links without requiring an iframe", () => {
-    expect(snezhnayaGraph.video.coverImageUrl).toMatch(
+    expect(snezhnayaGraph.videos[0].coverImageUrl).toMatch(
       /^(?:https?:\/\/|\/)/u,
     );
-    expect(snezhnayaGraph.video.youtubeUrl).toContain("youtube");
-    expect(snezhnayaGraph.video.miyousheUrl).toContain("miyoushe");
+    expect(snezhnayaGraph.videos[0].youtubeUrls["zh-CN"]).toContain("youtube");
+    expect(snezhnayaGraph.videos[0].miyousheUrl).toContain("miyoushe");
   });
 
   it("provides a bilingual Fandom text clue for every keyword", () => {

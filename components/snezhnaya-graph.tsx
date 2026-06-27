@@ -235,30 +235,34 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
 
   return (
     <section className="snezhnaya-section reveal">
-      <div className="snezhnaya-video">
-        <div
-          className="snezhnaya-video-cover"
-          style={{ backgroundImage: `url(${graph.video.coverImageUrl})` }}
-        >
-          <span className="snezhnaya-video-badge">
-            <Sparkles size={15} />
-            {t(language, "至冬预热", "Snezhnaya preheat")}
-          </span>
-        </div>
-        <div className="snezhnaya-video-copy">
-          <h1>{localize(graph.video.title, language)}</h1>
-          <p>{localize(graph.video.description, language)}</p>
-          <div className="snezhnaya-video-actions">
-            <a href={graph.video.youtubeUrl} target="_blank" rel="noreferrer">
-              <Play size={16} />
-              YouTube
-            </a>
-            <a href={graph.video.miyousheUrl} target="_blank" rel="noreferrer">
-              <ExternalLink size={16} />
-              {t(language, "米游社", "Miyoushe")}
-            </a>
+      <div className="snezhnaya-videos">
+        {graph.videos.map((video, index) => (
+          <div className="snezhnaya-video" key={index}>
+            <div
+              className="snezhnaya-video-cover"
+              style={{ backgroundImage: `url(${video.coverImageUrl})` }}
+            >
+              <span className="snezhnaya-video-badge">
+                <Sparkles size={15} />
+                {t(language, "至冬预热", "Snezhnaya preheat")}
+              </span>
+            </div>
+            <div className="snezhnaya-video-copy">
+              <h1>{localize(video.title, language)}</h1>
+              <p>{localize(video.description, language)}</p>
+              <div className="snezhnaya-video-actions">
+                <a href={video.youtubeUrls[language]} target="_blank" rel="noreferrer">
+                  <Play size={16} />
+                  YouTube
+                </a>
+                <a href={video.miyousheUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink size={16} />
+                  {t(language, "米游社", "Miyoushe")}
+                </a>
+              </div>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
 
       <div className="snezhnaya-workbench">

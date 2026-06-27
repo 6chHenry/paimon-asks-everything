@@ -73,7 +73,7 @@ export interface SnezhnayaVideoMeta {
   title: LocalizedText;
   description: LocalizedText;
   coverImageUrl: string;
-  youtubeUrl: string;
+  youtubeUrls: Record<string, string>;
   miyousheUrl: string;
 }
 
@@ -127,7 +127,7 @@ export interface SnezhnayaEdge {
 }
 
 export interface SnezhnayaGraphData {
-  video: SnezhnayaVideoMeta;
+  videos: SnezhnayaVideoMeta[];
   nodes: SnezhnayaNode[];
   edges: SnezhnayaEdge[];
 }
