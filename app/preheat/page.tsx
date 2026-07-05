@@ -12,8 +12,10 @@ import {
 } from "lucide-react";
 import { GnosisTimeline } from "@/components/gnosis-timeline";
 import { RelationMap } from "@/components/relation-map";
+import { SnezhnayaVideoSlider } from "@/components/snezhnaya-video-slider";
 import { usePreferences } from "@/components/preferences-provider";
 import { defaultPreheatTopicId } from "@/data/preheat-topics";
+import { snezhnayaGraph } from "@/data/snezhnaya-graph";
 import { clientPath } from "@/lib/client-path";
 import type { PreheatDepth } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
@@ -139,8 +141,8 @@ export default function PreheatPage() {
   }
 
   return (
-    <div className="preheat-page page-wrap">
-      <section className="preheat-masthead">
+    <div className="preheat-page preheat-intel-page page-wrap">
+      <section className="preheat-masthead preheat-intel-masthead">
         <div>
           <span className="eyebrow">
             <Sparkles size={14} />
@@ -180,6 +182,10 @@ export default function PreheatPage() {
         </div>
       </section>
 
+      <section className="preheat-video-block">
+        <SnezhnayaVideoSlider graph={snezhnayaGraph} language={language} />
+      </section>
+
       {error ? (
         <div className="error-card">
           <CircleAlert size={18} />
@@ -190,7 +196,7 @@ export default function PreheatPage() {
       {data ? (
         <>
           <div className="content-notice">{data.contentNotice}</div>
-          <section className="preheat-workbench">
+          <section className="preheat-workbench preheat-intel-workbench">
             <aside className="timeline-column">
               <div className="column-heading">
                 <span>01</span>
