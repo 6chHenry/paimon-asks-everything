@@ -237,7 +237,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
   }
 
   return (
-    <section className="snezhnaya-section reveal">
+    <section className="snezhnaya-section snezhnaya-intel-section reveal">
       <div className="snezhnaya-video-slider">
         <div className="snezhnaya-video-slider-body">
           <div
@@ -302,7 +302,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
       </div>
 
       <div className="snezhnaya-workbench">
-        <div className="snezhnaya-map">
+        <div className="snezhnaya-map snezhnaya-intel-map">
           <div className="snezhnaya-map-heading">
             <span>{t(language, "至冬权力与命运图谱", "Snezhnaya power and fate map")}</span>
             <strong>
@@ -569,7 +569,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
           </div>
         </div>
 
-        <aside className="snezhnaya-detail">
+        <aside className="snezhnaya-detail snezhnaya-intel-detail">
           {selectedNode ? (
             <>
               <div
@@ -666,7 +666,7 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
           aria-modal="true"
           aria-labelledby="snezhnaya-detail-title"
         >
-          <div className="snezhnaya-detail-dialog">
+          <div className="snezhnaya-detail-dialog snezhnaya-intel-dialog">
             <button
               type="button"
               className="snezhnaya-detail-close"

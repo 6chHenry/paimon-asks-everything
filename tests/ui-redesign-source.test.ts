@@ -99,3 +99,18 @@ describe("Genshin-style preheat source", () => {
     expect(page).toContain("record(\"timeline_node_opened\"");
   });
 });
+
+describe("Genshin-style Snezhnaya graph source", () => {
+  it("adds visual integration hooks without removing graph interactions", () => {
+    const graph = source("components", "snezhnaya-graph.tsx");
+
+    expect(graph).toContain("snezhnaya-intel-section");
+    expect(graph).toContain("snezhnaya-intel-map");
+    expect(graph).toContain("snezhnaya-intel-detail");
+    expect(graph).toContain("snezhnaya-intel-dialog");
+    expect(graph).toContain("toggleRelationNode");
+    expect(graph).toContain("analyzeRelationship");
+    expect(graph).toContain("TraceTimeline");
+    expect(graph).toContain("AnswerCard");
+  });
+});
