@@ -67,7 +67,7 @@ export default function HomePage() {
     });
   }
 
-  function focusFullGraph() {
+  function focusFullGraph(_nodeId: string) {
     document
       .getElementById("snezhnaya-graph")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -84,7 +84,7 @@ export default function HomePage() {
       <HomeCharacterDossier
         language={language}
         graph={snezhnayaGraph}
-        onViewGraph={focusFullGraph}
+        onSelectNode={focusFullGraph}
       />
       <HomeGraphSummary
         language={language}

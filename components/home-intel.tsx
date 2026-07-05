@@ -131,11 +131,11 @@ export function HomeVideoFeature({
 export function HomeCharacterDossier({
   language,
   graph,
-  onViewGraph,
+  onSelectNode,
 }: {
   language: Language;
   graph: SnezhnayaGraphData;
-  onViewGraph?: () => void;
+  onSelectNode?: (nodeId: string) => void;
 }) {
   const dossierNodes = [
     ...graph.nodes.filter(
@@ -166,7 +166,7 @@ export function HomeCharacterDossier({
             type="button"
             key={node.id}
             className="home-dossier-card"
-            onClick={onViewGraph}
+            onClick={() => onSelectNode?.(node.id)}
             aria-label={`${graphActionLabel}: ${localize(node.label, language)}`}
           >
             {node.imageUrl ? (
