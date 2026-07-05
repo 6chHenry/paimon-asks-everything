@@ -6,6 +6,7 @@ node_modules/
 coverage/
 *.log
 tsconfig.tsbuildinfo
+.superpowers/
 
 # Local product/design materials are intentionally not published.
 docs/
