@@ -84,7 +84,7 @@ export default function HomePage() {
       <HomeCharacterDossier
         language={language}
         graph={snezhnayaGraph}
-        onSelectNode={focusFullGraph}
+        onViewGraph={focusFullGraph}
       />
       <HomeGraphSummary
         language={language}

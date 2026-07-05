@@ -9,7 +9,6 @@ import {
   Play,
   Settings2,
   Sparkles,
-  UsersRound,
 } from "lucide-react";
 import { ChoiceGrid, Field } from "@/components/field";
 import { PreheatNote } from "@/components/preheat-note";
@@ -62,10 +61,6 @@ export function HomeHeroIntel({
           )}
         </p>
         <div className="home-hero-actions">
-          <a className="primary-button" href={graphHref}>
-            {t(language, "打开关系图", "Open relationship map")}
-            <ArrowRight size={17} />
-          </a>
           <a className="secondary-button" href={clientPath("/preheat")}>
             {t(language, "进入预热", "Enter preheat")}
           </a>
@@ -136,11 +131,11 @@ export function HomeVideoFeature({
 export function HomeCharacterDossier({
   language,
   graph,
-  onSelectNode,
+  onViewGraph,
 }: {
   language: Language;
   graph: SnezhnayaGraphData;
-  onSelectNode?: (nodeId: string) => void;
+  onViewGraph?: () => void;
 }) {
   const dossierNodes = [
     ...graph.nodes.filter(
@@ -150,6 +145,7 @@ export function HomeCharacterDossier({
       (node) => node.imageUrl && node.graphGroup !== "harbinger",
     ),
   ].slice(0, 6);
+  const graphActionLabel = t(language, "查看图谱区域", "View graph area");
 
   return (
     <section className="home-character-dossier reveal">
@@ -170,7 +166,8 @@ export function HomeCharacterDossier({
             type="button"
             key={node.id}
             className="home-dossier-card"
-            onClick={() => onSelectNode?.(node.id)}
+            onClick={onViewGraph}
+            aria-label={`${graphActionLabel}: ${localize(node.label, language)}`}
           >
             {node.imageUrl ? (
               <Image
@@ -181,13 +178,14 @@ export function HomeCharacterDossier({
                 unoptimized
               />
             ) : null}
-            <span>
+            <span className="home-dossier-meta">
               {node.harbingerRank
                 ? t(language, `第 ${node.harbingerRank} 席`, `Seat ${node.harbingerRank}`)
                 : t(language, "关键节点", "Key node")}
             </span>
             <strong>{localize(node.label, language)}</strong>
             <small>{localize(node.summary, language)}</small>
+            <span className="home-dossier-action">{graphActionLabel}</span>
           </button>
         ))}
       </div>
@@ -239,7 +237,7 @@ export function HomeGraphSummary({
           <dd>{t(language, "带证据节点", "Evidence nodes")}</dd>
         </div>
       </dl>
-      <a className="primary-button" href={graphHref}>
+      <a className="secondary-button home-graph-summary-link" href={graphHref}>
         {t(language, "查看完整图谱", "View full map")}
         <ArrowRight size={17} />
       </a>

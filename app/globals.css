@@ -3144,21 +3144,27 @@ main { flex: 1; }
   right: 30px;
   bottom: 25px;
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 18px;
   color: var(--frame-gold-soft);
   font-family: var(--display);
   font-size: 28px;
   line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .home-graph-preview-caption::after {
   content: "OPEN";
+  flex: 0 0 auto;
+  max-width: 100%;
   padding: 6px 10px;
   border: 1px solid rgba(234, 217, 168, .4);
   color: rgba(255, 248, 234, .68);
   font: 10px var(--body);
+  white-space: nowrap;
 }
 
 .home-video-feature,
@@ -3269,10 +3275,10 @@ main { flex: 1; }
 
 .home-dossier-card {
   min-width: 0;
-  height: 306px;
+  height: 326px;
   padding: 12px;
   display: grid;
-  grid-template-rows: 132px 18px 42px 1fr;
+  grid-template-rows: 132px 18px 42px minmax(0, 1fr) 20px;
   gap: 9px;
   border: 1px solid rgba(83, 102, 111, .18);
   background: rgba(255, 248, 234, .76);
@@ -3294,13 +3300,25 @@ main { flex: 1; }
   background: rgba(184, 220, 228, .14);
 }
 
-.home-dossier-card span {
+.home-dossier-card .home-dossier-meta {
   color: var(--coral);
   font-size: 10px;
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.home-dossier-card .home-dossier-action {
+  min-width: 0;
+  align-self: end;
+  color: var(--navy);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
 }
 
 .home-dossier-card strong {
@@ -3329,6 +3347,10 @@ main { flex: 1; }
   gap: 28px;
   align-items: center;
   padding: 30px;
+}
+
+.home-graph-summary-link {
+  justify-self: end;
 }
 
 .home-graph-summary dl {
@@ -3556,6 +3578,9 @@ main { flex: 1; }
   }
 
   .home-graph-preview-caption {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 9px;
     font-size: 22px;
   }
 
@@ -3564,7 +3589,7 @@ main { flex: 1; }
   }
 
   .home-dossier-card {
-    height: 286px;
+    height: 306px;
   }
 
   .traveler-context-drawer summary {
