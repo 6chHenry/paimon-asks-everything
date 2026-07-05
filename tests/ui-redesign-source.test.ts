@@ -34,3 +34,45 @@ describe("Genshin-style shell source", () => {
     expect(css).toContain("@media (max-width: 760px)");
   });
 });
+
+describe("Genshin-style homepage source", () => {
+  it("keeps homepage orchestration small and delegates visual sections", () => {
+    const page = source("app", "page.tsx");
+
+    expect(page).toContain("HomeHeroIntel");
+    expect(page).toContain("HomeVideoFeature");
+    expect(page).toContain("HomeCharacterDossier");
+    expect(page).toContain("HomeGraphSummary");
+    expect(page).toContain("HomePreheatBrief");
+    expect(page).toContain("HomeAskEntry");
+    expect(page).toContain("TravelerContextDrawer");
+    expect(page).not.toContain("<SnezhnayaGraph graph={snezhnayaGraph} />");
+  });
+
+  it("provides a graph preview component as the strongest homepage entry", () => {
+    const preview = source("components", "snezhnaya-graph-preview.tsx");
+
+    expect(preview).toContain("SnezhnayaGraphPreview");
+    expect(preview).toContain("home-graph-preview");
+    expect(preview).toContain("href={href}");
+    expect(preview).toContain("aria-label");
+    expect(preview).toContain("graph.nodes");
+    expect(preview).not.toContain("analyzeRelationship");
+  });
+
+  it("defines the homepage section hooks in a focused component file", () => {
+    const home = source("components", "home-intel.tsx");
+
+    for (const exportName of [
+      "HomeHeroIntel",
+      "HomeVideoFeature",
+      "HomeCharacterDossier",
+      "HomeGraphSummary",
+      "HomePreheatBrief",
+      "HomeAskEntry",
+      "TravelerContextDrawer",
+    ]) {
+      expect(home).toContain(`export function ${exportName}`);
+    }
+  });
+});

@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Compass, Settings2, Sparkles } from "lucide-react";
-import { ChoiceGrid, Field } from "@/components/field";
-import { PreheatNote } from "@/components/preheat-note";
+import {
+  HomeAskEntry,
+  HomeCharacterDossier,
+  HomeGraphSummary,
+  HomeHeroIntel,
+  HomePreheatBrief,
+  HomeVideoFeature,
+  TravelerContextDrawer,
+} from "@/components/home-intel";
 import { usePreferences } from "@/components/preferences-provider";
 import { SnezhnayaGraph } from "@/components/snezhnaya-graph";
 import {
@@ -18,7 +24,7 @@ import type {
   Profile,
   Progress,
 } from "@/lib/domain";
-import { labels, t } from "@/lib/i18n";
+import { labels } from "@/lib/i18n";
 
 const profileDescriptions = {
   new: ["先解释阵营和术语", "Explain factions and terms first"],
@@ -33,7 +39,7 @@ export default function HomePage() {
   const { preferences, setPreferences } = usePreferences();
   const language = preferences.language;
   const isZh = language === "zh-CN";
-  const [topicId, setTopicId] = useState(defaultPreheatTopicId);
+  const [topicId] = useState(defaultPreheatTopicId);
   const [depth, setDepth] = useState<PreheatDepth>("guided");
   const topic =
     preheatTopics.find((item) => item.id === topicId) ??
@@ -50,6 +56,7 @@ export default function HomePage() {
   const progressItems = (Object.keys(labels.progress) as Progress[]).map(
     (value) => ({ value, label: labels.progress[value][language] }),
   );
+
   function toggleFocus(focus: Focus) {
     setPreferences((current) => {
       const exists = current.focus.includes(focus);
@@ -60,173 +67,69 @@ export default function HomePage() {
     });
   }
 
+  function focusFullGraph() {
+    document
+      .getElementById("snezhnaya-graph")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
-    <div className="home-page preheat-home">
-      <SnezhnayaGraph graph={snezhnayaGraph} />
-
-      <section className="preheat-home-hero">
-        <div className="preheat-home-heading reveal">
-          <span className="eyebrow">
-            <Sparkles size={14} />
-            {t(language, "剧情快速回顾", "Story catch-up")}
-          </span>
-          <h2>
-            {t(language, "旅行者，", "Traveler")}
-            <em>
-              {t(
-                language,
-                "来看看今天的线索吧~",
-                "Come and take a look at today's clue.",
-              )}
-            </em>
-          </h2>
-        </div>
-        <div className="topic-rail reveal delay-1">
-          <span>{t(language, "本期可轮换主题", "Curated topic rotation")}</span>
-          {preheatTopics.map((item, index) => (
-            <button
-              type="button"
-              key={item.id}
-              className={item.id === topicId ? "active" : undefined}
-              onClick={() => setTopicId(item.id)}
-            >
-              <small>{String(index + 1).padStart(2, "0")}</small>
-              <strong>{isZh ? item.titleZh : item.titleEn}</strong>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="home-progress-card reveal delay-2">
-        <div>
-          <Compass size={20} />
-          <span>{t(language, "最新完成主线", "Latest completed main quest")}</span>
-          <strong>{labels.progress[preferences.progress][language]}</strong>
-        </div>
-        <label>
-          <span>
-            {t(
-              language,
-              "选择你最新完成的地区主线",
-              "Choose the latest region main quest you completed",
-            )}
-          </span>
-          <select
-            value={preferences.progress}
-            onChange={(event) =>
-              setPreferences((current) => ({
-                ...current,
-                progress: event.target.value as Progress,
-              }))
-            }
-          >
-            {progressItems.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
-
-      <section className="note-stage reveal delay-2">
-        <PreheatNote
-          topic={topic}
-          language={language}
-          selectedDepth={depth}
-          onSelectDepth={setDepth}
-          onStart={() =>
-            router.push(
-              `/preheat?topicId=${encodeURIComponent(topicId)}&depth=${depth}`,
-            )
-          }
+    <div className="home-page home-intel-page">
+      <HomeHeroIntel
+        language={language}
+        graph={snezhnayaGraph}
+        graphHref="#snezhnaya-graph"
+      />
+      <HomeVideoFeature language={language} graph={snezhnayaGraph} />
+      <HomeCharacterDossier
+        language={language}
+        graph={snezhnayaGraph}
+        onSelectNode={focusFullGraph}
+      />
+      <HomeGraphSummary
+        language={language}
+        graph={snezhnayaGraph}
+        graphHref="#snezhnaya-graph"
+      />
+      <section id="snezhnaya-graph" className="home-full-graph">
+        <SnezhnayaGraph
+          graph={snezhnayaGraph}
         />
-        <aside className="note-margin">
-          <Compass size={24} />
-          <strong>{t(language, "今日导览原则", "Today's guide rule")}</strong>
-          <p>
-            {t(
-              language,
-              "轻剧透会按上方主线进度锁定后续地区；完整考据是会展开已实装的后续内容。",
-              "3 min locks later regions by the progress above. Research is an explicit full-spoiler mode and opens released later content.",
-            )}
-          </p>
-        </aside>
       </section>
-
-      <details className="traveler-settings">
-        <summary>
-          <span>
-            <Settings2 size={16} />
-            {t(language, "调整旅行者状态", "Adjust Traveler context")}
-          </span>
-          <small>
-            {labels.profile[preferences.profile][language]} ·{" "}
-            {labels.progress[preferences.progress][language]}
-          </small>
-        </summary>
-        <div className="settings-body">
-          <Field
-            label={t(language, "你更像哪类玩家？", "What kind of player are you?")}
-          >
-            <ChoiceGrid
-              items={profileItems}
-              value={preferences.profile}
-              onChange={(value) =>
-                setPreferences((current) => ({
-                  ...current,
-                  profile: value as Profile,
-                }))
-              }
-              columns={5}
-            />
-          </Field>
-          <Field
-            label={t(language, "回答更关注什么？", "What should answers emphasize?")}
-            hint={t(language, "可以多选", "Choose more than one")}
-          >
-            <div className="focus-row">
-              {(Object.keys(labels.focus) as Focus[]).map((focus) => (
-                <button
-                  type="button"
-                  key={focus}
-                  className={
-                    preferences.focus.includes(focus) ? "pill active" : "pill"
-                  }
-                  onClick={() => toggleFocus(focus)}
-                >
-                  {labels.focus[focus][language]}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <label className="switch-label">
-            <input
-              type="checkbox"
-              checked={preferences.allowQuestionTextStorage}
-              onChange={(event) =>
-                setPreferences((current) => ({
-                  ...current,
-                  allowQuestionTextStorage: event.target.checked,
-                }))
-              }
-            />
-            <span className="switch" />
-            <span>
-              <strong>
-                {t(language, "允许保存我主动提交的问题", "Allow saving questions I submit")}
-              </strong>
-              <small>
-                {t(
-                  language,
-                  "关闭时只记录匿名分类",
-                  "When off, only anonymous categories are stored",
-                )}
-              </small>
-            </span>
-          </label>
-        </div>
-      </details>
+      <HomePreheatBrief
+        topic={topic}
+        language={language}
+        selectedDepth={depth}
+        onSelectDepth={setDepth}
+        onStart={() =>
+          router.push(
+            `/preheat?topicId=${encodeURIComponent(topicId)}&depth=${depth}`,
+          )
+        }
+      />
+      <HomeAskEntry language={language} />
+      <TravelerContextDrawer
+        language={language}
+        profile={preferences.profile}
+        progress={preferences.progress}
+        focus={preferences.focus}
+        allowQuestionTextStorage={preferences.allowQuestionTextStorage}
+        profileItems={profileItems}
+        progressItems={progressItems}
+        onSelectProfile={(profile) =>
+          setPreferences((current) => ({ ...current, profile }))
+        }
+        onSelectProgress={(progress) =>
+          setPreferences((current) => ({ ...current, progress }))
+        }
+        onToggleFocus={toggleFocus}
+        onToggleStorage={(allowQuestionTextStorage) =>
+          setPreferences((current) => ({
+            ...current,
+            allowQuestionTextStorage,
+          }))
+        }
+      />
     </div>
   );
 }
