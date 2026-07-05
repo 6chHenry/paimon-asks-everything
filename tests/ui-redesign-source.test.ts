@@ -133,12 +133,17 @@ describe("Genshin-style responsive safeguards", () => {
     expect(css).toContain("@media (max-width: 980px)");
     expect(css).toContain("@media (max-width: 760px)");
     expect(css).toContain("@media (max-width: 560px)");
+    expect(css).toContain(".home-graph-preview-caption::after");
+    expect(css).toContain("overflow-wrap: anywhere");
+    expect(css).toContain("padding-bottom: 116px");
+    expect(css).not.toContain("calc(-50% - 130px)");
   });
 
   it("does not reintroduce known mojibake in redesigned homepage sources", () => {
     const combined = [
       source("app", "page.tsx"),
       source("components", "home-intel.tsx"),
+      source("components", "snezhnaya-graph-preview.tsx"),
       source("components", "preheat-note.tsx"),
     ].join("\n");
 

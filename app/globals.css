@@ -3714,7 +3714,8 @@ main { flex: 1; }
   }
 
   .home-graph-preview {
-    min-height: 320px;
+    min-height: 380px;
+    padding-bottom: 116px;
   }
 
   .home-graph-preview-node {
@@ -3723,7 +3724,7 @@ main { flex: 1; }
     grid-template-columns: 10px minmax(0, 1fr);
     gap: 6px;
     padding: 7px;
-    transform: translate(-50%, calc(-50% - 130px));
+    transform: translate(-50%, -50%);
   }
 
   .home-graph-preview-node b {
@@ -3733,7 +3734,7 @@ main { flex: 1; }
   .home-graph-preview-caption {
     flex-direction: column;
     align-items: flex-start;
-    bottom: 126px;
+    bottom: 20px;
     gap: 9px;
     font-size: 22px;
   }
