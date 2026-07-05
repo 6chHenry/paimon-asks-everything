@@ -76,3 +76,26 @@ describe("Genshin-style homepage source", () => {
     }
   });
 });
+
+describe("Genshin-style preheat source", () => {
+  it("keeps PreheatNote props stable while reframing it as an intelligence brief", () => {
+    const note = source("components", "preheat-note.tsx");
+
+    expect(note).toContain("export function PreheatNote");
+    expect(note).toContain("className=\"intel-brief\"");
+    expect(note).toContain("selectedDepth");
+    expect(note).toContain("onSelectDepth");
+    expect(note).toContain("onStart");
+  });
+
+  it("adds preheat page hooks without removing the existing workbench logic", () => {
+    const page = source("app", "preheat", "page.tsx");
+
+    expect(page).toContain("preheat-intel-page");
+    expect(page).toContain("preheat-intel-masthead");
+    expect(page).toContain("preheat-intel-workbench");
+    expect(page).toContain("GnosisTimeline");
+    expect(page).toContain("RelationMap");
+    expect(page).toContain("record(\"timeline_node_opened\"");
+  });
+});

@@ -139,8 +139,8 @@ export default function PreheatPage() {
   }
 
   return (
-    <div className="preheat-page page-wrap">
-      <section className="preheat-masthead">
+    <div className="preheat-page preheat-intel-page page-wrap">
+      <section className="preheat-masthead preheat-intel-masthead">
         <div>
           <span className="eyebrow">
             <Sparkles size={14} />
@@ -190,7 +190,7 @@ export default function PreheatPage() {
       {data ? (
         <>
           <div className="content-notice">{data.contentNotice}</div>
-          <section className="preheat-workbench">
+          <section className="preheat-workbench preheat-intel-workbench">
             <aside className="timeline-column">
               <div className="column-heading">
                 <span>01</span>

@@ -38,8 +38,8 @@ export function PreheatNote({
 }) {
   const isZh = language === "zh-CN";
   return (
-    <article className="preheat-note">
-      <div className="note-pin" aria-hidden="true" />
+    <article className="intel-brief">
+      <div className="intel-brief-pin note-pin" aria-hidden="true" />
       <header>
         <span className="eyebrow">
           <Feather size={14} />
@@ -47,7 +47,7 @@ export function PreheatNote({
         </span>
         <span className="note-date">SNEZHNAYA PREHEAT · 01</span>
       </header>
-      <div className="note-copy">
+      <div className="intel-brief-copy note-copy">
         <p className="note-kicker">
           {t(
             language,
@@ -81,7 +81,7 @@ export function PreheatNote({
           );
         })}
       </div>
-      <footer>
+      <footer className="intel-brief-footer">
         <span>
           {t(
             language,
