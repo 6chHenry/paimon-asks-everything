@@ -12,8 +12,10 @@ import {
 } from "lucide-react";
 import { GnosisTimeline } from "@/components/gnosis-timeline";
 import { RelationMap } from "@/components/relation-map";
+import { SnezhnayaVideoSlider } from "@/components/snezhnaya-video-slider";
 import { usePreferences } from "@/components/preferences-provider";
 import { defaultPreheatTopicId } from "@/data/preheat-topics";
+import { snezhnayaGraph } from "@/data/snezhnaya-graph";
 import { clientPath } from "@/lib/client-path";
 import type { PreheatDepth } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
@@ -178,6 +180,10 @@ export default function PreheatPage() {
             ))}
           </div>
         </div>
+      </section>
+
+      <section className="preheat-video-block">
+        <SnezhnayaVideoSlider graph={snezhnayaGraph} language={language} />
       </section>
 
       {error ? (

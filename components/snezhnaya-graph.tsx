@@ -4,16 +4,13 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
   LoaderCircle,
-  Play,
   RotateCcw,
   Sparkles,
 } from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
+import { SnezhnayaVideoSlider } from "@/components/snezhnaya-video-slider";
 import { TraceTimeline } from "@/components/trace-timeline";
 import { clientPath } from "@/lib/client-path";
 import type { ChatResult } from "@/lib/domain";
@@ -130,7 +127,13 @@ function parseSseBlock(block: string) {
   return { event, data };
 }
 
-export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
+export function SnezhnayaGraph({
+  graph,
+  showVideos = true,
+}: {
+  graph: SnezhnayaGraphData;
+  showVideos?: boolean;
+}) {
   const { preferences } = usePreferences();
   const language = preferences.language;
   const [selectedId, setSelectedId] = useState(initialSnezhnayaNodeId(graph));
@@ -141,7 +144,6 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
   const [relationError, setRelationError] = useState("");
   const [detailOpen, setDetailOpen] = useState(false);
   const [highlightedId, setHighlightedId] = useState("");
-  const [videoIndex, setVideoIndex] = useState(0);
 
   const selectedNode = graph.nodes.find((node) => node.id === selectedId);
   const relationNodes = relationIds
@@ -238,68 +240,9 @@ export function SnezhnayaGraph({ graph }: { graph: SnezhnayaGraphData }) {
 
   return (
     <section className="snezhnaya-section snezhnaya-intel-section reveal">
-      <div className="snezhnaya-video-slider">
-        <div className="snezhnaya-video-slider-body">
-          <div
-            className="snezhnaya-video-cover"
-            style={{ backgroundImage: `url(${graph.videos[videoIndex].coverImageUrl})` }}
-          >
-            <span className="snezhnaya-video-badge">
-              <Sparkles size={15} />
-              {t(language, "至冬预热", "Snezhnaya preheat")}
-            </span>
-          </div>
-          <div className="snezhnaya-video-copy">
-            <h1>{localize(graph.videos[videoIndex].title, language)}</h1>
-            <p>{localize(graph.videos[videoIndex].description, language)}</p>
-            <div className="snezhnaya-video-actions">
-              <a href={graph.videos[videoIndex].youtubeUrls[language]} target="_blank" rel="noreferrer">
-                <Play size={16} />
-                YouTube
-              </a>
-              <a href={graph.videos[videoIndex].miyousheUrl} target="_blank" rel="noreferrer">
-                <ExternalLink size={16} />
-                {t(language, "米游社", "Miyoushe")}
-              </a>
-            </div>
-          </div>
-        </div>
-        <div className="snezhnaya-video-nav">
-          <button
-            type="button"
-            className="snezhnaya-video-nav-arrow"
-            onClick={() =>
-              setVideoIndex(
-                (videoIndex - 1 + graph.videos.length) % graph.videos.length,
-              )
-            }
-            aria-label={t(language, "上一个视频", "Previous video")}
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <div className="snezhnaya-video-dots">
-            {graph.videos.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                className={i === videoIndex ? "dot active" : "dot"}
-                onClick={() => setVideoIndex(i)}
-                aria-label={t(language, `切换至第 ${i + 1} 个视频`, `Go to video ${i + 1}`)}
-              />
-            ))}
-          </div>
-          <button
-            type="button"
-            className="snezhnaya-video-nav-arrow"
-            onClick={() =>
-              setVideoIndex((videoIndex + 1) % graph.videos.length)
-            }
-            aria-label={t(language, "下一个视频", "Next video")}
-          >
-            <ChevronRight size={22} />
-          </button>
-        </div>
-      </div>
+      {showVideos ? (
+        <SnezhnayaVideoSlider graph={graph} language={language} />
+      ) : null}
 
       <div className="snezhnaya-workbench">
         <div className="snezhnaya-map snezhnaya-intel-map">

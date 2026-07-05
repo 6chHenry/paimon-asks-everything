@@ -39,13 +39,17 @@ describe("Genshin-style homepage source", () => {
   it("keeps homepage orchestration small and delegates visual sections", () => {
     const page = source("app", "page.tsx");
 
+    expect(page).toContain("HomeVideoCarousel");
+    expect(page.indexOf("<HomeVideoCarousel")).toBeLessThan(
+      page.indexOf("<HomeHeroIntel"),
+    );
     expect(page).toContain("HomeHeroIntel");
-    expect(page).toContain("HomeVideoFeature");
     expect(page).toContain("HomeCharacterDossier");
     expect(page).toContain("HomeGraphSummary");
     expect(page).toContain("HomePreheatBrief");
     expect(page).toContain("HomeAskEntry");
     expect(page).toContain("TravelerContextDrawer");
+    expect(page).not.toContain("HomeVideoFeature");
     expect(page).not.toContain("<SnezhnayaGraph graph={snezhnayaGraph} />");
   });
 
@@ -65,7 +69,7 @@ describe("Genshin-style homepage source", () => {
 
     for (const exportName of [
       "HomeHeroIntel",
-      "HomeVideoFeature",
+      "HomeVideoCarousel",
       "HomeCharacterDossier",
       "HomeGraphSummary",
       "HomePreheatBrief",
@@ -74,6 +78,24 @@ describe("Genshin-style homepage source", () => {
     ]) {
       expect(home).toContain(`export function ${exportName}`);
     }
+    expect(home).toContain("window.setInterval");
+    expect(home).toContain("manualControl");
+    expect(home).toContain("setManualControl(true)");
+    expect(home).toContain("video.miyousheUrl");
+  });
+
+  it("keeps graph videos out of the homepage graph and moves them to preheat", () => {
+    const homePage = source("app", "page.tsx");
+    const preheatPage = source("app", "preheat", "page.tsx");
+    const graph = source("components", "snezhnaya-graph.tsx");
+    const slider = source("components", "snezhnaya-video-slider.tsx");
+
+    expect(homePage).toContain("showVideos={false}");
+    expect(preheatPage).toContain("SnezhnayaVideoSlider");
+    expect(preheatPage).toContain("preheat-video-block");
+    expect(graph).toContain("showVideos = true");
+    expect(graph).toContain("SnezhnayaVideoSlider");
+    expect(slider).toContain("video.miyousheUrl");
   });
 });
 

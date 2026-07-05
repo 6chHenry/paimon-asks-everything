@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BookOpenCheck,
   Compass,
+  ExternalLink,
   MessageCircleMore,
   Play,
   Settings2,
@@ -26,6 +28,76 @@ import type {
 import { labels, t } from "@/lib/i18n";
 import type { SnezhnayaGraphData } from "@/lib/snezhnaya-graph";
 import { localize } from "@/lib/snezhnaya-graph";
+
+export function HomeVideoCarousel({
+  language,
+  graph,
+}: {
+  language: Language;
+  graph: SnezhnayaGraphData;
+}) {
+  const [videoIndex, setVideoIndex] = useState(0);
+  const [manualControl, setManualControl] = useState(false);
+  const video = graph.videos[videoIndex] ?? graph.videos[0];
+
+  useEffect(() => {
+    if (manualControl || graph.videos.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setVideoIndex((current) => (current + 1) % graph.videos.length);
+    }, 5200);
+    return () => window.clearInterval(timer);
+  }, [graph.videos.length, manualControl]);
+
+  function selectVideo(index: number) {
+    setManualControl(true);
+    setVideoIndex(index);
+  }
+
+  if (!video) return null;
+
+  return (
+    <section className="home-video-carousel reveal">
+      <a
+        className="home-video-stage"
+        href={video.youtubeUrls[language]}
+        target="_blank"
+        rel="noreferrer"
+        style={{ backgroundImage: `url(${video.coverImageUrl})` }}
+        aria-label={localize(video.title, language)}
+      >
+        <span className="home-video-kicker">
+          <Play size={16} />
+          {t(language, "至冬影像", "Snezhnaya footage")}
+        </span>
+        <div className="home-video-title">
+          <small>{String(videoIndex + 1).padStart(2, "0")} / {String(graph.videos.length).padStart(2, "0")}</small>
+          <strong>{localize(video.title, language)}</strong>
+        </div>
+      </a>
+      <div className="home-video-links">
+        <a href={video.youtubeUrls[language]} target="_blank" rel="noreferrer">
+          <Play size={15} />
+          YouTube
+        </a>
+        <a href={video.miyousheUrl} target="_blank" rel="noreferrer">
+          <ExternalLink size={15} />
+          {t(language, "米游社", "Miyoushe")}
+        </a>
+      </div>
+      <div className="home-video-dots" aria-label={t(language, "切换视频", "Switch video")}>
+        {graph.videos.map((item, index) => (
+          <button
+            type="button"
+            key={localize(item.title, "en")}
+            className={index === videoIndex ? "active" : undefined}
+            onClick={() => selectVideo(index)}
+            aria-label={localize(item.title, language)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export function HomeHeroIntel({
   language,
@@ -53,13 +125,6 @@ export function HomeHeroIntel({
             )}
           </em>
         </h1>
-        <p>
-          {t(
-            language,
-            "把愚人众、神之心、旧秩序与角色去向放在一张情报桌上，先看全局，再进入轻剧透导览。",
-            "Place the Fatui, Gnoses, old order, and character fates on one intelligence desk. Read the map first, then enter a light-spoiler guide.",
-          )}
-        </p>
         <div className="home-hero-actions">
           <a className="secondary-button" href={clientPath("/preheat")}>
             {t(language, "进入预热", "Enter preheat")}
@@ -90,44 +155,6 @@ export function HomeHeroIntel({
   );
 }
 
-export function HomeVideoFeature({
-  language,
-  graph,
-}: {
-  language: Language;
-  graph: SnezhnayaGraphData;
-}) {
-  const video = graph.videos[0];
-
-  return (
-    <section className="home-video-feature reveal delay-2">
-      <div
-        className="home-video-cover"
-        style={{ backgroundImage: `url(${video.coverImageUrl})` }}
-      >
-        <span>
-          <Play size={16} />
-          {t(language, "官方视频索引", "Official video index")}
-        </span>
-      </div>
-      <div className="home-video-copy">
-        <span className="section-index">01 / VIDEO</span>
-        <h2>{localize(video.title, language)}</h2>
-        <p>{localize(video.description, language)}</p>
-        <a
-          className="secondary-button"
-          href={video.youtubeUrls[language]}
-          target="_blank"
-          rel="noreferrer"
-        >
-          YouTube
-          <ArrowRight size={16} />
-        </a>
-      </div>
-    </section>
-  );
-}
-
 export function HomeCharacterDossier({
   language,
   graph,
@@ -150,15 +177,8 @@ export function HomeCharacterDossier({
   return (
     <section className="home-character-dossier reveal">
       <div className="home-section-heading">
-        <span className="section-index">02 / DOSSIER</span>
+        <span className="section-index">01 / DOSSIER</span>
         <h2>{t(language, "角色档案优先级", "Character dossier priority")}</h2>
-        <p>
-          {t(
-            language,
-            "先看有头像与执行官身份的节点，快速建立人物坐标。",
-            "Harbinger nodes with portraits come first, giving the cast a quick visual coordinate system.",
-          )}
-        </p>
       </div>
       <div className="home-dossier-grid">
         {dossierNodes.map((node) => (
@@ -215,13 +235,6 @@ export function HomeGraphSummary({
           {t(language, "关系图摘要", "Graph summary")}
         </span>
         <h2>{t(language, "从宏观势力到单点证据", "From factions to evidence points")}</h2>
-        <p>
-          {t(
-            language,
-            "完整图谱保留交互分析，首页只给你最强入口、关键角色和阅读顺序。",
-            "The full map keeps relationship analysis. The homepage gives the strongest entry, key cast, and reading order.",
-          )}
-        </p>
       </div>
       <dl>
         <div>
@@ -270,13 +283,6 @@ export function HomePreheatBrief({
       <aside className="home-preheat-rule">
         <Compass size={24} />
         <strong>{t(language, "今日导览原则", "Today's guide rule")}</strong>
-        <p>
-          {t(
-            language,
-            "轻剧透会按旅行者状态锁定后续地区；完整考据会展开已实装的后续内容。",
-            "Light spoilers lock later regions by Traveler context. Research view opens released later content.",
-          )}
-        </p>
       </aside>
     </section>
   );
@@ -291,13 +297,6 @@ export function HomeAskEntry({ language }: { language: Language }) {
           {t(language, "还没想明白？", "Still uncertain?")}
         </span>
         <h2>{t(language, "把问题交给派蒙", "Ask Paimon directly")}</h2>
-        <p>
-          {t(
-            language,
-            "从当前进度、剧透偏好和关注点出发，把线索整理成可追问的答案。",
-            "Use your progress, spoiler preference, and focus areas to turn loose clues into follow-up answers.",
-          )}
-        </p>
       </div>
       <a className="primary-button" href={clientPath("/ask")}>
         {t(language, "去提问", "Ask now")}

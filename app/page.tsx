@@ -8,7 +8,7 @@ import {
   HomeGraphSummary,
   HomeHeroIntel,
   HomePreheatBrief,
-  HomeVideoFeature,
+  HomeVideoCarousel,
   TravelerContextDrawer,
 } from "@/components/home-intel";
 import { usePreferences } from "@/components/preferences-provider";
@@ -75,12 +75,12 @@ export default function HomePage() {
 
   return (
     <div className="home-page home-intel-page">
+      <HomeVideoCarousel language={language} graph={snezhnayaGraph} />
       <HomeHeroIntel
         language={language}
         graph={snezhnayaGraph}
         graphHref="#snezhnaya-graph"
       />
-      <HomeVideoFeature language={language} graph={snezhnayaGraph} />
       <HomeCharacterDossier
         language={language}
         graph={snezhnayaGraph}
@@ -94,6 +94,7 @@ export default function HomePage() {
       <section id="snezhnaya-graph" className="home-full-graph">
         <SnezhnayaGraph
           graph={snezhnayaGraph}
+          showVideos={false}
         />
       </section>
       <HomePreheatBrief
