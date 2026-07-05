@@ -114,3 +114,36 @@ describe("Genshin-style Snezhnaya graph source", () => {
     expect(graph).toContain("AnswerCard");
   });
 });
+
+describe("Genshin-style responsive safeguards", () => {
+  it("defines responsive rules for shell, homepage hero, dossier cards, and graph preview", () => {
+    const css = source("app", "globals.css");
+
+    for (const selector of [
+      ".game-bottom-nav",
+      ".home-hero-intel",
+      ".home-graph-preview",
+      ".home-dossier-grid",
+      ".traveler-context-drawer",
+      ".snezhnaya-intel-section",
+    ]) {
+      expect(css).toContain(selector);
+    }
+
+    expect(css).toContain("@media (max-width: 980px)");
+    expect(css).toContain("@media (max-width: 760px)");
+    expect(css).toContain("@media (max-width: 560px)");
+  });
+
+  it("does not reintroduce known mojibake in redesigned homepage sources", () => {
+    const combined = [
+      source("app", "page.tsx"),
+      source("components", "home-intel.tsx"),
+      source("components", "preheat-note.tsx"),
+    ].join("\n");
+
+    for (const badFragment of ["鍓", "绋", "鈥", "澶", "闂"]) {
+      expect(combined).not.toContain(badFragment);
+    }
+  });
+});
