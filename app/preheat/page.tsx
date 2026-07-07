@@ -32,6 +32,7 @@ export default function PreheatPage() {
   const [graphId, setGraphId] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [noteOpened, setNoteOpened] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -127,9 +128,7 @@ export default function PreheatPage() {
   );
   const activeGraph = useMemo(() => {
     if (!data) return null;
-    return (
-      data.availableRelationGraphs[graphId ?? ""] ?? data.relationGraph
-    );
+    return data.availableRelationGraphs[graphId ?? ""] ?? data.relationGraph;
   }, [data, graphId]);
   const currentTopic =
     preheatTopics.find((item) => item.id === topicId) ??
@@ -137,18 +136,12 @@ export default function PreheatPage() {
     preheatTopics[0];
 
   function openCurrentNote() {
-    document
-      .querySelector(".preheat-intel-workbench")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  if (loading && !data) {
-    return (
-      <div className="page-loader">
-        <LoaderCircle className="spin" />
-        {t(language, "正在整理神之心事件链...", "Arranging the Gnosis event chain...")}
-      </div>
-    );
+    setNoteOpened(true);
+    window.requestAnimationFrame(() => {
+      document
+        .querySelector(".preheat-result-panel")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   return (
@@ -161,17 +154,23 @@ export default function PreheatPage() {
         onStart={openCurrentNote}
       />
 
+      {noteOpened && loading && !data ? (
+        <div className="page-loader preheat-result-panel">
+          <LoaderCircle className="spin" />
+          {t(language, "正在整理神之心事件链...", "Arranging the Gnosis event chain...")}
+        </div>
+      ) : null}
 
-      {error ? (
-        <div className="error-card">
+      {noteOpened && error ? (
+        <div className="error-card preheat-result-panel">
           <CircleAlert size={18} />
           {error}
         </div>
       ) : null}
 
-      {data ? (
+      {noteOpened && data ? (
         <>
-          <div className="content-notice">{data.contentNotice}</div>
+          <div className="content-notice preheat-result-panel">{data.contentNotice}</div>
           <section className="preheat-workbench preheat-intel-workbench">
             <aside className="timeline-column">
               <div className="column-heading">

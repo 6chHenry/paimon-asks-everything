@@ -6,6 +6,7 @@ import { verifySpoilerToken } from "@/lib/spoiler-token";
 import { formatTraceSse, makeTraceEvent } from "@/lib/trace";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const rateLimit = checkRateLimit({

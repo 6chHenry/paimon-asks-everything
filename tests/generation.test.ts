@@ -1085,4 +1085,42 @@ describe("grounded generation", () => {
     expect(result.answer).not.toContain("长按");
     expect(result.answer).not.toContain("蛇之狡谋");
   });
+
+
+  it("uses a clean evidence fallback when the first LLM call fails cold", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("cold_start_timeout");
+      }),
+    );
+    const zhEntry: KnowledgeEntry = {
+      ...entry,
+      id: "sandrone-public-zh",
+      language: "zh-CN",
+      title: "\u6851\u591a\u6d85\u516c\u5f00\u8eab\u4efd",
+      content: "\u6851\u591a\u6d85\u662f\u611a\u4eba\u4f17\u6267\u884c\u5b98\uff0c\u4e0e\u673a\u68b0\u9020\u7269\u6709\u660e\u786e\u5173\u8054\u3002",
+      summary: "\u6851\u591a\u6d85\u4e0e\u673a\u68b0\u9020\u7269\u6709\u516c\u5f00\u5173\u8054\u3002",
+      aliases: ["\u6851\u591a\u6d85"],
+    };
+
+    const result = await generateGroundedResponse({
+      question: "\u6851\u591a\u6d85\u662f\u8c01",
+      language: "zh-CN",
+      profile: "new",
+      entries: [zhEntry],
+      external: [],
+    });
+
+    expect(result.answer).toContain("\u5148\u8bf4\u7ed3\u8bba");
+    expect(result.answer).toContain("\u6851\u591a\u6d85");
+    expect(result.answer).not.toContain("\u934f\u5806");
+  });
 });

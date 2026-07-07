@@ -1,7 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, Flame, MessageCircleMore, Sparkles, TestTube2 } from "lucide-react";
+import {
+  BarChart3,
+  Flame,
+  MessageCircleMore,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sparkles,
+  TestTube2,
+} from "lucide-react";
 import { usePreferences } from "@/components/preferences-provider";
 import { clientPath } from "@/lib/client-path";
 
@@ -18,6 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const activePath = pathname.replace(/^.*\/proxy\/\d+/u, "") || "/";
   const { preferences, setPreferences } = usePreferences();
   const isZh = preferences.language === "zh-CN";
+  const [navCollapsed, setNavCollapsed] = useState(false);
 
   const renderNavigation = () =>
     navigation.map((item) => {
@@ -30,6 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           key={item.href}
           className={`game-nav-item${isActive ? " active" : ""}`}
           aria-current={isActive ? "page" : undefined}
+          title={isZh ? item.labelZh : item.labelEn}
         >
           <Icon size={17} />
           <span>{isZh ? item.labelZh : item.labelEn}</span>
@@ -38,17 +49,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
 
   return (
-    <div className="site-shell game-shell">
+    <div className={`site-shell game-shell${navCollapsed ? " nav-collapsed" : ""}`}>
       <aside className="game-nav-rail" aria-label="Global navigation">
-        <a href={clientPath("/")} className="game-brand" aria-label="Paimon Asks Everything">
-          <span className="brand-sigil">
-            <Sparkles size={18} />
-          </span>
-          <span>
-            <strong>{isZh ? "派蒙三千问" : "Paimon Asks Everything"}</strong>
-            <small>{isZh ? "版本理解 Agent" : "Version understanding agent"}</small>
-          </span>
-        </a>
+        <div className="game-nav-head">
+          <a href={clientPath("/")} className="game-brand" aria-label="Paimon Asks Everything">
+            <span className="brand-sigil">
+              <Sparkles size={18} />
+            </span>
+            <span>
+              <strong>{isZh ? "派蒙三千问" : "Paimon Asks Everything"}</strong>
+              <small>{isZh ? "版本理解 Agent" : "Version understanding agent"}</small>
+            </span>
+          </a>
+          <button
+            className="game-nav-collapse"
+            type="button"
+            onClick={() => setNavCollapsed((collapsed) => !collapsed)}
+            aria-label={navCollapsed ? "Expand navigation" : "Collapse navigation"}
+            aria-expanded={!navCollapsed}
+          >
+            {navCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+          </button>
+        </div>
         <nav className="game-nav-list" aria-label="Main navigation">{renderNavigation()}</nav>
       </aside>
       <div className="game-frame">

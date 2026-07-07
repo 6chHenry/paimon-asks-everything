@@ -152,6 +152,23 @@ describe("question understanding", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("does not cache a rule-only fallback when model understanding fails", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    process.env.QUESTION_UNDERSTANDING_LLM_ENABLED = "true";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    const fetchMock = vi.fn(async () => new Response("cold", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await understandQuestion("what is the moonlit lantern covenant", "en");
+    await understandQuestion("what is the moonlit lantern covenant", "en");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("uses the model to enrich aliases for an inferred character Story Quest", () => {
     const rule = ruleUnderstandQuestion("法尔伽传说任务故事梗概", "zh-CN");
 

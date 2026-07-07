@@ -369,14 +369,17 @@ export async function understandQuestion(
   const cached = understandingCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
   const rule = ruleUnderstandQuestion(question, language);
-  const model = shouldUseModelQuestionUnderstanding(question, rule)
+  const needsModel = shouldUseModelQuestionUnderstanding(question, rule);
+  const model = needsModel
     ? await understandQuestionWithModel(question, language)
     : null;
   const value = reconcileQuestionUnderstanding(question, rule, model);
-  understandingCache.set(cacheKey, {
-    expiresAt: Date.now() + UNDERSTANDING_CACHE_TTL_MS,
-    value,
-  });
+  if (!needsModel || model) {
+    understandingCache.set(cacheKey, {
+      expiresAt: Date.now() + UNDERSTANDING_CACHE_TTL_MS,
+      value,
+    });
+  }
   return value;
 }
 

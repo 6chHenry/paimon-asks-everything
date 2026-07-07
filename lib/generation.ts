@@ -848,6 +848,82 @@ function paragraphsFromText(answer: string): AnswerParagraph[] {
     .filter((paragraph) => paragraph.text);
 }
 
+function coldSafeDeterministicAnswer(input: {
+  question: string;
+  language: Language;
+  profile: Profile;
+  entries: KnowledgeEntry[];
+  external: Citation[];
+  deepStory?: boolean;
+}) {
+  const sameLanguageEntries = input.entries.filter(
+    (entry) => entry.language === input.language,
+  );
+  const usableEntries = sameLanguageEntries.length
+    ? sameLanguageEntries
+    : input.language === "en"
+      ? input.entries.filter(
+          (entry) => !containsCjkText(`${entry.summary} ${entry.content}`),
+        )
+      : input.entries;
+
+  if (input.external.length) {
+    return directExternalEvidenceAnswer({
+      language: input.language,
+      question: input.question,
+      external: input.external,
+    });
+  }
+
+  if (input.deepStory && usableEntries.length) {
+    const headings =
+      input.language === "zh-CN"
+        ? ["\u6545\u4e8b\u8d77\u70b9", "\u5173\u952e\u4eba\u7269", "\u6545\u4e8b\u8109\u7edc", "\u6838\u5fc3\u4e3b\u9898"]
+        : ["Where it begins", "Key people", "Story thread", "Core themes"];
+    const body = usableEntries
+      .slice(0, 4)
+      .map((entry, index) => `## ${headings[index]}\n${entry.content}`)
+      .join("\n\n");
+    return input.language === "zh-CN"
+      ? `\u65c5\u884c\u8005\uff0c\u8fd9\u6761\u6545\u4e8b\u7ebf\u5f88\u957f\uff0c\u6d3e\u8499\u5148\u6309\u73b0\u6709\u8d44\u6599\u987a\u5e8f\u8bb2\u6e05\u695a\uff1a\n\n${body}\n\n\u6765\u6e90\u548c\u5ef6\u4f38\u9605\u8bfb\u90fd\u653e\u5728\u4e0b\u9762\u3002`
+      : `Traveler, this story is a long one, so Paimon will take it in order!\n\n${body}\n\nSources and further reading are below.`;
+  }
+
+  const supporting = usableEntries.slice(0, 3);
+  const details = supporting
+    .map((entry) => entry.summary.replace(/[\u3002\uff1b.!;]+$/u, ""))
+    .join(input.language === "zh-CN" ? "\uff1b" : " ");
+  const hasSpeculation = supporting.some(
+    (entry) =>
+      entry.factStatus === "community_speculation" ||
+      entry.factStatus === "demo_hypothesis",
+  );
+  if (input.language === "zh-CN") {
+    return [
+      input.profile === "returning"
+        ? "\u53ef\u4ee5\uff01\u4e0d\u7528\u628a\u65e7\u5185\u5bb9\u5168\u90fd\u8865\u5b8c\u3002"
+        : "\u5148\u8bf4\u7ed3\u8bba\uff01\u770b\u8fd9\u51e0\u6761\u80cc\u666f\u5c31\u591f\u4e86\u3002",
+      details,
+      hasSpeculation
+        ? "\u63a8\u6d4b\u548c\u6f14\u793a\u5047\u8bbe\u90fd\u5df2\u6807\u51fa\u3002"
+        : "\u6765\u6e90\u90fd\u653e\u5728\u4e0b\u9762\u3002",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+  return [
+    input.profile === "returning"
+      ? "Yes! You do not need every old quest."
+      : "Short answer, Traveler: these points are enough.",
+    details,
+    hasSpeculation
+      ? "Theories and demo hypotheses are labeled."
+      : "The sources are below.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function generationFallback(input: {
   question: string;
   language: Language;
@@ -856,7 +932,7 @@ function generationFallback(input: {
   external: Citation[];
   deepStory?: boolean;
 }) {
-  const answer = deterministicAnswer(input);
+  const answer = coldSafeDeterministicAnswer(input);
   return {
     answer,
     answerParagraphs: paragraphsFromText(answer),
@@ -951,6 +1027,8 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       }),
     },
   ];
+  let bestExternal: Citation[] = input.external;
+  let bestSearchPlan = fallbackSearchPlan;
 
   try {
     let searchedExternal: Citation[] = [];
@@ -1106,6 +1184,8 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       plan: searchPlan,
       language: input.language,
     });
+    bestExternal = external;
+    bestSearchPlan = searchPlan;
     const evidenceFallback = generationFallback({ ...input, external });
     const evidence = buildEvidence({ entries: input.entries, external });
     const allowedSourceIds = new Set(evidence.map((item) => item.id));
@@ -1262,13 +1342,12 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       status: "error",
       message: "生成出错，改用保守回答",
     });
+    const fallback = generationFallback({ ...input, external: bestExternal });
     return {
-      ...initialFallback,
-      external: input.external,
-      citedSourceIds: initialFallback.answerParagraphs.flatMap(
-        (paragraph) => paragraph.citationIds,
-      ),
-      searchPlan: fallbackSearchPlan,
+      ...fallback,
+      external: bestExternal,
+      citedSourceIds: fallback.answerParagraphs.flatMap((paragraph) => paragraph.citationIds),
+      searchPlan: bestSearchPlan,
     };
   }
 }

@@ -61,6 +61,11 @@ main { flex: 1; }
     radial-gradient(circle at 90% 0%, rgba(200, 170, 110, .2), transparent 21rem),
     linear-gradient(135deg, rgba(21, 39, 47, .08), rgba(157, 79, 72, .04)),
     var(--parchment-light);
+  transition: grid-template-columns .24s ease;
+}
+
+.game-shell.nav-collapsed {
+  grid-template-columns: 76px minmax(0, 1fr);
 }
 
 .game-nav-rail {
@@ -79,6 +84,7 @@ main { flex: 1; }
     var(--shell-blue);
   color: var(--parchment-light);
   box-shadow: 18px 0 44px rgba(21, 39, 47, .2);
+  transition: width .24s ease, padding .24s ease;
 }
 
 .game-nav-rail::after {
@@ -89,6 +95,34 @@ main { flex: 1; }
   pointer-events: none;
 }
 
+.game-nav-head {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 8px;
+  align-items: start;
+}
+
+.game-nav-collapse {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(200, 170, 110, .36);
+  border-radius: 4px;
+  background: rgba(244, 234, 210, .08);
+  color: var(--frame-gold-soft);
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.game-nav-collapse:hover {
+  border-color: rgba(200, 170, 110, .62);
+  background: rgba(244, 234, 210, .14);
+  transform: translateY(-1px);
+}
+
 .game-brand {
   position: relative;
   z-index: 1;
@@ -97,6 +131,29 @@ main { flex: 1; }
   gap: 12px;
   min-width: 0;
   padding: 9px;
+}
+
+.game-shell.nav-collapsed .game-nav-rail {
+  width: 76px;
+  padding: 18px 10px;
+}
+
+.game-shell.nav-collapsed .game-nav-head {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+.game-shell.nav-collapsed .game-brand {
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.game-shell.nav-collapsed .game-brand > span:last-child {
+  display: none;
+}
+
+.game-shell.nav-collapsed .game-nav-collapse {
+  width: 42px;
 }
 
 .brand-sigil {
@@ -156,6 +213,14 @@ main { flex: 1; }
   transition: color .18s ease, background .18s ease, border-color .18s ease, transform .18s ease;
 }
 
+.game-shell.nav-collapsed .game-nav-item {
+  min-height: 46px;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 0;
+  padding: 0;
+}
+
 .game-nav-item svg {
   justify-self: center;
   color: var(--frame-gold-soft);
@@ -165,6 +230,10 @@ main { flex: 1; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.game-shell.nav-collapsed .game-nav-item span {
+  display: none;
 }
 
 .game-nav-item:hover,
@@ -178,6 +247,12 @@ main { flex: 1; }
 
 .game-nav-item[aria-current="page"] {
   box-shadow: inset 3px 0 0 var(--frame-gold);
+}
+
+.game-shell.nav-collapsed .game-nav-item:hover,
+.game-shell.nav-collapsed .game-nav-item[aria-current="page"],
+.game-shell.nav-collapsed .game-nav-item.active {
+  transform: none;
 }
 
 .game-frame {

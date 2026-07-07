@@ -19,6 +19,10 @@ describe("Genshin-style shell source", () => {
     expect(appShell).toContain("aria-current");
     expect(appShell).toContain("clientPath(\"/\")");
     expect(appShell).toContain("版本情报");
+    expect(appShell).toContain("navCollapsed");
+    expect(appShell).toContain("game-nav-collapse");
+    expect(appShell).toContain("PanelLeftClose");
+    expect(appShell).toContain("PanelLeftOpen");
     expect(appShell).not.toContain("className=\"topbar\"");
     expect(appShell).not.toContain("className=\"nav-links\"");
   });
@@ -29,6 +33,8 @@ describe("Genshin-style shell source", () => {
     expect(css).toContain("--shell-blue");
     expect(css).toContain("--frame-gold");
     expect(css).toContain(".game-nav-rail");
+    expect(css).toContain(".game-shell.nav-collapsed");
+    expect(css).toContain(".game-nav-collapse");
     expect(css).toContain(".game-status-bar");
     expect(css).toContain(".game-bottom-nav");
     expect(css).toContain("@media (max-width: 760px)");
@@ -121,6 +127,7 @@ describe("Genshin-style preheat source", () => {
 
     expect(page).toContain("preheat-intel-page");
     expect(page).toContain("PreheatNote");
+    expect(page).toContain("noteOpened");
     expect(page).not.toContain("preheat-intel-masthead");
     expect(page).toContain("preheat-intel-workbench");
     expect(page).toContain("GnosisTimeline");
@@ -177,7 +184,7 @@ describe("Genshin-style responsive safeguards", () => {
       source("components", "preheat-note.tsx"),
     ].join("\n");
 
-    for (const badFragment of ["鍓", "绋", "鈥", "澶", "闂"]) {
+    for (const badFragment of ["閸?", "缁?", "閳?", "婢?", "闂?"]) {
       expect(combined).not.toContain(badFragment);
     }
   });
