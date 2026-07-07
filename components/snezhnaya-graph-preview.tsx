@@ -13,12 +13,28 @@ export function SnezhnayaGraphPreview({
   language: Language;
   href: string;
 }) {
-  const previewNodes = graph.nodes
+  const basePreviewNodes = graph.nodes
     .filter((node) => node.graphPosition)
     .slice(0, 12);
+  const pinnedNodeIds = ["pantalone"];
+  const pinnedPreviewNodes = pinnedNodeIds
+    .map((nodeId) =>
+      graph.nodes.find((node) => node.id === nodeId && node.graphPosition),
+    )
+    .filter((node): node is (typeof graph.nodes)[number] => Boolean(node))
+    .filter((node) => !basePreviewNodes.some((item) => item.id === node.id));
+  const previewNodes = [...basePreviewNodes, ...pinnedPreviewNodes];
 
   return (
-    <a className="home-graph-preview" href={href} aria-label={language === "zh-CN" ? "打开至冬关系图" : "Open Snezhnaya relationship graph"}>
+    <a
+      className="home-graph-preview"
+      href={href}
+      aria-label={
+        language === "zh-CN"
+          ? "打开至冬关系图"
+          : "Open Snezhnaya relationship graph"
+      }
+    >
       <span className="home-graph-preview-orbit" aria-hidden="true" />
       {previewNodes.map((node) => (
         <span

@@ -41,12 +41,16 @@ describe("Genshin-style homepage source", () => {
 
     expect(page).toContain("HomeVideoCarousel");
     expect(page.indexOf("<HomeVideoCarousel")).toBeLessThan(
+      page.indexOf("<SnezhnayaCharacterCarousel"),
+    );
+    expect(page.indexOf("<SnezhnayaCharacterCarousel")).toBeLessThan(
       page.indexOf("<HomeHeroIntel"),
     );
+    expect(page).toContain("SnezhnayaCharacterCarousel");
     expect(page).toContain("HomeHeroIntel");
-    expect(page).toContain("HomeCharacterDossier");
-    expect(page).toContain("HomeGraphSummary");
-    expect(page).toContain("HomePreheatBrief");
+    expect(page).not.toContain("HomeCharacterDossier");
+    expect(page).not.toContain("HomeGraphSummary");
+    expect(page).not.toContain("HomePreheatBrief");
     expect(page).toContain("HomeAskEntry");
     expect(page).toContain("TravelerContextDrawer");
     expect(page).not.toContain("HomeVideoFeature");
@@ -61,6 +65,7 @@ describe("Genshin-style homepage source", () => {
     expect(preview).toContain("href={href}");
     expect(preview).toContain("aria-label");
     expect(preview).toContain("graph.nodes");
+    expect(preview).toContain("\"pantalone\"");
     expect(preview).not.toContain("analyzeRelationship");
   });
 
@@ -91,8 +96,9 @@ describe("Genshin-style homepage source", () => {
     const slider = source("components", "snezhnaya-video-slider.tsx");
 
     expect(homePage).toContain("showVideos={false}");
-    expect(preheatPage).toContain("SnezhnayaVideoSlider");
-    expect(preheatPage).toContain("preheat-video-block");
+    expect(preheatPage).toContain("PreheatNote");
+    expect(preheatPage).not.toContain("SnezhnayaVideoSlider");
+    expect(preheatPage).not.toContain("preheat-video-block");
     expect(graph).toContain("showVideos = true");
     expect(graph).toContain("SnezhnayaVideoSlider");
     expect(slider).toContain("video.miyousheUrl");
@@ -114,7 +120,8 @@ describe("Genshin-style preheat source", () => {
     const page = source("app", "preheat", "page.tsx");
 
     expect(page).toContain("preheat-intel-page");
-    expect(page).toContain("preheat-intel-masthead");
+    expect(page).toContain("PreheatNote");
+    expect(page).not.toContain("preheat-intel-masthead");
     expect(page).toContain("preheat-intel-workbench");
     expect(page).toContain("GnosisTimeline");
     expect(page).toContain("RelationMap");
@@ -143,6 +150,7 @@ describe("Genshin-style responsive safeguards", () => {
 
     for (const selector of [
       ".game-bottom-nav",
+      ".snezhnaya-character-carousel",
       ".home-hero-intel",
       ".home-graph-preview",
       ".home-dossier-grid",

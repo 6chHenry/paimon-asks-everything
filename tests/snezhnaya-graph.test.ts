@@ -34,6 +34,7 @@ const sampleGraph: SnezhnayaGraphData = {
       miyousheUrl: "https://www.miyoushe.com/ys/article/test",
     },
   ],
+  characterPreviews: [],
   nodes: [
     {
       id: "tsaritsa",
@@ -464,6 +465,46 @@ describe("curated Snezhnaya graph catalog", () => {
     );
     expect(snezhnayaGraph.videos[0].youtubeUrls["zh-CN"]).toContain("youtube");
     expect(snezhnayaGraph.videos[0].miyousheUrl).toContain("miyoushe");
+  });
+
+  it("curates the new Snezhnaya character artwork as bilingual carousel items", () => {
+    expect(snezhnayaGraph.characterPreviews).toHaveLength(2);
+    expect(snezhnayaGraph.characterPreviews.map((item) => item.id)).toEqual([
+      "alyosha-preview",
+      "odette-preview",
+    ]);
+
+    for (const item of snezhnayaGraph.characterPreviews) {
+      expect(item.name["zh-CN"], item.id).not.toBe("");
+      expect(item.name.en, item.id).not.toBe("");
+      expect(item.imageUrls["zh-CN"], item.id).toMatch(
+        /^\/snezhnaya\/characters\/[a-z-]+-zh\.png$/u,
+      );
+      expect(item.imageUrls.en, item.id).toMatch(
+        /^\/snezhnaya\/characters\/[a-z-]+-en\.jpg$/u,
+      );
+      expect(
+        existsSync(path.join(process.cwd(), "public", item.imageUrls["zh-CN"].slice(1))),
+        item.id,
+      ).toBe(true);
+      expect(
+        existsSync(path.join(process.cwd(), "public", item.imageUrls.en.slice(1))),
+        item.id,
+      ).toBe(true);
+      expect(item.sourceUrls["zh-CN"], item.id).toContain("miyoushe.com/ys/article/");
+      expect(item.sourceUrls.en, item.id).toContain("x.com/GenshinImpact/status/");
+    }
+  });
+
+  it("auto-rotates the character carousel from the Snezhnaya overview", () => {
+    const source = readFileSync(
+      path.join(process.cwd(), "components", "snezhnaya-character-carousel.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("setInterval");
+    expect(source).toContain("snezhnaya-character-carousel");
+    expect(source).toContain("graph.characterPreviews");
   });
 
   it("provides a bilingual Fandom text clue for every keyword", () => {

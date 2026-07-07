@@ -1,26 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   HomeAskEntry,
-  HomeCharacterDossier,
-  HomeGraphSummary,
   HomeHeroIntel,
-  HomePreheatBrief,
   HomeVideoCarousel,
   TravelerContextDrawer,
 } from "@/components/home-intel";
 import { usePreferences } from "@/components/preferences-provider";
+import { SnezhnayaCharacterCarousel } from "@/components/snezhnaya-character-carousel";
 import { SnezhnayaGraph } from "@/components/snezhnaya-graph";
-import {
-  defaultPreheatTopicId,
-  preheatTopics,
-} from "@/data/preheat-topics";
 import { snezhnayaGraph } from "@/data/snezhnaya-graph";
 import type {
   Focus,
-  PreheatDepth,
   Profile,
   Progress,
 } from "@/lib/domain";
@@ -35,16 +26,9 @@ const profileDescriptions = {
 };
 
 export default function HomePage() {
-  const router = useRouter();
   const { preferences, setPreferences } = usePreferences();
   const language = preferences.language;
   const isZh = language === "zh-CN";
-  const [topicId] = useState(defaultPreheatTopicId);
-  const [depth, setDepth] = useState<PreheatDepth>("guided");
-  const topic =
-    preheatTopics.find((item) => item.id === topicId) ??
-    preheatTopics.find((item) => item.id === defaultPreheatTopicId) ??
-    preheatTopics[0];
 
   const profileItems = (Object.keys(labels.profile) as Profile[]).map(
     (value) => ({
@@ -67,26 +51,11 @@ export default function HomePage() {
     });
   }
 
-  function focusFullGraph(_nodeId: string) {
-    document
-      .getElementById("snezhnaya-graph")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   return (
     <div className="home-page home-intel-page">
       <HomeVideoCarousel language={language} graph={snezhnayaGraph} />
+      <SnezhnayaCharacterCarousel language={language} graph={snezhnayaGraph} />
       <HomeHeroIntel
-        language={language}
-        graph={snezhnayaGraph}
-        graphHref="#snezhnaya-graph"
-      />
-      <HomeCharacterDossier
-        language={language}
-        graph={snezhnayaGraph}
-        onSelectNode={focusFullGraph}
-      />
-      <HomeGraphSummary
         language={language}
         graph={snezhnayaGraph}
         graphHref="#snezhnaya-graph"
@@ -97,17 +66,6 @@ export default function HomePage() {
           showVideos={false}
         />
       </section>
-      <HomePreheatBrief
-        topic={topic}
-        language={language}
-        selectedDepth={depth}
-        onSelectDepth={setDepth}
-        onStart={() =>
-          router.push(
-            `/preheat?topicId=${encodeURIComponent(topicId)}&depth=${depth}`,
-          )
-        }
-      />
       <HomeAskEntry language={language} />
       <TravelerContextDrawer
         language={language}

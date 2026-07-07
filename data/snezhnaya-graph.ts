@@ -67,6 +67,49 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       miyousheUrl: "https://www.miyoushe.com/ys/article/76245042",
     },
   ],
+  characterPreviews: [
+    {
+      id: "alyosha-preview",
+      name: { "zh-CN": "阿罗夏", en: "Alyosha" },
+      title: { "zh-CN": "疾掠弋缇", en: "Swift-Striding Hound" },
+      roleLine: { "zh-CN": "冬猎士", en: "Winter Hunter" },
+      teaser: {
+        "zh-CN": "似隼疾掠，弋猎于冬。至冬雪原里的猎人，用脚步带回猎获与希望。",
+        en: "A winter hunter from Snezhnaya whose warmth cuts through the cold as surely as his rifle does.",
+      },
+      imageUrls: {
+        "zh-CN": "/snezhnaya/characters/alyosha-zh.png",
+        en: "/snezhnaya/characters/alyosha-en.jpg",
+      },
+      sourceUrls: {
+        "zh-CN": "https://www.miyoushe.com/ys/article/76419633",
+        en: "https://x.com/GenshinImpact/status/2072983692977274980",
+      },
+      accent: "electro",
+    },
+    {
+      id: "odette-preview",
+      name: { "zh-CN": "奥黛塔", en: "Odette" },
+      title: { "zh-CN": "翾风回雪", en: "Swirling Snow" },
+      roleLine: {
+        "zh-CN": "科洛列夫茨基剧团的首席芭蕾舞者",
+        en: "Prima Ballerina of the Korolevskiy Troupe",
+      },
+      teaser: {
+        "zh-CN": "舞步让至冬的风雪都停驻片刻；幕落之后，她仍回到愚人众的另一重身份。",
+        en: "A ballerina whose precision stills Snezhnaya's winds, then returns to the Fatui after the curtain falls.",
+      },
+      imageUrls: {
+        "zh-CN": "/snezhnaya/characters/odette-zh.png",
+        en: "/snezhnaya/characters/odette-en.jpg",
+      },
+      sourceUrls: {
+        "zh-CN": "https://www.miyoushe.com/ys/article/76412986",
+        en: "https://x.com/GenshinImpact/status/2072893092378681807",
+      },
+      accent: "cryo",
+    },
+  ],
   nodes: [
     {
       id: "tsaritsa",

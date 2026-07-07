@@ -77,6 +77,17 @@ export interface SnezhnayaVideoMeta {
   miyousheUrl: string;
 }
 
+export interface SnezhnayaCharacterPreview {
+  id: string;
+  name: LocalizedText;
+  title: LocalizedText;
+  roleLine: LocalizedText;
+  teaser: LocalizedText;
+  imageUrls: Record<Language, string>;
+  sourceUrls: Record<Language, string>;
+  accent: "electro" | "cryo";
+}
+
 export interface SnezhnayaTextClue {
   id: string;
   title: string;
@@ -128,6 +139,7 @@ export interface SnezhnayaEdge {
 
 export interface SnezhnayaGraphData {
   videos: SnezhnayaVideoMeta[];
+  characterPreviews: SnezhnayaCharacterPreview[];
   nodes: SnezhnayaNode[];
   edges: SnezhnayaEdge[];
 }

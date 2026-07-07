@@ -8,14 +8,15 @@ import {
   CircleAlert,
   LoaderCircle,
   Network,
-  Sparkles,
 } from "lucide-react";
 import { GnosisTimeline } from "@/components/gnosis-timeline";
+import { PreheatNote } from "@/components/preheat-note";
 import { RelationMap } from "@/components/relation-map";
-import { SnezhnayaVideoSlider } from "@/components/snezhnaya-video-slider";
 import { usePreferences } from "@/components/preferences-provider";
-import { defaultPreheatTopicId } from "@/data/preheat-topics";
-import { snezhnayaGraph } from "@/data/snezhnaya-graph";
+import {
+  defaultPreheatTopicId,
+  preheatTopics,
+} from "@/data/preheat-topics";
 import { clientPath } from "@/lib/client-path";
 import type { PreheatDepth } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
@@ -130,61 +131,36 @@ export default function PreheatPage() {
       data.availableRelationGraphs[graphId ?? ""] ?? data.relationGraph
     );
   }, [data, graphId]);
+  const currentTopic =
+    preheatTopics.find((item) => item.id === topicId) ??
+    preheatTopics.find((item) => item.id === defaultPreheatTopicId) ??
+    preheatTopics[0];
+
+  function openCurrentNote() {
+    document
+      .querySelector(".preheat-intel-workbench")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   if (loading && !data) {
     return (
       <div className="page-loader">
         <LoaderCircle className="spin" />
-        {t(language, "正在整理神之心事件链…", "Arranging the Gnosis event chain…")}
+        {t(language, "正在整理神之心事件链...", "Arranging the Gnosis event chain...")}
       </div>
     );
   }
 
   return (
     <div className="preheat-page preheat-intel-page page-wrap">
-      <section className="preheat-masthead preheat-intel-masthead">
-        <div>
-          <span className="eyebrow">
-            <Sparkles size={14} />
-            {t(language, "至冬预热题设", "Snezhnaya preheat scenario")}
-          </span>
-          <h1>{data?.topic.title}</h1>
-          <p>{data?.topic.intro}</p>
-        </div>
-        <div className="preheat-controls">
-          <label>
-            <span>{t(language, "策划主题", "Curated topic")}</span>
-            <select
-              value={topicId}
-              onChange={(event) => setTopicId(event.target.value)}
-            >
-              {data?.topics.map((topic) => (
-                <option key={topic.id} value={topic.id}>
-                  {topic.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="depth-tabs">
-            {(["guided", "research"] as PreheatDepth[]).map((item) => (
-              <button
-                type="button"
-                key={item}
-                className={depth === item ? "active" : undefined}
-                onClick={() => setDepth(item)}
-              >
-                {item === "guided"
-                    ? t(language, "3 分钟", "3 min")
-                    : t(language, "完整考据", "Research")}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PreheatNote
+        topic={currentTopic}
+        language={language}
+        selectedDepth={depth}
+        onSelectDepth={setDepth}
+        onStart={openCurrentNote}
+      />
 
-      <section className="preheat-video-block">
-        <SnezhnayaVideoSlider graph={snezhnayaGraph} language={language} />
-      </section>
 
       {error ? (
         <div className="error-card">
@@ -205,7 +181,7 @@ export default function PreheatPage() {
                   <p>
                     {depth === "guided"
                       ? t(language, "只放确定事件", "Confirmed events only")
-                      : t(language, "含后续地区线索", "Includes later-region clues")}
+                      : t(language, "包含后续地区线索", "Includes later-region clues")}
                   </p>
                 </div>
               </div>
