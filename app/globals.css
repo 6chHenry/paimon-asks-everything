@@ -1362,14 +1362,14 @@ main { flex: 1; }
   padding: 14px;
   border: 1px solid rgba(200,170,110,.42);
   background:
-    linear-gradient(90deg, rgba(255,248,234,.06) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(255,248,234,.05) 1px, transparent 1px),
-    radial-gradient(circle at 50% 28%, rgba(184,220,228,.18), transparent 42%),
+    linear-gradient(90deg, rgba(255,248,234,.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255,248,234,.035) 1px, transparent 1px),
+    radial-gradient(circle at 50% 28%, rgba(184,220,228,.12), transparent 42%),
     var(--shell-blue-deep);
   background-size: 34px 34px, 34px 34px, auto, auto;
   box-shadow:
     inset 0 0 0 1px rgba(234,217,168,.18),
-    12px 14px 0 rgba(200,170,110,.14);
+    12px 14px 0 rgba(200,170,110,.1);
 }
 
 .snezhnaya-map-pan-hint {
@@ -1391,19 +1391,19 @@ main { flex: 1; }
   isolation: isolate;
   border: 1px solid rgba(234,217,168,.42);
   background:
-    linear-gradient(90deg, rgba(25,49,62,.12) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(25,49,62,.1) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255,248,224,.7) 0 18%, rgba(220,224,219,.44) 18% 31%, rgba(217,231,232,.72) 31% 100%),
-    radial-gradient(circle at 50% 6%, rgba(255,255,255,.82), transparent 22%),
-    radial-gradient(circle at 16% 54%, rgba(111,146,162,.13), transparent 30%),
-    radial-gradient(circle at 86% 68%, rgba(201,154,82,.1), transparent 25%),
-    linear-gradient(rgba(25,49,62,.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(25,49,62,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(25,49,62,.075) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(25,49,62,.065) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255,248,224,.6) 0 18%, rgba(220,224,219,.34) 18% 31%, rgba(217,231,232,.62) 31% 100%),
+    radial-gradient(circle at 50% 6%, rgba(255,255,255,.66), transparent 22%),
+    radial-gradient(circle at 16% 54%, rgba(111,146,162,.08), transparent 30%),
+    radial-gradient(circle at 86% 68%, rgba(201,154,82,.06), transparent 25%),
+    linear-gradient(rgba(25,49,62,.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(25,49,62,.018) 1px, transparent 1px),
     rgba(244,236,217,.45);
   background-size: 90px 98px, 90px 98px, auto, auto, auto, auto, 38px 38px, 38px 38px, auto;
   box-shadow:
     inset 0 1px rgba(255,255,255,.7),
-    0 18px 50px rgba(5,12,18,.24);
+    0 18px 50px rgba(5,12,18,.2);
 }
 
 .snezhnaya-map-canvas::before,
@@ -1417,8 +1417,8 @@ main { flex: 1; }
 .snezhnaya-map-canvas::before {
   inset: 0;
   background:
-    linear-gradient(180deg, transparent 17.8%, rgba(127,64,56,.13) 18%, transparent 18.2%, transparent 30.8%, rgba(25,49,62,.1) 31%, transparent 31.2%),
-    linear-gradient(180deg, rgba(255,255,255,.32), transparent 28%, transparent 78%, rgba(25,49,62,.04));
+    linear-gradient(180deg, transparent 17.8%, rgba(127,64,56,.075) 18%, transparent 18.2%, transparent 30.8%, rgba(25,49,62,.06) 31%, transparent 31.2%),
+    linear-gradient(180deg, rgba(255,255,255,.22), transparent 28%, transparent 78%, rgba(25,49,62,.025));
 }
 
 .snezhnaya-map-canvas::after {
@@ -1426,18 +1426,18 @@ main { flex: 1; }
   height: 520px;
   left: calc(50% - 260px);
   top: -360px;
-  border: 1px solid rgba(215,174,92,.12);
+  border: 1px solid rgba(215,174,92,.08);
   border-radius: 50%;
   box-shadow:
-    0 0 0 70px rgba(215,174,92,.025),
-    0 0 0 145px rgba(215,174,92,.018);
+    0 0 0 70px rgba(215,174,92,.014),
+    0 0 0 145px rgba(215,174,92,.01);
 }
 
 .snezhnaya-map-zone {
   position: absolute;
   z-index: 0;
   pointer-events: none;
-  color: rgba(25,49,62,.16);
+  color: rgba(25,49,62,.11);
   font: 600 28px/1 var(--display);
   letter-spacing: 0;
 }
@@ -1445,14 +1445,14 @@ main { flex: 1; }
 .snezhnaya-map-zone.zone-top {
   top: 24px;
   left: 28px;
-  color: rgba(127,64,56,.15);
+  color: rgba(127,64,56,.1);
 }
 
 .snezhnaya-map-zone.zone-axis {
   left: 50%;
   top: 183px;
   transform: translateX(-50%);
-  color: rgba(127,64,56,.22);
+  color: rgba(127,64,56,.16);
   font: 800 9px/1 var(--body);
   letter-spacing: .24em;
   text-transform: uppercase;
@@ -1462,7 +1462,7 @@ main { flex: 1; }
 .snezhnaya-map-zone.zone-bottom {
   left: 28px;
   top: 332px;
-  color: rgba(25,49,62,.13);
+  color: rgba(25,49,62,.09);
 }
 
 .snezhnaya-conflict-rift {
@@ -1474,8 +1474,8 @@ main { flex: 1; }
   height: 14%;
   pointer-events: none;
   background:
-    linear-gradient(180deg, transparent, rgba(127,64,56,.06), transparent),
-    repeating-linear-gradient(135deg, rgba(127,64,56,.1) 0 1px, transparent 1px 22px);
+    linear-gradient(180deg, transparent, rgba(127,64,56,.04), transparent),
+    repeating-linear-gradient(135deg, rgba(127,64,56,.07) 0 1px, transparent 1px 22px);
   clip-path: polygon(0 36%, 13% 45%, 27% 31%, 41% 47%, 55% 33%, 70% 49%, 84% 34%, 100% 44%, 100% 66%, 84% 57%, 70% 71%, 55% 55%, 41% 69%, 27% 53%, 13% 67%, 0 58%);
 }
 
@@ -1486,10 +1486,10 @@ main { flex: 1; }
   right: 28px;
   top: 55%;
   height: 28%;
-  border-top: 1px solid rgba(25,49,62,.2);
-  border-bottom: 1px solid rgba(25,49,62,.16);
+  border-top: 1px solid rgba(25,49,62,.14);
+  border-bottom: 1px solid rgba(25,49,62,.1);
   background:
-    linear-gradient(90deg, rgba(251,248,239,.12), rgba(217,231,232,.42), rgba(251,248,239,.12));
+    linear-gradient(90deg, rgba(251,248,239,.1), rgba(217,231,232,.28), rgba(251,248,239,.1));
   pointer-events: none;
 }
 
