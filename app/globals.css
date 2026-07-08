@@ -1568,16 +1568,16 @@ main { flex: 1; }
 }
 
 .snezhnaya-edge-label-bg {
-  fill: rgba(251,248,239,.95);
-  stroke: rgba(25,49,62,.18);
+  fill: rgba(251,248,239,.9);
+  stroke: rgba(25,49,62,.14);
   stroke-width: 1;
-  filter: drop-shadow(0 5px 8px rgba(35,48,52,.11));
+  filter: drop-shadow(0 3px 5px rgba(35,48,52,.08));
 }
 
 .snezhnaya-edge-label text {
-  fill: var(--ink-soft);
-  font: 800 10px var(--body);
-  letter-spacing: .02em;
+  fill: rgba(25,49,62,.78);
+  font: 750 9px var(--body);
+  letter-spacing: 0;
 }
 
 .snezhnaya-node {
