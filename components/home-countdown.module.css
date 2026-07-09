@@ -29,9 +29,11 @@
 .copy {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
+  align-items: center;
   gap: 18px;
   min-width: 0;
+  text-align: center;
 }
 
 .eyebrow {
@@ -39,14 +41,14 @@
   align-items: center;
   gap: 8px;
   color: var(--coral);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 850;
-  letter-spacing: .18em;
+  letter-spacing: .14em;
   text-transform: uppercase;
 }
 
 .copy h2 {
-  margin: 0;
+  margin: 12px 0 0;
   font: 500 clamp(28px, 3vw, 44px)/1.05 var(--display);
   letter-spacing: -.035em;
 }

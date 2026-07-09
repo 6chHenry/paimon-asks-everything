@@ -82,7 +82,7 @@ export function HomeCountdown({ language }: { language: Language }) {
           <div>
             <span className={styles.eyebrow}>
               <Clock3 size={14} />
-              {t(language, "至冬 7.0 更新倒计时", "Snezhnaya 7.0 update countdown")}
+              {t(language, "至冬7.0版本更新倒计时", "Snezhnaya 7.0 update countdown")}
             </span>
             <h2>
               {t(
