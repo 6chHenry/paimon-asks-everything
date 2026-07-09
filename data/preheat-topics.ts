@@ -60,9 +60,8 @@ export const preheatTopics: PreheatTopic[] = [
     id: defaultPreheatTopicId,
     titleZh: "七枚神之心分别经历了什么？",
     titleEn: "What happened to each of the seven Gnoses?",
-    introZh: "这条时间线只放已经在正式剧情中发生的流转事件。",
-    introEn:
-      "This timeline contains only transfers that occurred in released story content.",
+    introZh: "",
+    introEn: "",
     heroConceptIds: [
       "gnosis-mondstadt",
       "gnosis-sumeru",

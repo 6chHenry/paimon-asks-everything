@@ -10,8 +10,8 @@ const depthCopy: Record<
   { zh: string; en: string; noteZh: string; noteEn: string }
 > = {
   guided: {
-    zh: "3 分钟轻剧透",
-    en: "3-minute guide",
+    zh: "已过剧情回顾",
+    en: "Story recap",
     noteZh: "确定事件链 + 关键人物关系",
     noteEn: "Confirmed events + key relationships",
   },
@@ -56,7 +56,11 @@ export function PreheatNote({
           )}
         </p>
         <h1>{isZh ? topic.titleZh : topic.titleEn}</h1>
-        <p>{isZh ? topic.introZh : topic.introEn}</p>
+        {isZh ? (
+          topic.introZh ? <p>{topic.introZh}</p> : null
+        ) : topic.introEn ? (
+          <p>{topic.introEn}</p>
+        ) : null}
       </div>
       <div className="depth-selector" aria-label="Preheat depth">
         {(Object.keys(depthCopy) as PreheatDepth[]).map((depth) => {
@@ -82,13 +86,6 @@ export function PreheatNote({
         })}
       </div>
       <footer className="intel-brief-footer">
-        <span>
-          {t(
-            language,
-            "已实装文本 · 不含泄露 · 高风险剧透仍会二次确认",
-            "Released text only · No leaks · Major spoilers still reconfirm",
-          )}
-        </span>
         <button className="primary-button" type="button" onClick={onStart}>
           {t(language, "展开这张纸条", "Open the note")}
           <ArrowRight size={17} />

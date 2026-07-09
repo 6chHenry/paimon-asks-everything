@@ -1,7 +1,7 @@
 "use client";
 
 import type { Language } from "@/lib/domain";
-import { labels, t } from "@/lib/i18n";
+import { labels } from "@/lib/i18n";
 import type { PreheatView } from "@/lib/preheat";
 
 type Graph = PreheatView["relationGraph"];
@@ -74,13 +74,6 @@ export function RelationMap({
           </div>
         ))}
       </div>
-      <p>
-        {t(
-          language,
-          "图中每条边都绑定受控证据；虚线表示暗示或推测，不表示已确认因果。",
-          "Every edge is bound to controlled evidence; dashed lines mark implications or theory, not confirmed causality.",
-        )}
-      </p>
     </div>
   );
 }

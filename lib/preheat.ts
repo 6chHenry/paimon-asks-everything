@@ -34,8 +34,8 @@ const depthLabels: Record<
   { zh: string; en: string; durationZh: string; durationEn: string }
 > = {
   guided: {
-    zh: "3 分钟轻剧透",
-    en: "3-minute guided path",
+    zh: "已过剧情回顾",
+    en: "Story recap",
     durationZh: "确认事件链与关键关系",
     durationEn: "Confirmed event chain and key ties",
   },
@@ -164,10 +164,7 @@ function buildNarration(
   return {
     lead: "",
     points: visible.map((entry) => entry.summary),
-    factBoundary:
-      language === "zh-CN"
-        ? `证据边界：${topic.depthConceptIds[depth].length} 个受控概念；确定事件、文本暗示和社区观点会分开标注。`
-        : `Evidence boundary: ${topic.depthConceptIds[depth].length} controlled concepts; confirmed events, textual implications, and community views are labeled separately.`,
+    factBoundary: "",
   };
 }
 
@@ -304,10 +301,10 @@ export function getPreheatView(query: PreheatQuery) {
     contentNotice:
       query.language === "zh-CN"
         ? query.depth === "guided"
-          ? "3 分钟：按首页选择的主线进度锁定后续地区，只放确定事件。"
+          ? "已过剧情回顾：按首页选择的主线进度锁定后续地区，只放确定事件。"
           : "完整考据：完整剧透模式，会展开已实装后续地区、文本暗示与争议边界。"
         : query.depth === "guided"
-          ? "3 min: later regions stay locked by the home-page progress setting; confirmed events only."
+          ? "Story recap: later regions stay locked by the home-page progress setting; confirmed events only."
           : "Research: full-spoiler mode with released later regions, textual implications, and disputed boundaries.",
   };
 }

@@ -214,7 +214,9 @@ export default function PreheatPage() {
                     <li key={point}>{point}</li>
                   ))}
                 </ol>
-                <small>{data.narration.factBoundary}</small>
+                {data.narration.factBoundary ? (
+                  <small>{data.narration.factBoundary}</small>
+                ) : null}
               </article>
 
               {selectedTimeline ? (

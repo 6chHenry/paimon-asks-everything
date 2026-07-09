@@ -114,7 +114,7 @@ describe("preheat orchestration", () => {
 
     expect(guided.narration.lead).toBe("");
     expect(research.narration.lead).toBe("");
-    expect(guided.contentNotice).toContain("3 分钟");
+    expect(guided.contentNotice).toContain("已过剧情回顾");
     expect(research.contentNotice).toContain("完整考据");
   });
 
