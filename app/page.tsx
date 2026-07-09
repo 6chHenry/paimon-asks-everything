@@ -6,6 +6,7 @@ import {
   HomeVideoCarousel,
   TravelerContextDrawer,
 } from "@/components/home-intel";
+import { HomeCountdown } from "@/components/home-countdown";
 import { usePreferences } from "@/components/preferences-provider";
 import { SnezhnayaCharacterCarousel } from "@/components/snezhnaya-character-carousel";
 import { SnezhnayaGraph } from "@/components/snezhnaya-graph";
@@ -54,6 +55,7 @@ export default function HomePage() {
   return (
     <div className="home-page home-intel-page">
       <HomeVideoCarousel language={language} graph={snezhnayaGraph} />
+      <HomeCountdown language={language} />
       <SnezhnayaCharacterCarousel language={language} graph={snezhnayaGraph} />
       <HomeHeroIntel
         language={language}

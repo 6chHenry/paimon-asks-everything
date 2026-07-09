@@ -1,0 +1,187 @@
+.countdown {
+  position: relative;
+  margin: 18px 0 42px;
+  border: 1px solid rgba(200, 170, 110, .42);
+  background:
+    linear-gradient(90deg, rgba(25, 49, 62, .04) 1px, transparent 1px) 0 0 / 34px 34px,
+    linear-gradient(135deg, rgba(255, 248, 234, .86), rgba(244, 234, 210, .58));
+  box-shadow: 12px 14px 0 rgba(232, 220, 194, .52), 0 24px 70px rgba(42, 57, 63, .08);
+  overflow: hidden;
+}
+
+.countdown::before {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(255, 248, 234, .72);
+  pointer-events: none;
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(220px, .74fr) minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  min-width: 0;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--coral);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.copy h2 {
+  margin: 0;
+  font: 500 clamp(28px, 3vw, 44px)/1.05 var(--display);
+  letter-spacing: -.035em;
+}
+
+.copy p {
+  margin: 0;
+  max-width: 380px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.timeNote {
+  display: inline-flex;
+  width: fit-content;
+  padding: 6px 9px;
+  border: 1px solid rgba(111, 146, 162, .22);
+  background: rgba(111, 146, 162, .08);
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.flipGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+}
+
+.unit {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.card {
+  position: relative;
+  min-height: 112px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(42, 57, 63, .2);
+  background:
+    linear-gradient(180deg, rgba(25, 49, 62, .94), rgba(21, 39, 47, .98));
+  color: var(--parchment-light);
+  box-shadow: inset 0 1px 0 rgba(255, 248, 234, .18), 6px 7px 0 rgba(25, 49, 62, .12);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.card::before,
+.card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.card::before {
+  top: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 248, 234, .08), transparent);
+}
+
+.card::after {
+  top: calc(50% - .5px);
+  height: 1px;
+  background: rgba(255, 248, 234, .22);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .22);
+}
+
+.value {
+  position: relative;
+  z-index: 1;
+  display: block;
+  font: 560 clamp(34px, 5vw, 62px)/1 var(--display);
+  letter-spacing: .02em;
+  text-shadow: 0 8px 24px rgba(0, 0, 0, .22);
+  animation: flipTick .54s cubic-bezier(.2, 0, .2, 1);
+}
+
+.label {
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .18em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+@keyframes flipTick {
+  0% {
+    opacity: .35;
+    transform: rotateX(68deg) translateY(-6px);
+  }
+  52% {
+    opacity: 1;
+    transform: rotateX(-8deg) translateY(1px);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateX(0) translateY(0);
+  }
+}
+
+@media (max-width: 980px) {
+  .inner {
+    grid-template-columns: 1fr;
+  }
+
+  .flipGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .countdown {
+    margin: 12px 0 34px;
+  }
+
+  .inner {
+    padding: 18px;
+  }
+
+  .flipGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card {
+    min-height: 92px;
+  }
+
+  .value {
+    font-size: 42px;
+  }
+}
