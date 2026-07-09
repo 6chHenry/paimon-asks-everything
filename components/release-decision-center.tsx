@@ -37,20 +37,25 @@ import {
   type ReleaseInsightsInput,
   type ComprehensionRisk,
 } from "@/lib/release-insights";
+import type { ReleaseAiBriefing } from "@/lib/release-ai-briefing";
 import { getReleaseTopic } from "@/data/release-topic-map";
+
+type ReleaseDecisionPayload = ReleaseInsightsInput & {
+  releaseBriefing?: ReleaseAiBriefing;
+};
 
 /* ------------------------------------------------------------------ */
 /*  API wrapper                                                        */
 /* ------------------------------------------------------------------ */
 
-async function fetchInsights(): Promise<ReleaseInsightsInput> {
+async function fetchInsights(): Promise<ReleaseDecisionPayload> {
   const res = await fetch(clientPath("/api/insights"), { cache: "no-store" });
   if (!res.ok) throw new Error("load_failed");
   const json = (await res.json()) as Record<string, unknown>;
 
   // The API returns EnrichedInsights which extends aggregateInsights return.
   // We only need the fields defined in ReleaseInsightsInput — pick them out.
-  return json as unknown as ReleaseInsightsInput;
+  return json as unknown as ReleaseDecisionPayload;
 }
 
 /* ------------------------------------------------------------------ */
@@ -130,6 +135,39 @@ function evidenceRefZh(ref: string): string {
     : (EVIDENCE_SOURCE_NAMES_ZH[kind] ?? "其他证据");
 }
 
+function releaseEvidenceRefZh(ref: string): string {
+  if (ref.startsWith("topic=")) return `主题：${topicKeyZh(ref.slice(6))}`;
+  if (ref.startsWith("profile=")) {
+    const [key, count] = ref.slice(8).split(":");
+    return `${PROFILE_NAMES_ZH[key] ?? "未分类玩家"}${count ? `：${count}` : ""}`;
+  }
+  if (ref.startsWith("language=")) {
+    const [key, count] = ref.slice(9).split(":");
+    return `语言：${key === "zh-CN" ? "中文" : key}${count ? ` ${count}` : ""}`;
+  }
+  if (ref.startsWith("preheat=")) {
+    const [key, count] = ref.slice(8).split(":");
+    return `预热：${topicKeyZh(key)}${count ? ` ${count}` : ""}`;
+  }
+  if (ref.startsWith("timeline=")) {
+    const [key, count] = ref.slice(9).split(":");
+    return `时间线：${topicKeyZh(key)}${count ? ` ${count}` : ""}`;
+  }
+  if (ref.startsWith("graph=")) {
+    const [key, count] = ref.slice(6).split(":");
+    return `关系图：${topicKeyZh(key)}${count ? ` ${count}` : ""}`;
+  }
+  if (ref.startsWith("score=")) {
+    const [, topic = "", scoreKind = "", value = ""] =
+      ref.match(/^score=([^:]+):([^:]+):(.+)$/u) ?? [];
+    const label = scoreKind === "opportunity" ? "机会" : "风险";
+    return topic ? `${topicKeyZh(topic)}：${label} ${value}` : `评分：${value}`;
+  }
+  if (ref.startsWith("action=")) return "发布建议";
+  if (ref.startsWith("risk=")) return "风险判断";
+  return evidenceRefZh(ref);
+}
+
 function topicKeyZh(key: string): string {
   const releaseTopic = getReleaseTopic(key);
   if (releaseTopic) return releaseTopic.labelZh;
@@ -181,7 +219,7 @@ export default function ReleaseDecisionPage() {
   const isZh = true;
 
   const [data, setData] = useState<ReleaseDecisionData | null>(null);
-  const [rawInput, setRawInput] = useState<ReleaseInsightsInput | null>(null);
+  const [rawInput, setRawInput] = useState<ReleaseDecisionPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedActions, setExpandedActions] = useState(false);
@@ -291,6 +329,11 @@ export default function ReleaseDecisionPage() {
           </button>
         </div>
       </header>
+
+      <ReleaseBriefingDeck
+        briefing={rawInput?.releaseBriefing ?? null}
+        onSelectTopic={setSelectedTopic}
+      />
 
       {/* ---- Layer 1: Hero / primary conclusion ---- */}
       <ReleaseDecisionHero
@@ -407,6 +450,145 @@ export default function ReleaseDecisionPage() {
         onToggleAll={() => setShowAllEvidence(!showAllEvidence)}
       />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Layer 0: AI briefing                                               */
+/* ------------------------------------------------------------------ */
+
+function ReleaseEvidenceTags({ refs }: { refs: string[] }) {
+  if (!refs.length) return null;
+  return (
+    <div className="release-ai-evidence-tags">
+      {refs.slice(0, 4).map((ref) => (
+        <span key={ref}>{releaseEvidenceRefZh(ref)}</span>
+      ))}
+    </div>
+  );
+}
+
+function ReleaseBriefingDeck({
+  briefing,
+  onSelectTopic,
+}: {
+  briefing: ReleaseAiBriefing | null;
+  onSelectTopic: (topicId: string | null) => void;
+}) {
+  if (!briefing) return null;
+
+  return (
+    <section className="release-ai-briefing">
+      <div className="release-ai-briefing-head">
+        <div>
+          <span className="section-index">00</span>
+          <h2>制作组简报</h2>
+        </div>
+        <div className="release-ai-mode-row">
+          <span className={`release-ai-mode ${briefing.mode}`}>
+            {briefing.mode === "ai" ? "AI 综合" : "规则备用"}
+          </span>
+          {briefing.generatedAt ? (
+            <small>
+              {new Date(briefing.generatedAt).toLocaleDateString("zh-CN", {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </small>
+          ) : null}
+        </div>
+      </div>
+
+      <article className="release-ai-summary">
+        <div>
+          <span>当前判断</span>
+          <h3>{briefing.executiveSummary.title}</h3>
+          <p>{briefing.executiveSummary.readout}</p>
+        </div>
+        <aside>
+          <strong>下一步</strong>
+          <p>{briefing.executiveSummary.nextMove}</p>
+          <ReleaseEvidenceTags refs={briefing.executiveSummary.evidenceRefs} />
+        </aside>
+      </article>
+
+      <div className="release-ai-grid">
+        <section className="release-ai-panel release-ai-segments">
+          <header>
+            <h3>玩家需求切片</h3>
+            <p>按人群看他们到底缺哪块信息。</p>
+          </header>
+          <div className="release-ai-segment-list">
+            {briefing.playerSegments.map((segment) => (
+              <article key={segment.profile}>
+                <strong>{segment.label}</strong>
+                <p>{segment.need}</p>
+                <span>{segment.suggestedSupport}</span>
+                <ReleaseEvidenceTags refs={segment.evidenceRefs} />
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="release-ai-panel release-ai-actions">
+          <header>
+            <h3>制作动作清单</h3>
+            <p>把建议落到负责人、排期和验收标准。</p>
+          </header>
+          <div className="release-ai-action-list">
+            {briefing.productionActions.map((action) => (
+              <article key={`${action.title}-${action.owner}`}>
+                <div>
+                  <strong>{action.title}</strong>
+                  <span>{action.owner} · {action.timing}</span>
+                </div>
+                <p>{action.action}</p>
+                <small>{action.acceptanceCriteria}</small>
+                <ReleaseEvidenceTags refs={action.evidenceRefs} />
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <section className="release-ai-panel release-ai-matrix">
+        <header>
+          <h3>机会与风险矩阵</h3>
+          <p>不是只看热度，而是看它能不能安全进入近期发布。</p>
+        </header>
+        <div className="release-ai-matrix-list">
+          {briefing.opportunityMatrix.map((item) => (
+            <button
+              key={item.topicId}
+              type="button"
+              onClick={() => onSelectTopic(item.topicId)}
+            >
+              <div>
+                <strong>{item.topicLabel}</strong>
+                <span>机会 {item.opportunity} / 风险 {item.risk}</span>
+              </div>
+              <p>{item.interpretation}</p>
+              <small>{item.recommendedMove}</small>
+              <ReleaseEvidenceTags refs={item.evidenceRefs} />
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="release-ai-panel release-ai-questions">
+        <header>
+          <h3>还需要补采的问题</h3>
+          <p>这些问题会影响下一轮判断，不宜用猜的。</p>
+        </header>
+        <ul>
+          {briefing.missingDataQuestions.map((question) => (
+            <li key={question}>{question}</li>
+          ))}
+        </ul>
+      </section>
+    </section>
   );
 }
 
@@ -916,8 +1098,8 @@ function ReleaseEvidenceBench({
             <p>
               {t(
                 language,
-                "结论说明由规则模板生成。AI 仅用于将计算结果翻译为通俗解释，不修改分数。",
-                "Explanations are generated from rule templates. AI is only used to translate scores into plain language; it never modifies scores.",
+                "制作组简报会优先使用 AI 综合，但所有结论都必须绑定上方证据；模型不可用或引用越界时，页面会回到规则备用版本。",
+                "The production briefing uses AI synthesis first, but every conclusion must cite evidence. If the model is unavailable or cites unsupported evidence, this page falls back to deterministic rules.",
               )}
             </p>
           </div>
