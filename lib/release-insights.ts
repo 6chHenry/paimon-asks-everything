@@ -354,6 +354,19 @@ const FORMAT_MODULES: Record<ReleaseFormat, string[]> = {
   social_post: ["wiki_profile"],
 };
 
+const PROFILE_LABELS_ZH: Record<string, string> = {
+  returning: "回归玩家",
+  story: "剧情党玩家",
+  exploration: "探索型玩家",
+  casual: "轻量玩家",
+  new: "新玩家",
+  all: "全部玩家",
+};
+
+function formatProfilesZh(profiles: string[]): string {
+  return profiles.map((profile) => PROFILE_LABELS_ZH[profile] ?? profile).join("、");
+}
+
 function pickBestFormat(topic: ReleaseTopic, scored: ScoredTopic): ReleaseFormat {
   const available = topic.availableFormats;
   if (available.length === 0) return "faq";
@@ -440,7 +453,7 @@ function buildActions(
             .join(" + ")}。建议第 ${window === "week_1" ? "1" : window === "week_2" ? "2" : "3"} 周发布。`
         : format === "faq"
           ? `制作一篇 FAQ，先给结论再列背景。建议第 ${window === "week_1" ? "1" : window === "week_2" ? "2" : "3"} 周发布。`
-          : `建议以 ${formatLabel[0]} 形式发布，目标 ${profiles.join("、")} 玩家。`;
+          : `建议以 ${formatLabel[0]} 形式发布，目标 ${formatProfilesZh(profiles)}。`;
 
     const recommendedActionEn =
       format === "preheat_feature"

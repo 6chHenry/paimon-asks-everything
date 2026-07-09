@@ -26,7 +26,6 @@ import {
   UsersRound,
   Zap,
 } from "lucide-react";
-import { usePreferences } from "@/components/preferences-provider";
 import { clientPath } from "@/lib/client-path";
 import type { Language } from "@/lib/domain";
 import { t } from "@/lib/i18n";
@@ -38,6 +37,7 @@ import {
   type ReleaseInsightsInput,
   type ComprehensionRisk,
 } from "@/lib/release-insights";
+import { getReleaseTopic } from "@/data/release-topic-map";
 
 /* ------------------------------------------------------------------ */
 /*  API wrapper                                                        */
@@ -73,6 +73,8 @@ const FORMAT_NAMES: Record<ReleaseFormat, [string, string]> = {
   social_post: ["社媒内容", "Social post"],
 };
 
+const RELEASE_LANGUAGE: Language = "zh-CN";
+
 const WINDOW_NAMES: Record<string, [string, string]> = {
   week_1: ["第 1 周", "Week 1"],
   week_2: ["第 2 周", "Week 2"],
@@ -85,6 +87,81 @@ const CONFIDENCE_COLORS: Record<string, string> = {
   medium: "var(--gold)",
   low: "var(--coral)",
 };
+
+const PROFILE_NAMES_ZH: Record<string, string> = {
+  returning: "回归玩家",
+  story: "剧情党玩家",
+  exploration: "探索型玩家",
+  casual: "轻量玩家",
+  new: "新玩家",
+  all: "全部玩家",
+};
+
+const MODULE_NAMES_ZH: Record<string, string> = {
+  preheat: "版本预热页",
+  timeline: "时间线模块",
+  wiki_profile: "资料卡模块",
+  faq: "问答模块",
+  relationship_graph: "关系图模块",
+};
+
+const EVIDENCE_SOURCE_NAMES_ZH: Record<string, string> = {
+  questions: "玩家提问",
+  preheat: "预热阅读",
+  timeline: "时间线点击",
+  graph: "关系图互动",
+  risk_score: "风险评分",
+};
+
+function formatProfilesZh(profiles: string[]): string {
+  return profiles
+    .map((profile) => PROFILE_NAMES_ZH[profile] ?? "未分类玩家")
+    .join("、");
+}
+
+function moduleNameZh(moduleId: string): string {
+  return MODULE_NAMES_ZH[moduleId] ?? "其他模块";
+}
+
+function evidenceRefZh(ref: string): string {
+  const [kind, count] = ref.split(":");
+  return count
+    ? `${EVIDENCE_SOURCE_NAMES_ZH[kind] ?? "其他证据"}：${count}`
+    : (EVIDENCE_SOURCE_NAMES_ZH[kind] ?? "其他证据");
+}
+
+function topicKeyZh(key: string): string {
+  const releaseTopic = getReleaseTopic(key);
+  if (releaseTopic) return releaseTopic.labelZh;
+
+  const map: Record<string, string> = {
+    "seven-gnosis-journeys": "七枚神之心流转",
+    "why-fatui-collect-gnoses": "愚人众收集神之心目的",
+    "tsaritsa-known-unknown": "冰之女皇已知与未知",
+    gnosis_journey: "神之心流转",
+    gnosis_purpose: "愚人众收集神之心目的",
+    gnosis_collection_purpose: "愚人众收集神之心目的",
+    tsaritsa_goal: "冰之女皇目标",
+    sandrone_identity: "桑多涅身份与关系",
+    fontaine_catch_up: "枫丹回归补课",
+    terminology: "术语理解",
+    gnosis_third_descender: "神之心与第三降临者",
+    harbinger_hierarchy: "执行官层级与名称混淆",
+    layered_puzzle_help: "分层解谜提示",
+    long_tail_question: "长尾问题",
+    character_story_quest: "角色传说任务",
+  };
+  if (key.startsWith("character:")) return "角色相关问题";
+  return map[key] ?? "未归类主题";
+}
+
+function confidenceLabelZh(level: string): string {
+  return level === "high" ? "高" : level === "medium" ? "中" : "低";
+}
+
+function confidencePhraseZh(level: string): string {
+  return `${confidenceLabelZh(level)}信心`;
+}
 
 function confidenceDot(level: string) {
   return (
@@ -100,9 +177,8 @@ function confidenceDot(level: string) {
 /* ------------------------------------------------------------------ */
 
 export default function ReleaseDecisionPage() {
-  const { preferences } = usePreferences();
-  const language = preferences.language;
-  const isZh = language === "zh-CN";
+  const language = RELEASE_LANGUAGE;
+  const isZh = true;
 
   const [data, setData] = useState<ReleaseDecisionData | null>(null);
   const [rawInput, setRawInput] = useState<ReleaseInsightsInput | null>(null);
@@ -193,7 +269,7 @@ export default function ReleaseDecisionPage() {
             <span>
               {t(language, "数据截至", "Data as of")}{" "}
               {new Date(decisions.dataStatus.lastUpdated).toLocaleDateString(
-                language,
+                "zh-CN",
                 { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" },
               )}
             </span>
@@ -376,7 +452,7 @@ function ReleaseDecisionHero({
             </span>
             <span className="release-hero-format-sep">·</span>
             <UsersRound size={13} />
-            <span>{primaryAction.targetProfiles.join(", ")}</span>
+            <span>{formatProfilesZh(primaryAction.targetProfiles)}</span>
             <span className="release-hero-format-sep">·</span>
             <Clock size={13} />
             <span>
@@ -400,11 +476,7 @@ function ReleaseDecisionHero({
               {confidenceDot(primaryAction.confidence)}
               {t(language, "信心", "Conf")}{" "}
               {isZh
-                ? (primaryAction.confidence === "high"
-                    ? "高"
-                    : primaryAction.confidence === "medium"
-                      ? "中"
-                      : "低")
+                ? confidenceLabelZh(primaryAction.confidence)
                 : primaryAction.confidence}
             </span>
           </div>
@@ -522,10 +594,10 @@ function ReleaseActionCard({
     : WINDOW_NAMES[action.window][1];
   const confidenceLabel =
     action.confidence === "high"
-      ? isZh ? "高" : "high"
+      ? isZh ? confidenceLabelZh(action.confidence) : "high"
       : action.confidence === "medium"
-        ? isZh ? "中" : "medium"
-        : isZh ? "低" : "low";
+        ? isZh ? confidenceLabelZh(action.confidence) : "medium"
+        : isZh ? confidenceLabelZh(action.confidence) : "low";
 
   return (
     <article
@@ -548,7 +620,7 @@ function ReleaseActionCard({
             ? FORMAT_NAMES[action.format][0]
             : FORMAT_NAMES[action.format][1]}
         </span>
-        <span>{action.targetProfiles.join(", ")}</span>
+        <span>{formatProfilesZh(action.targetProfiles)}</span>
       </div>
       <div className="release-action-scores">
         <span className="release-score opp">
@@ -580,7 +652,17 @@ function ReleaseActionCard({
           <div className="release-evidence-tags">
             {action.reusableModules.map((mod) => (
               <span key={mod} className="release-evidence-tag">
-                {mod.replace(/_/g, " ")}
+                {moduleNameZh(mod)}
+              </span>
+            ))}
+          </div>
+          <strong>
+            {t(language, "证据引用", "Evidence refs")}
+          </strong>
+          <div className="release-evidence-tags">
+            {action.evidenceRefs.map((ref) => (
+              <span key={ref} className="release-evidence-tag">
+                {evidenceRefZh(ref)}
               </span>
             ))}
           </div>
@@ -631,10 +713,10 @@ function ReleaseRiskCard({
             {confidenceDot(risk.confidence)}
             <small>
               {risk.confidence === "high"
-                ? isZh ? "高信心" : "high conf"
+                ? isZh ? confidencePhraseZh(risk.confidence) : "high conf"
                 : risk.confidence === "medium"
-                  ? isZh ? "中信心" : "med conf"
-                  : isZh ? "低信心" : "low conf"}
+                  ? isZh ? confidencePhraseZh(risk.confidence) : "med conf"
+                  : isZh ? confidencePhraseZh(risk.confidence) : "low conf"}
             </small>
           </span>
           <button
@@ -664,7 +746,7 @@ function ReleaseRiskCard({
         <UsersRound size={12} />
         <span>
           {t(language, "影响", "Affects")}:{" "}
-          {risk.affectedProfiles.join(", ") || "all"}
+          {formatProfilesZh(risk.affectedProfiles) || "全部玩家"}
         </span>
       </div>
     </article>
@@ -753,7 +835,7 @@ function ReleaseEvidenceBench({
               {relevantTopics.map((topic) => (
                 <div key={topic.key} className="release-bar-row">
                   <span className="release-bar-label">
-                    {topic.key.replaceAll("_", " ")}
+                    {topicKeyZh(topic.key)}
                   </span>
                   <div className="release-bar-track">
                     <i
@@ -778,7 +860,7 @@ function ReleaseEvidenceBench({
               {selectedTopic
                 ? t(
                     language,
-                    `当前聚焦：${selectedTopic}。切换到"全部证据"查看完整统计。`,
+                    `当前聚焦：${topicKeyZh(selectedTopic)}。切换到“全部证据”查看完整统计。`,
                     `Currently focused: ${selectedTopic}. Switch to "All evidence" for full stats.`,
                   )
                 : t(
@@ -849,6 +931,15 @@ function ReleaseEvidenceBench({
                 "总样本低于 10 时不给高信心；单类信号低于 3 时仅观察不排期；实时增量低于 5 时不展示增长百分比。",
                 "No high confidence below 10 total samples; single signals below 3 are observed only; no growth percentages below 5 live increments.",
               )}
+            </p>
+          </div>
+          <div className="release-note-card">
+            <strong>当前证据引用</strong>
+            <p>
+              {[
+                ...input.topics.slice(0, 3).map((item) => `玩家提问：${topicKeyZh(item.key)} ${item.count} 次`),
+                ...input.preheat.topics.slice(0, 2).map((item) => `预热专题：${topicKeyZh(item.key)} ${item.count} 次`),
+              ].join("；") || "暂无可展示的站内证据。"}
             </p>
           </div>
         </div>
