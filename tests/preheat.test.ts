@@ -55,6 +55,27 @@ describe("preheat orchestration", () => {
     expect(validatePreheatCatalog()).toEqual([]);
   });
 
+  it("gives every visible local relation node an unlocked detail summary", () => {
+    const view = getPreheatView({
+      ...base,
+      depth: "research",
+      progress: "nodkrai",
+      spoilerPreference: "full",
+    });
+
+    for (const graph of Object.values(view.availableRelationGraphs)) {
+      expect(graph.nodes.length, graph.id).toBeGreaterThan(0);
+      for (const node of graph.nodes) {
+        expect(node.details.length, `${graph.id}:${node.id}`).toBeGreaterThan(0);
+        for (const detail of node.details) {
+          expect(detail.title.trim(), detail.id).not.toBe("");
+          expect(detail.summary.trim(), detail.id).not.toBe("");
+          expect(detail.sourceUrl.trim(), detail.id).not.toBe("");
+        }
+      }
+    }
+  });
+
   it("returns two structurally distinct depth views without a model", () => {
     const guided = getPreheatView({ ...base, depth: "guided" });
     const research = getPreheatView({

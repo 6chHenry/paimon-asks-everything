@@ -76,12 +76,47 @@ function localizeTopic(topic: PreheatTopic, language: Language) {
   };
 }
 
-function localizeRelationNode(node: RelationNode, language: Language) {
+function localizeRelationDetail(entry: KnowledgeEntry) {
+  return {
+    id: entry.conceptId,
+    title: entry.title,
+    summary: entry.summary,
+    factStatus: entry.factStatus,
+    sourceTitle: entry.source.title,
+    sourceUrl: entry.source.url,
+  };
+}
+
+function relationNodeDetails(
+  node: RelationNode,
+  edges: RelationGraph["edges"],
+  language: Language,
+  query: Pick<PreheatQuery, "progress">,
+  options: { allowFutureRegions?: boolean } = {},
+) {
+  const incidentConceptIds = edges
+    .filter((edge) => edge.from === node.id || edge.to === node.id)
+    .flatMap((edge) => edge.conceptIds);
+  const conceptIds = [...new Set([...node.conceptIds, ...incidentConceptIds])];
+  return conceptIds
+    .map((conceptId) => localizedEntry(conceptId, language))
+    .filter((entry): entry is KnowledgeEntry => Boolean(entry))
+    .filter((entry) => entryVisible(entry, query, options))
+    .map(localizeRelationDetail)
+    .slice(0, 4);
+}
+
+function localizeRelationNode(
+  node: RelationNode,
+  language: Language,
+  details: ReturnType<typeof relationNodeDetails>,
+) {
   return {
     id: node.id,
     label: language === "zh-CN" ? node.labelZh : node.labelEn,
     kind: node.kind,
     conceptIds: node.conceptIds,
+    details,
   };
 }
 
@@ -106,7 +141,13 @@ function localizeGraph(
       .filter((id) => visibleNodeIds.has(id))
       .map((id) => relationNodes.find((node) => node.id === id))
       .filter((node): node is RelationNode => Boolean(node))
-      .map((node) => localizeRelationNode(node, language)),
+      .map((node) =>
+        localizeRelationNode(
+          node,
+          language,
+          relationNodeDetails(node, visibleEdges, language, query, options),
+        ),
+      ),
     edges: visibleEdges.map((edge) => ({
       id: edge.id,
       from: edge.from,

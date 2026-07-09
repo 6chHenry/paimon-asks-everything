@@ -1,7 +1,8 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import type { Language } from "@/lib/domain";
-import { labels } from "@/lib/i18n";
+import { labels, t } from "@/lib/i18n";
 import type { PreheatView } from "@/lib/preheat";
 
 type Graph = PreheatView["relationGraph"];
@@ -26,8 +27,14 @@ export function RelationMap({
   language: Language;
   onNodeSelect: (nodeId: string) => void;
 }) {
+  const [selectedNodeId, setSelectedNodeId] = useState<string>();
   const coordinates = Object.fromEntries(
     graph.nodes.map((node, index) => [node.id, positions[index] ?? [50, 50]]),
+  );
+  const selectedNode = useMemo(
+    () =>
+      graph.nodes.find((node) => node.id === selectedNodeId) ?? graph.nodes[0],
+    [graph.nodes, selectedNodeId],
   );
   return (
     <div className="relation-map">
@@ -55,9 +62,15 @@ export function RelationMap({
             <button
               type="button"
               key={node.id}
-              className={`relation-node kind-${node.kind}`}
+              className={`relation-node kind-${node.kind}${
+                selectedNode?.id === node.id ? " active" : ""
+              }`}
               style={{ left: `${left}%`, top: `${top}%` }}
-              onClick={() => onNodeSelect(node.id)}
+              aria-pressed={selectedNode?.id === node.id}
+              onClick={() => {
+                setSelectedNodeId(node.id);
+                onNodeSelect(node.id);
+              }}
             >
               <span>{node.label}</span>
               <small>{node.kind}</small>
@@ -74,6 +87,36 @@ export function RelationMap({
           </div>
         ))}
       </div>
+      {selectedNode ? (
+        <article className="relation-detail" aria-live="polite">
+          <header>
+            <span>{selectedNode.kind}</span>
+            <h3>{selectedNode.label}</h3>
+          </header>
+          {selectedNode.details.length ? (
+            <ul>
+              {selectedNode.details.map((detail) => (
+                <li key={detail.id}>
+                  <span>{labels.fact[detail.factStatus][language]}</span>
+                  <strong>{detail.title}</strong>
+                  <p>{detail.summary}</p>
+                  <a href={detail.sourceUrl} target="_blank" rel="noreferrer">
+                    {detail.sourceTitle}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>
+              {t(
+                language,
+                "这个节点暂时没有可展示的已解锁详情。",
+                "This node has no unlocked detail yet.",
+              )}
+            </p>
+          )}
+        </article>
+      ) : null}
     </div>
   );
 }
