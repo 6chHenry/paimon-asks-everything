@@ -1,6 +1,6 @@
 .countdown {
   position: relative;
-  margin: 18px 0 42px;
+  margin: 0 0 42px;
   border: 1px solid rgba(200, 170, 110, .42);
   background:
     linear-gradient(90deg, rgba(25, 49, 62, .04) 1px, transparent 1px) 0 0 / 34px 34px,
@@ -57,18 +57,6 @@
   color: var(--ink-soft);
   font-size: 12px;
   line-height: 1.7;
-}
-
-.timeNote {
-  display: inline-flex;
-  width: fit-content;
-  padding: 6px 9px;
-  border: 1px solid rgba(111, 146, 162, .22);
-  background: rgba(111, 146, 162, .08);
-  color: var(--blue);
-  font-size: 10px;
-  font-weight: 760;
-  line-height: 1.35;
 }
 
 .flipGrid {
@@ -166,7 +154,7 @@
 
 @media (max-width: 640px) {
   .countdown {
-    margin: 12px 0 34px;
+    margin: 0 0 34px;
   }
 
   .inner {

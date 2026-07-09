@@ -54,8 +54,8 @@ export default function HomePage() {
 
   return (
     <div className="home-page home-intel-page">
-      <HomeVideoCarousel language={language} graph={snezhnayaGraph} />
       <HomeCountdown language={language} />
+      <HomeVideoCarousel language={language} graph={snezhnayaGraph} />
       <SnezhnayaCharacterCarousel language={language} graph={snezhnayaGraph} />
       <HomeHeroIntel
         language={language}

@@ -13,7 +13,6 @@ type CountdownSnapshot = {
   hours: number;
   minutes: number;
   seconds: number;
-  beijingNow: string;
 };
 
 function snapshot(): CountdownSnapshot {
@@ -30,15 +29,6 @@ function snapshot(): CountdownSnapshot {
     hours,
     minutes,
     seconds,
-    beijingNow: new Intl.DateTimeFormat("zh-CN", {
-      timeZone: "Asia/Shanghai",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    }).format(now),
   };
 }
 
@@ -48,7 +38,6 @@ function formatUnit(value: number, minLength = 2) {
 
 export function HomeCountdown({ language }: { language: Language }) {
   const [time, setTime] = useState<CountdownSnapshot | null>(null);
-  const isZh = language === "zh-CN";
 
   useEffect(() => {
     setTime(snapshot());
@@ -93,7 +82,7 @@ export function HomeCountdown({ language }: { language: Language }) {
           <div>
             <span className={styles.eyebrow}>
               <Clock3 size={14} />
-              {t(language, "北京时间倒计时", "Beijing time countdown")}
+              {t(language, "至冬 7.0 更新倒计时", "Snezhnaya 7.0 update countdown")}
             </span>
             <h2>
               {t(
@@ -102,21 +91,7 @@ export function HomeCountdown({ language }: { language: Language }) {
                 "Until August 12",
               )}
             </h2>
-            <p>
-              {t(
-                language,
-                "以北京时间 2026 年 8 月 12 日 00:00 为目标，每秒校准当前时间。",
-                "Counting down to August 12, 2026 00:00 Beijing time, updated every second.",
-              )}
-            </p>
           </div>
-          <span className={styles.timeNote}>
-            {time
-              ? isZh
-                ? `当前北京时间 ${time.beijingNow}`
-                : `Current Beijing time ${time.beijingNow}`
-              : t(language, "正在校准北京时间", "Calibrating Beijing time")}
-          </span>
         </div>
 
         <div className={styles.flipGrid} aria-live="polite">
