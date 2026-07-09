@@ -1,6 +1,13 @@
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import type { InsightBriefingCard } from "@/lib/insights";
 import type { aggregateInsights } from "@/lib/insights";
+import {
+  buildReleaseBriefingFallback,
+  buildReleaseBriefingPrompt,
+  validateReleaseAiBriefing,
+  type ReleaseAiBriefing,
+} from "@/lib/release-ai-briefing";
+import { computeReleaseDecisions } from "@/lib/release-insights";
 
 type BaseInsights = ReturnType<typeof aggregateInsights>;
 
@@ -21,6 +28,7 @@ export type EnrichedInsights = BaseInsights & {
   insightsMode: "ai" | "rules_fallback";
   aiGeneratedAt?: string;
   aiError?: string;
+  releaseBriefing: ReleaseAiBriefing;
 };
 
 function parseJsonObject(content: string) {
@@ -147,6 +155,7 @@ function validateAiCards(
 }
 
 function buildAiInsightPrompt(base: BaseInsights) {
+  const releaseDecisions = computeReleaseDecisions(base);
   return {
     total: base.total,
     liveCount: base.liveCount,
@@ -156,6 +165,7 @@ function buildAiInsightPrompt(base: BaseInsights) {
     categories: base.categories,
     topics: base.topics.slice(0, 8),
     signals: base.signals,
+    releaseDecisionBriefing: buildReleaseBriefingPrompt(base, releaseDecisions),
     consentedSamples: base.consentedSamples.map((sample) => ({
       language: sample.language,
       questionText: sample.questionText,
@@ -165,16 +175,24 @@ function buildAiInsightPrompt(base: BaseInsights) {
     instruction:
       "Generate 1-4 globalization strategy briefing cards from the aggregate evidence only. Do not invent topics, counts, languages, or player samples. Use plain language for publishing, community, FAQ, or localization teams. Each card must cite only strings from allowedEvidenceItems.",
     outputShape:
-      '{"briefingCards":[{"id":"ai-topic","topic":"fontaine_catch_up","titleZh":"...","titleEn":"...","plainSummaryZh":"...","plainSummaryEn":"...","playerNeedZh":"...","playerNeedEn":"...","strategyZh":"...","strategyEn":"...","affectedPlayers":"...","priority":"high|medium","evidenceItems":["topic=..."]}]}',
+      '{"briefingCards":[{"id":"ai-topic","topic":"fontaine_catch_up","titleZh":"...","titleEn":"...","plainSummaryZh":"...","plainSummaryEn":"...","playerNeedZh":"...","playerNeedEn":"...","strategyZh":"...","strategyEn":"...","affectedPlayers":"...","priority":"high|medium","evidenceItems":["topic=..."]}],"releaseBriefing":{"executiveSummary":{"title":"...","readout":"...","nextMove":"...","evidenceRefs":["topic=..."]},"playerSegments":[{"profile":"returning","label":"回归玩家","need":"...","suggestedSupport":"...","evidenceRefs":["profile=returning:5"]}],"opportunityMatrix":[{"topicId":"fontaine_catch_up","topicLabel":"枫丹回归补课","opportunity":60,"risk":40,"interpretation":"...","recommendedMove":"...","evidenceRefs":["topic=fontaine_catch_up"]}],"productionActions":[{"title":"...","owner":"剧情文案","timing":"第 1 周","action":"...","acceptanceCriteria":"...","evidenceRefs":["topic=fontaine_catch_up"]}],"missingDataQuestions":["..."]}}',
   };
 }
 
 export async function enrichInsightsWithAi(
   base: BaseInsights,
 ): Promise<EnrichedInsights> {
+  const releaseDecisions = computeReleaseDecisions(base);
+  const fallbackReleaseBriefing = (error?: string) =>
+    buildReleaseBriefingFallback(base, releaseDecisions, error);
   const apiKey = process.env.LLM_API_KEY;
   if (!apiKey) {
-    return { ...base, insightsMode: "rules_fallback", aiError: "not_configured" };
+    return {
+      ...base,
+      insightsMode: "rules_fallback",
+      aiError: "not_configured",
+      releaseBriefing: fallbackReleaseBriefing("not_configured"),
+    };
   }
 
   try {
@@ -191,7 +209,7 @@ export async function enrichInsightsWithAi(
         {
           role: "system",
           content:
-            "You are a globalization insights analyst for a game publishing team. Return strict JSON only. Ground every strategy in supplied aggregate evidence. Do not expose private reasoning.",
+            "You are a release insights analyst for a Chinese game production team. Return strict JSON only. Ground every strategy in supplied aggregate evidence. All releaseBriefing text must be natural Chinese, concrete, and actionable. Avoid vague business language. Do not expose private reasoning.",
         },
         {
           role: "user",
@@ -223,6 +241,7 @@ export async function enrichInsightsWithAi(
         ...base,
         insightsMode: "rules_fallback",
         aiError: `request_failed_${response.status}`,
+        releaseBriefing: fallbackReleaseBriefing(`request_failed_${response.status}`),
       };
     }
 
@@ -231,28 +250,41 @@ export async function enrichInsightsWithAi(
     };
     const content = payload.choices?.[0]?.message?.content;
     if (!content) {
-      return { ...base, insightsMode: "rules_fallback", aiError: "empty_output" };
+      return {
+        ...base,
+        insightsMode: "rules_fallback",
+        aiError: "empty_output",
+        releaseBriefing: fallbackReleaseBriefing("empty_output"),
+      };
     }
-    const cards = validateAiCards(parseJsonObject(content), base);
+    const parsed = parseJsonObject(content);
+    const cards = validateAiCards(parsed, base);
     if (!cards) {
       return {
         ...base,
         insightsMode: "rules_fallback",
         aiError: "invalid_or_unsupported_output",
+        releaseBriefing: fallbackReleaseBriefing("invalid_or_unsupported_output"),
       };
     }
+    const releaseBriefing =
+      validateReleaseAiBriefing(parsed, base, releaseDecisions) ??
+      fallbackReleaseBriefing("invalid_release_briefing");
 
     return {
       ...base,
       briefingCards: cards,
       insightsMode: "ai",
       aiGeneratedAt: new Date().toISOString(),
+      releaseBriefing,
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
     return {
       ...base,
       insightsMode: "rules_fallback",
-      aiError: error instanceof Error ? error.message : "unknown_error",
+      aiError: message,
+      releaseBriefing: fallbackReleaseBriefing(message),
     };
   }
 }
