@@ -59,14 +59,14 @@ export const preheatTopics: PreheatTopic[] = [
     ],
     relationGraphId: "fatui-gnosis-overview",
     suggestedQuestionsZh: [
-      "冰之女皇已经明确说过为什么收集神之心吗？",
-      "为什么愚人众在每个国家取得神之心的方法都不同？",
-      "神之心和第三降临者到底是什么关系？",
+      "从蒙德夺取到璃月依契约交付，为什么愚人众在前两国采用了完全不同的方式？",
+      "从稻妻的交换到须弥的谈判，雷神之心如何变成博士取得两枚神之心的筹码？",
+      "枫丹交付、纳塔未强夺、挪德卡莱失踪：这条后半段事件链为什么出现了断点？",
     ],
     suggestedQuestionsEn: [
-      "Has the Tsaritsa explicitly explained why she is collecting Gnoses?",
-      "Why does the Fatui use a different method in each nation?",
-      "What is the connection between the Gnoses and the Third Descender?",
+      "Why does the Fatui shift from seizing the Gnosis in Mondstadt to a contract transfer in Liyue?",
+      "How does the Electro Gnosis move from an Inazuma bargain to Dottore's negotiation for two Gnoses in Sumeru?",
+      "Fontaine hands one over, Natlan resists a seizure, and Nod-Krai loses the trail: where does the later chain break?",
     ],
   },
   {
@@ -122,14 +122,14 @@ export const preheatTopics: PreheatTopic[] = [
     ],
     relationGraphId: "gnosis-journey-overview",
     suggestedQuestionsZh: [
-      "目前哪些神之心已经确认在愚人众手里？",
-      "雷神之心为什么会从稻妻流转到须弥？",
-      "火神之心最后去了哪里？",
+      "蒙德到璃月：风神之心被夺、岩神之心依契约交付，这两段起点有什么差异？",
+      "稻妻到须弥：雷神之心如何从交换旅行者安全，变成博士取得两枚神之心的筹码？",
+      "枫丹、纳塔到挪德卡莱：水神之心交给仆人、火神之心未被强夺后又下落不明，留下了什么未解问题？",
     ],
     suggestedQuestionsEn: [
-      "Which Gnoses are confirmed to be in Fatui custody?",
-      "Why did the Electro Gnosis travel from Inazuma to Sumeru?",
-      "What is the Pyro Gnosis's latest known status?",
+      "Mondstadt to Liyue: how do Signora's seizure and the contract transfer change the starting point?",
+      "Inazuma to Sumeru: how does the Electro Gnosis move from a bargain for safety to Dottore's leverage for two Gnoses?",
+      "Fontaine, Natlan, and Nod-Krai: what unresolved question remains after the Hydro handoff, the failed seizure, and the missing Pyro Gnosis?",
     ],
   },
   {
@@ -183,14 +183,14 @@ export const preheatTopics: PreheatTopic[] = [
     ],
     relationGraphId: "tsaritsa-evidence-boundary",
     suggestedQuestionsZh: [
-      "哀叙冰玉能证明女皇要反抗天理吗？",
-      "苍白之火里的执行官动机能代表女皇吗？",
-      "火神之心失踪会改变女皇的收集计划吗？",
+      "蒙德的夺取与璃月的契约交付，能证明女皇拥有一套统一的收集计划吗？",
+      "稻妻的交换与须弥的谈判，哪些是执行官策略，哪些能归因于女皇？",
+      "从枫丹到纳塔再到挪德卡莱，火神之心没有按既有路径流转，这会改变哪些已知与未知？",
     ],
     suggestedQuestionsEn: [
-      "Does Shivada Jade prove the Tsaritsa plans to fight Celestia?",
-      "Do the Pale Flame Harbinger motives represent the Tsaritsa?",
-      "Does the missing Pyro Gnosis change the Tsaritsa's collection plan?",
+      "Can the seizure in Mondstadt and the contract transfer in Liyue prove a unified collection plan?",
+      "In Inazuma's bargain and Sumeru's negotiation, which moves belong to the Harbingers and which can be attributed to the Tsaritsa?",
+      "From Fontaine to Natlan to Nod-Krai, what known and unknown boundaries shift when the Pyro Gnosis leaves the expected route?",
     ],
   },
 ];
