@@ -21,6 +21,30 @@ export type PreheatInteractionKind =
   | "depth_selected"
   | "timeline_node_opened"
   | "relation_node_opened";
+
+export interface QuestionSuggestionSourceAnchor {
+  title: string;
+  url: string;
+  authority: "official" | "trusted_wiki";
+}
+
+export interface QuestionSuggestionTopic {
+  id: string;
+  region: Exclude<Progress, "unknown">;
+  title: Record<Language, string>;
+  scope: Record<Language, string>;
+  sourceAnchors: QuestionSuggestionSourceAnchor[];
+  fallbackQuestions: Record<
+    Language,
+    [string, string, string, string, string]
+  >;
+}
+
+export interface QuestionSuggestionResult {
+  topicId: string;
+  questions: string[];
+  source: "generated" | "fallback";
+}
 export type FactStatus =
   | "official_explicit"
   | "narrative_implied"

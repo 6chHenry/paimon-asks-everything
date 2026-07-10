@@ -1,9 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { suggestedQuestions } from "@/lib/suggested-questions";
+import { questionSuggestionTopics } from "@/data/question-suggestion-topics";
 
-describe("suggested questions", () => {
-  it("does not include gameplay puzzle prompts in the ask page suggestions", () => {
-    expect(suggestedQuestions["zh-CN"].join("\n")).not.toMatch(/机关|玩法/);
-    expect(suggestedQuestions.en.join("\n")).not.toMatch(/mechanical puzzle|gameplay/i);
+describe("question suggestion topic catalog", () => {
+  it("covers all selectable regions with curated bilingual fallback questions", () => {
+    expect(new Set(questionSuggestionTopics.map((topic) => topic.region))).toEqual(
+      new Set([
+        "mondstadt",
+        "liyue",
+        "inazuma",
+        "sumeru",
+        "fontaine",
+        "natlan",
+        "nodkrai",
+      ]),
+    );
+    expect(questionSuggestionTopics).toHaveLength(15);
+
+    for (const topic of questionSuggestionTopics) {
+      expect(topic.sourceAnchors.length).toBeGreaterThan(0);
+      expect(topic.fallbackQuestions["zh-CN"]).toHaveLength(5);
+      expect(topic.fallbackQuestions.en).toHaveLength(5);
+    }
+  });
+
+  it("keeps fallback prompts as questions rather than answers", () => {
+    const prompts = questionSuggestionTopics.flatMap((topic) => [
+      ...topic.fallbackQuestions["zh-CN"],
+      ...topic.fallbackQuestions.en,
+    ]);
+    expect(prompts.every((prompt) => /[?？]$/.test(prompt))).toBe(true);
+    expect(prompts.join("\n")).not.toMatch(/答案是|the answer is/i);
   });
 });
