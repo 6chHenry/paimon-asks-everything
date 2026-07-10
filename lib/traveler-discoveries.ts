@@ -13,6 +13,8 @@ export interface TravelerDiscoveries {
 }
 
 export const DISCOVERIES_STORAGE_KEY = "paimon-traveler-discoveries";
+export const PAIMON_TAP_STORAGE_KEY = "paimon-brand-tap-count";
+export const PAIMON_EGG_PENDING_KEY = "paimon-easter-egg-pending";
 export const CLUE_CARD_UNLOCK_COUNT = 3;
 
 export const emptyDiscoveries: TravelerDiscoveries = {

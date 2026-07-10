@@ -4,6 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { TravelerClueCard } from "@/components/traveler-clue-card";
 import {
   DISCOVERIES_STORAGE_KEY,
+  PAIMON_EGG_PENDING_KEY,
+  PAIMON_TAP_STORAGE_KEY,
   discoverNode as discoverNodeState,
   emptyDiscoveries,
   hasUnlockedClueCard,
@@ -60,10 +62,41 @@ export function DiscoveriesProvider({ children }: { children: React.ReactNode })
 
   const registerPaimonTap = useCallback(() => {
     if (paimonEasterEggFound.current) return false;
+    try {
+      const stored = Number.parseInt(
+        window.sessionStorage.getItem(PAIMON_TAP_STORAGE_KEY) ?? "0",
+        10,
+      );
+      paimonTapCount.current = Number.isFinite(stored) ? stored : 0;
+    } catch {
+      // Use the in-memory counter when session storage is unavailable.
+    }
     paimonTapCount.current += 1;
+    try {
+      window.sessionStorage.setItem(
+        PAIMON_TAP_STORAGE_KEY,
+        String(paimonTapCount.current),
+      );
+    } catch {
+      // The current page can still complete the easter egg.
+    }
     if (paimonTapCount.current < 5) return false;
     paimonEasterEggFound.current = true;
-    setDiscoveries((current) => ({ ...current, paimonEasterEggFound: true }));
+    try {
+      window.sessionStorage.removeItem(PAIMON_TAP_STORAGE_KEY);
+      window.sessionStorage.setItem(PAIMON_EGG_PENDING_KEY, "true");
+    } catch {
+      // AppShell will open immediately when the same page remains mounted.
+    }
+    setDiscoveries((current) => {
+      const next = { ...current, paimonEasterEggFound: true };
+      try {
+        window.localStorage.setItem(DISCOVERIES_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // The in-memory state remains the fallback.
+      }
+      return next;
+    });
     return true;
   }, []);
 

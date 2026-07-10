@@ -257,4 +257,11 @@ describe("Paimon discoveries source", () => {
     expect(source("components", "traveler-clue-card.tsx")).toContain("navigator.share");
     expect(source("components", "today-paimon-note.tsx")).toContain("今日派蒙小纸条");
   });
+
+  it("records constellation exploration and keeps the brand easter egg discoverable", () => {
+    expect(source("components", "snezhnaya-graph.tsx")).toContain("discoverNode(node.id)");
+    expect(source("components", "snezhnaya-graph.tsx")).toContain("巡游星图");
+    expect(source("components", "app-shell.tsx")).toContain("registerPaimonTap");
+    expect(source("components", "app-shell.tsx")).toContain("派蒙才不是搜索按钮");
+  });
 });

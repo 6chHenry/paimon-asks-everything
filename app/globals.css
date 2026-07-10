@@ -3970,6 +3970,23 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 .traveler-clue-fallback { display: grid; gap: 7px; margin-top: 15px; color: var(--frame-gold-soft); font-size: 10px; text-align: left; }
 .traveler-clue-fallback textarea { width: 100%; resize: none; padding: 9px; border: 1px solid rgba(234,217,168,.36); background: rgba(0,0,0,.12); color: var(--parchment-light); line-height: 1.5; }
 
+.snezhnaya-discovery-progress { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 9px; border: 1px solid rgba(200,170,110,.36); background: rgba(21,39,47,.08); color: var(--navy); font-size: 10px; font-weight: 800; white-space: nowrap; }
+.snezhnaya-discovery-progress svg { color: var(--gold); }
+.snezhnaya-discovery-progress strong { color: var(--coral); font: 500 16px/1 var(--display); }
+.paimon-easter-overlay { position: fixed; inset: 0; z-index: 101; display: grid; place-items: center; padding: 22px; background: rgba(21,39,47,.48); backdrop-filter: blur(4px); }
+.paimon-easter-card { position: relative; width: min(410px, 100%); padding: 36px; border: 1px solid var(--frame-gold); background: linear-gradient(145deg, #213f4b, #15272f); color: var(--parchment-light); box-shadow: 0 30px 80px rgba(0,0,0,.34); text-align: center; }
+.paimon-easter-card::before { content: ""; position: absolute; inset: 11px; border: 1px solid rgba(234,217,168,.28); pointer-events: none; }
+.paimon-easter-card > * { position: relative; }
+.paimon-easter-card > button { position: absolute; top: 13px; right: 13px; width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid rgba(234,217,168,.32); border-radius: 50%; background: transparent; color: var(--parchment-light); cursor: pointer; }
+.paimon-easter-card > svg { color: var(--frame-gold-soft); }
+.paimon-easter-card > span { display: block; margin-top: 10px; color: var(--frame-gold-soft); font-size: 9px; font-weight: 800; letter-spacing: .16em; }
+.paimon-easter-card h2 { margin: 12px 0; font: 500 30px/1.1 var(--display); }
+.paimon-easter-card p { margin: 0; color: rgba(255,248,234,.8); font-size: 12px; line-height: 1.7; }
+
+@media (prefers-reduced-motion: reduce) {
+  .today-paimon-note a, .traveler-clue-actions button { transition-duration: .01ms !important; }
+}
+
 .home-video-stage {
   min-height: clamp(360px, 42vw, 560px);
   position: relative;
