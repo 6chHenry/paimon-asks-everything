@@ -249,3 +249,12 @@ describe("Paimon evidence experience source", () => {
     expect(traceTimeline).toContain("open={!collapsed}");
   });
 });
+
+describe("Paimon discoveries source", () => {
+  it("wires the daily note and shareable clue card into the app", () => {
+    expect(source("app", "layout.tsx")).toContain("DiscoveriesProvider");
+    expect(source("app", "page.tsx")).toContain("TodayPaimonNote");
+    expect(source("components", "traveler-clue-card.tsx")).toContain("navigator.share");
+    expect(source("components", "today-paimon-note.tsx")).toContain("今日派蒙小纸条");
+  });
+});
