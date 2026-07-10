@@ -31,7 +31,9 @@ import type { Language } from "@/lib/domain";
 import { t } from "@/lib/i18n";
 import {
   computeReleaseDecisions,
+  decisionKindLabelZh,
   type ReleaseAction,
+  type ReleaseDecisionKind,
   type ReleaseDecisionData,
   type ReleaseFormat,
   type ReleaseInsightsInput,
@@ -85,6 +87,12 @@ const WINDOW_NAMES: Record<string, [string, string]> = {
   week_2: ["第 2 周", "Week 2"],
   week_3_4: ["第 3–4 周", "Weeks 3–4"],
   watch: ["观察", "Watch"],
+};
+
+const DECISION_KIND_LABELS: Record<ReleaseDecisionKind, [string, string]> = {
+  amplify: [decisionKindLabelZh("amplify"), "Amplify"],
+  explain: [decisionKindLabelZh("explain"), "Explain"],
+  hold: [decisionKindLabelZh("hold"), "Hold"],
 };
 
 const CONFIDENCE_COLORS: Record<string, string> = {
@@ -349,7 +357,16 @@ export default function ReleaseDecisionPage() {
       <section className="release-schedule-section">
         <div className="release-section-heading">
           <span className="section-index">02</span>
-          <h2>{t(language, "2–4 周内容排期", "2–4 week content schedule")}</h2>
+          <div>
+            <h2>{t(language, "本次会议建议", "This meeting's decisions")}</h2>
+            <p>
+              {t(
+                language,
+                "先明确要采取的动作，再回看支撑判断的证据。",
+                "Decide the action first, then review the evidence behind it.",
+              )}
+            </p>
+          </div>
         </div>
         <div className="release-schedule-grid">
           {visibleActions.map((action, i) => (
@@ -780,6 +797,9 @@ function ReleaseActionCard({
       : action.confidence === "medium"
         ? isZh ? confidenceLabelZh(action.confidence) : "medium"
         : isZh ? confidenceLabelZh(action.confidence) : "low";
+  const decisionKindLabel = isZh
+    ? DECISION_KIND_LABELS[action.decisionKind][0]
+    : DECISION_KIND_LABELS[action.decisionKind][1];
 
   return (
     <article
@@ -790,7 +810,12 @@ function ReleaseActionCard({
         <span className="release-action-index">
           {String(index + 1).padStart(2, "0")}
         </span>
-        <span className="release-action-window">{windowLabel}</span>
+        <div className="release-action-window-group">
+          <span className={`release-decision-kind ${action.decisionKind}`}>
+            {decisionKindLabel}
+          </span>
+          <span className="release-action-window">{windowLabel}</span>
+        </div>
       </div>
       <div className="release-action-icon">
         <FormatIcon size={18} />
@@ -827,7 +852,12 @@ function ReleaseActionCard({
         </span>
       </div>
       {isSelected && (
-        <div className="release-action-evidence">
+        <>
+          <div className="release-action-verification">
+            <strong>{t(language, "验证方法", "Verification")}</strong>
+            <p>{isZh ? action.verificationZh : action.verificationEn}</p>
+          </div>
+          <div className="release-action-evidence">
           <strong>
             {t(language, "可复用模块", "Reusable modules")}
           </strong>
@@ -848,7 +878,8 @@ function ReleaseActionCard({
               </span>
             ))}
           </div>
-        </div>
+          </div>
+        </>
       )}
     </article>
   );

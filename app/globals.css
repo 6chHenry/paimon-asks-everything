@@ -2943,6 +2943,12 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   margin: 0;
   font: 500 24px var(--display);
 }
+.release-section-heading p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
 
 /* ── Layer 0 — Production briefing ── */
 .release-ai-briefing {
@@ -3393,6 +3399,32 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   align-items: center;
   margin-bottom: 14px;
 }
+.release-action-window-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.release-decision-kind {
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+.release-decision-kind.amplify {
+  color: var(--green);
+  background: rgba(82, 138, 112, .1);
+}
+.release-decision-kind.explain {
+  color: var(--gold);
+  background: rgba(201, 154, 82, .1);
+}
+.release-decision-kind.hold {
+  color: var(--ink-soft);
+  background: var(--paper-deep);
+}
 .release-action-index {
   color: var(--gold);
   font: 13px var(--display);
@@ -3459,6 +3491,25 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px dashed var(--line);
+}
+.release-action-verification {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+.release-action-verification strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 9px;
+  letter-spacing: .1em;
+  color: var(--ink-soft);
+}
+.release-action-verification p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--ink);
 }
 .release-action-evidence strong {
   display: block;
@@ -3838,6 +3889,7 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   .release-hero-primary h2 { font-size: 30px; }
   .release-hero-scores { flex-wrap: wrap; }
   .release-schedule-grid { grid-template-columns: 1fr; }
+  .release-action-window-group { justify-content: flex-start; }
   .release-risk-top { grid-template-columns: 1fr; gap: 10px; }
   .release-risk-meta { flex-direction: row; align-items: center; }
   .release-evidence-tabs button { flex: 1; justify-content: center; padding: 10px 12px; font-size: 11px; }

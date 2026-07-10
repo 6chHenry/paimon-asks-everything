@@ -58,6 +58,10 @@ export type RiskSeverity = "high" | "medium" | "low" | "insufficient_data";
 
 export type ReleaseDecisionKind = "amplify" | "explain" | "hold";
 
+export function decisionKindLabelZh(kind: ReleaseDecisionKind): string {
+  return kind === "amplify" ? "放大" : kind === "explain" ? "解释" : "暂缓";
+}
+
 export interface ReleaseAction {
   id: string;
   topicId: string;

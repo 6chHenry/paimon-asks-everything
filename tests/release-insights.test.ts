@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeReleaseDecisions,
+  decisionKindLabelZh,
   type ReleaseInsightsInput,
 } from "@/lib/release-insights";
 
@@ -28,6 +29,12 @@ const baseInput: ReleaseInsightsInput = {
 };
 
 describe("release insight localization", () => {
+  it("labels meeting decisions in Chinese", () => {
+    expect(decisionKindLabelZh("amplify")).toBe("放大");
+    expect(decisionKindLabelZh("explain")).toBe("解释");
+    expect(decisionKindLabelZh("hold")).toBe("暂缓");
+  });
+
   it("keeps generated Chinese recommendations free of internal profile keys", () => {
     const result = computeReleaseDecisions(baseInput);
     const recommendation = result.actions.find(
