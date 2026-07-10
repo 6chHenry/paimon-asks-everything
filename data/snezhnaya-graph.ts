@@ -129,7 +129,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "多国主线通过神之心收集行动与执行官任务，持续勾勒她对至冬与愚人众的影响。",
-          "现有文本明确指向她反抗天理、试图建立新世界的方向，但其最终方案仍需后续官方剧情揭示。",
+          "她反抗天理，试图建立新世界的秩序",
         ],
         en: [
           "Archon Quests across several nations outline her influence through the Gnosis campaign and Harbinger missions.",
@@ -220,7 +220,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "他是愚人众的统括者，也是执行官体系中最接近至冬战略核心的人物之一。",
-          "坎瑞亚背景让他天然连接灾变、深渊和反抗天理的长期叙事，因此适合作为理解女皇计划的入口。",
+          "坎瑞亚背景让他天然连接灾变、深渊和反抗天理的长期叙事。",
         ],
         en: [
           "He is the Fatui Director and one of the figures closest to the strategic center of Snezhnaya's agenda.",
@@ -265,7 +265,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "须弥主线中，他以雷神之心为交换条件清除了当时的其他切片。",
-          "后续活跃个体与世界树融合，并在世界树被焚毁时一同消亡；现有文本将博士列为已故。",
+          "后续活跃个体与世界树融合，并在世界树被焚毁时一同消亡。",
         ],
         en: [
           "In Sumeru, he erased his other Segments in exchange for the Electro Gnosis.",
@@ -316,7 +316,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "她曾以「少女」之名担任第三席，加入愚人众与其月神力量有关。",
-          "挪德卡莱剧情后，官方资料称她为月神库塔尔，并使用「前愚人众第三席」表述。",
+          "挪德卡莱剧情后，成为月神库塔尔，并退出愚人众",
         ],
         en: [
           "She once served as the Third under the codename Damselette, with her Moon Goddess powers central to her recruitment.",
@@ -357,7 +357,6 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "她的角色故事、传说任务与枫丹主线提供了较完整的官方经历，尤其是壁炉之家、血亲观念与执行官身份的冲突。",
-          "与其他未完整登场的执行官相比，仆人的资料更适合用作事实锚点，而不是只作为至冬氛围线索。",
         ],
         en: [
           "Her character stories, Story Quest, and Fontaine appearances provide a substantial official account, especially around the House of the Hearth, family, and Harbinger identity.",
@@ -579,7 +578,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "她为阻止博士利用三月力量而设局，随后身体被博士摧毁。",
-          "仆人回收了她与普洛尼亚的核心并送往枫丹科学院；后续资料已确认桑多涅意外归来，并在月之八版本作为角色登场。",
+          "仆人回收了她与普洛尼亚的核心并送往枫丹科学院；后续剧情中桑多涅意外归来，并在月之八版本作为角色登场。",
         ],
         en: [
           "She set a trap to prevent Dottore from exploiting the power of the Three Moons, after which he destroyed her body.",
@@ -619,7 +618,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "他曾将年少的公子招入愚人众，并与富人共同推进严冬计划。",
-          "现有剧情仍将他列为在任执行官。",
+          "他同时连接至冬市政权力、北国银行利益和公子的早期经历。",
         ],
         en: [
           "He recruited the young Tartaglia into the Fatui and works with Pantalone on Project Stuzha.",
@@ -664,7 +663,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "他试图以经济体系挑战神明掌握的权威，并与公鸡共同推进严冬计划。",
-          "现有剧情仍将他列为在任执行官。",
+          "他的叙事重点落在金融秩序和对神明权威的质疑。",
         ],
         en: [
           "He seeks to challenge divine authority through economic systems and works with Pulcinella on Project Stuzha.",
@@ -700,7 +699,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "官方尚未公布第十席的姓名、代号或经历。",
-          "丑角是愚人众统括者，不应仅因席位空缺而推定为第十席。",
+          "这个空缺只说明席位信息尚未公开，不代表可以补写持有者。",
         ],
         en: [
           "No official name, codename, or history has been disclosed for the Tenth Seat.",
@@ -853,7 +852,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "已知参与者包括丑角、公鸡、富人、公子与仆人等执行官。",
-          "官方尚未说明计划的全部目标和执行方式，因此不能断言由女皇亲自构思了所有细节。",
+          "尚未明确计划的全部目标和执行方式",
         ],
         en: [
           "Known participants include Pierro, Pulcinella, Pantalone, Tartaglia, and Arlecchino.",
@@ -901,7 +900,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       detail: {
         "zh-CN": [
           "坎瑞亚灾变与深渊经历共同影响了丑角、公子和降临者相关叙事，是至冬线索背后的长期世界观背景。",
-          "这个节点用于提醒玩家：愚人众并不只是一个国家组织，它的许多行动和成员经历都与五百年前的灾变及世界外侧力量相连。",
+          "愚人众并不只是一个国家组织，它的许多行动和成员经历都与五百年前的灾变及世界外侧力量相连。",
         ],
         en: [
           "The Khaenri'ahn Cataclysm and Abyss experiences shape the stories surrounding Pierro, Tartaglia, and the Descenders, forming long-running context behind Snezhnaya clues.",
