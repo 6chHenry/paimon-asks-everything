@@ -44,3 +44,36 @@ describe("release insight localization", () => {
     );
   });
 });
+
+describe("release decision classification", () => {
+  it("classifies a high-risk topic as an explanation action with verification", () => {
+    const result = computeReleaseDecisions({
+      ...baseInput,
+      topics: [{ key: "tsaritsa_goal", count: 20 }],
+      preheat: {
+        ...baseInput.preheat,
+        topics: [{ key: "tsaritsa-known-unknown", count: 20 }],
+        relationNodes: [],
+      },
+    });
+    const action = result.actions.find((item) => item.topicId === "tsaritsa_goal");
+    expect(action?.decisionKind).toBe("explain");
+    expect(action?.recommendedActionZh).toContain("FAQ");
+    expect(action?.verificationZh).toContain("重复提问");
+    expect(action?.evidenceRefs.length).toBeGreaterThan(0);
+  });
+
+  it("marks low-sample topics as hold instead of amplifying them", () => {
+    const result = computeReleaseDecisions({
+      ...baseInput,
+      total: 2,
+      historicalCount: 2,
+      liveCount: 0,
+      topics: [{ key: "tsaritsa_goal", count: 1 }],
+      preheat: { ...baseInput.preheat, total: 1, historicalCount: 1, liveCount: 0, topics: [] },
+    });
+    const action = result.actions.find((item) => item.topicId === "tsaritsa_goal");
+    expect(action?.decisionKind).toBe("hold");
+    expect(action?.recommendedActionZh).toContain("观察");
+  });
+});

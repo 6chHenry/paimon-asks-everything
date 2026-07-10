@@ -14,6 +14,7 @@ import {
   listReleaseTopics,
   type ReleaseTopic,
 } from "@/data/release-topic-map";
+import { getReleasePlaybookEntry } from "@/data/release-playbook";
 
 /* ------------------------------------------------------------------ */
 /*  Input shape — the minimum fields the engine needs from the API     */
@@ -55,6 +56,8 @@ export type Confidence = "high" | "medium" | "low";
 
 export type RiskSeverity = "high" | "medium" | "low" | "insufficient_data";
 
+export type ReleaseDecisionKind = "amplify" | "explain" | "hold";
+
 export interface ReleaseAction {
   id: string;
   topicId: string;
@@ -70,6 +73,9 @@ export interface ReleaseAction {
   rationaleEn: string;
   recommendedActionZh: string;
   recommendedActionEn: string;
+  decisionKind: ReleaseDecisionKind;
+  verificationZh: string;
+  verificationEn: string;
   reusableModules: string[];
   evidenceRefs: string[];
 }
@@ -412,6 +418,14 @@ function assignWindow(
   return "week_3_4";
 }
 
+function classifyDecisionKind(scored: ScoredTopic): ReleaseDecisionKind {
+  if (scored.confidence === "low" || scored.opportunityScore < 20) {
+    return "hold";
+  }
+  if (scored.riskScore >= 50) return "explain";
+  return "amplify";
+}
+
 function buildTargetProfiles(scored: ScoredTopic): string[] {
   const profiles: string[] = [];
   if (scored.questionCount >= 5) profiles.push("returning");
@@ -431,6 +445,8 @@ function buildActions(
     const window = assignWindow(scored, index);
     const profiles = buildTargetProfiles(scored);
     const formatLabel = FORMAT_LABELS[format];
+    const decisionKind = classifyDecisionKind(scored);
+    const playbook = getReleasePlaybookEntry(scored.topic.id);
 
     const rationaleZh =
       scored.signalCount >= 2
@@ -446,19 +462,21 @@ function buildActions(
           ? `Players keep asking about "${scored.topic.labelEn}" — existing content isn't making it clear.`
           : `Players show active interest in "${scored.topic.labelEn}" — great for amplification.`;
 
-    const recommendedActionZh =
-      format === "preheat_feature"
-        ? `组合：${scored.topic.availableFormats
-            .map((f) => FORMAT_LABELS[f][0])
-            .join(" + ")}。建议第 ${window === "week_1" ? "1" : window === "week_2" ? "2" : "3"} 周发布。`
-        : format === "faq"
-          ? `制作一篇 FAQ，先给结论再列背景。建议第 ${window === "week_1" ? "1" : window === "week_2" ? "2" : "3"} 周发布。`
-          : `建议以 ${formatLabel[0]} 形式发布，目标 ${formatProfilesZh(profiles)}。`;
+    const windowZh =
+      window === "week_1" ? "第 1 周" : window === "week_2" ? "第 2 周" : "第 3 周";
+    const windowEn =
+      window === "week_1" ? "week 1" : window === "week_2" ? "week 2" : "week 3";
+    const deliveryZh = `建议以 ${formatLabel[0]} 形式面向${formatProfilesZh(profiles)}，安排在${windowZh}发布。`;
+    const deliveryEn = `Use the ${formatLabel[1]} format for ${profiles.join(", ")}; schedule it for ${windowEn}.`;
 
+    const recommendedActionZh =
+      decisionKind === "hold"
+        ? `暂时观察，不进入近期排期。${playbook.actionZh}`
+        : `${playbook.actionZh}${deliveryZh}`;
     const recommendedActionEn =
-      format === "preheat_feature"
-        ? `Combine: ${scored.topic.availableFormats.map((f) => FORMAT_LABELS[f][1]).join(" + ")}. Publish ${window === "week_1" ? "week 1" : window === "week_2" ? "week 2" : "week 3"}.`
-        : `Publish a FAQ — lead with the conclusion, then background. Publish ${window === "week_1" ? "week 1" : window === "week_2" ? "week 2" : "week 3"}.`;
+      decisionKind === "hold"
+        ? `Hold for observation; do not schedule it in the near term. ${playbook.actionEn}`
+        : `${playbook.actionEn} ${deliveryEn}`;
 
     return {
       id: `action-${scored.topic.id}-${format}`,
@@ -475,6 +493,9 @@ function buildActions(
       rationaleEn,
       recommendedActionZh,
       recommendedActionEn,
+      decisionKind,
+      verificationZh: playbook.verificationZh,
+      verificationEn: playbook.verificationEn,
       reusableModules: FORMAT_MODULES[format],
       evidenceRefs: [
         ...(scored.questionCount > 0
