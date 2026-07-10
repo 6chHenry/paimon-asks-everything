@@ -236,3 +236,16 @@ describe("Genshin-style responsive safeguards", () => {
     }
   });
 });
+
+describe("Paimon evidence experience source", () => {
+  it("reframes evidence and trace details in player-facing language", () => {
+    const answerCard = source("components", "answer-card.tsx");
+    const traceTimeline = source("components", "trace-timeline.tsx");
+
+    expect(answerCard).toContain("派蒙查到的线索");
+    expect(answerCard).toContain("playerFactBoundary");
+    expect(answerCard).toContain("clue-ledger");
+    expect(traceTimeline).toContain("考据记录");
+    expect(traceTimeline).toContain("open={!collapsed}");
+  });
+});
