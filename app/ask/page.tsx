@@ -5,11 +5,36 @@ import { ArrowLeft, ArrowUp, CircleAlert, LoaderCircle, Send, Stars } from "luci
 import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
 import { TraceTimeline } from "@/components/trace-timeline";
+import { questionSuggestionTopics } from "@/data/question-suggestion-topics";
 import { clientPath } from "@/lib/client-path";
-import type { ChatResult } from "@/lib/domain";
-import { t } from "@/lib/i18n";
-import { suggestedQuestions } from "@/lib/suggested-questions";
+import type {
+  ChatResult,
+  Progress,
+  QuestionSuggestionResult,
+} from "@/lib/domain";
+import { labels, t } from "@/lib/i18n";
 import type { TraceEvent } from "@/lib/trace";
+
+const selectableRegions: Exclude<Progress, "unknown">[] = [
+  "mondstadt",
+  "liyue",
+  "inazuma",
+  "sumeru",
+  "fontaine",
+  "natlan",
+  "nodkrai",
+];
+
+function fallbackForTopic(topicId: string, language: "zh-CN" | "en") {
+  const topic =
+    questionSuggestionTopics.find((item) => item.id === topicId) ??
+    questionSuggestionTopics[0]!;
+  return {
+    topicId: topic.id,
+    questions: [...topic.fallbackQuestions[language]],
+    source: "fallback",
+  } satisfies QuestionSuggestionResult;
+}
 
 export default function AskPage() {
   const { preferences, sessionId } = usePreferences();
@@ -24,7 +49,24 @@ export default function AskPage() {
   const [error, setError] = useState("");
   const [sourceTopicId, setSourceTopicId] = useState("");
   const [sourceTimelineNodeId, setSourceTimelineNodeId] = useState("");
+  const [region, setRegion] = useState<Exclude<Progress, "unknown">>(
+    "mondstadt",
+  );
+  const [suggestionTopicId, setSuggestionTopicId] = useState(
+    questionSuggestionTopics[0]!.id,
+  );
+  const [suggestionState, setSuggestionState] =
+    useState<QuestionSuggestionResult>(() =>
+      fallbackForTopic(questionSuggestionTopics[0]!.id, "zh-CN"),
+    );
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const activeRequestRef = useRef<AbortController | null>(null);
+  const topicsForRegion = questionSuggestionTopics.filter(
+    (item) => item.region === region,
+  );
+  const selectedSuggestionTopic =
+    topicsForRegion.find((item) => item.id === suggestionTopicId) ??
+    topicsForRegion[0]!;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -40,6 +82,58 @@ export default function AskPage() {
     },
     [],
   );
+
+  useEffect(() => {
+    setSuggestionState(fallbackForTopic(suggestionTopicId, language));
+  }, [language, suggestionTopicId]);
+
+  function selectSuggestionRegion(nextRegion: Exclude<Progress, "unknown">) {
+    const nextTopic = questionSuggestionTopics.find(
+      (item) => item.region === nextRegion,
+    );
+    if (!nextTopic) return;
+    setRegion(nextRegion);
+    setSuggestionTopicId(nextTopic.id);
+    setSuggestionState(fallbackForTopic(nextTopic.id, language));
+  }
+
+  async function generateSuggestions() {
+    setSuggestionsLoading(true);
+    try {
+      const response = await fetch(clientPath("/api/question-suggestions"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topicId: selectedSuggestionTopic.id,
+          language,
+          profile: preferences.profile,
+          progress: preferences.progress,
+          spoilerPreference: preferences.spoilerPreference,
+          focus: preferences.focus,
+        }),
+      });
+      const payload: unknown = await response.json();
+      if (
+        !response.ok ||
+        !payload ||
+        typeof payload !== "object" ||
+        !Array.isArray((payload as QuestionSuggestionResult).questions) ||
+        (payload as QuestionSuggestionResult).topicId !== selectedSuggestionTopic.id ||
+        (payload as QuestionSuggestionResult).questions.length < 4 ||
+        (payload as QuestionSuggestionResult).questions.length > 5 ||
+        !(payload as QuestionSuggestionResult).questions.every(
+          (item) => typeof item === "string",
+        )
+      ) {
+        throw new Error("invalid_suggestions");
+      }
+      setSuggestionState(payload as QuestionSuggestionResult);
+    } catch {
+      setSuggestionState(fallbackForTopic(selectedSuggestionTopic.id, language));
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }
 
   async function submitStreamingRequest(
     text: string,
@@ -273,8 +367,60 @@ export default function AskPage() {
             <span>FIELD NOTES</span>
             <h2>{t(language, "不知道问什么？", "Need an idea?")}</h2>
           </div>
+          <div className="suggestion-controls">
+            <label>
+              <span>{t(language, "选择地区", "Choose a region")}</span>
+              <select
+                value={region}
+                onChange={(event) =>
+                  selectSuggestionRegion(
+                    event.target.value as Exclude<Progress, "unknown">,
+                  )
+                }
+              >
+                {selectableRegions.map((item) => (
+                  <option key={item} value={item}>
+                    {labels.progress[item][language]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>{t(language, "选择剧情专题", "Choose a story topic")}</span>
+              <select
+                value={selectedSuggestionTopic.id}
+                onChange={(event) => setSuggestionTopicId(event.target.value)}
+              >
+                {topicsForRegion.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title[language]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="suggestion-generate"
+              type="button"
+              onClick={() => void generateSuggestions()}
+              disabled={suggestionsLoading}
+            >
+              {suggestionsLoading ? (
+                <LoaderCircle className="spin" size={15} />
+              ) : (
+                <Stars size={15} />
+              )}
+              {t(language, "让派蒙想几个问题", "Let Paimon suggest questions")}
+            </button>
+          </div>
+          <div className="suggestion-status" role="status" aria-live="polite">
+            {suggestionsLoading
+              ? t(language, "派蒙正在整理问题…", "Paimon is preparing questions…")
+              : suggestionState.source === "fallback"
+                ? t(language, "派蒙准备的参考问题", "Paimon's prepared prompts")
+                : t(language, "派蒙刚想到的问题", "Paimon's fresh prompts")}
+          </div>
           <div className="suggestion-list">
-            {suggestedQuestions[language].map((item, index) => (
+            {suggestionState.questions.map((item, index) => (
               <button
                 type="button"
                 key={item}

@@ -265,3 +265,20 @@ describe("Paimon discoveries source", () => {
     expect(source("components", "app-shell.tsx")).toContain("派蒙才不是搜索按钮");
   });
 });
+
+describe("contextual ask-page suggestions", () => {
+  it("uses region and story selectors with server-backed suggestion requests", () => {
+    const page = source("app", "ask", "page.tsx");
+    const css = source("app", "globals.css");
+
+    expect(page).toContain('clientPath("/api/question-suggestions")');
+    expect(page).toContain("questionSuggestionTopics");
+    expect(page).toContain("让派蒙想几个问题");
+    expect(page).toContain("派蒙准备的参考问题");
+    expect(page).toContain("void submitQuestion(item)");
+    expect(page).not.toContain("suggestedQuestions[language]");
+    expect(css).toContain(".suggestion-controls");
+    expect(css).toContain(".suggestion-generate");
+    expect(css).toContain(".suggestion-status");
+  });
+});
