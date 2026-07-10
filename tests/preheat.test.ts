@@ -55,6 +55,23 @@ describe("preheat orchestration", () => {
     expect(validatePreheatCatalog()).toEqual([]);
   });
 
+  it("gives all preheat topics the same version mystery and a locked question", () => {
+    const mysteryIds = new Set(preheatTopics.map((topic) => topic.mysteryId));
+    expect(mysteryIds).toEqual(new Set(["nodkrai-main-breakpoint"]));
+    for (const topic of preheatTopics) {
+      expect(topic.breakpoint.questionZh.trim()).not.toBe("");
+      expect(topic.breakpoint.unlockLabelZh).toContain("至冬版本开启");
+      expect(topic.breakpoint).not.toHaveProperty("answer");
+      expect(topic.breakpoint).not.toHaveProperty("answerZh");
+    }
+  });
+
+  it("fills the default topic with an opening promise", () => {
+    const topic = preheatTopics.find((item) => item.id === defaultPreheatTopicId);
+    expect(topic?.introZh).toContain("已确认");
+    expect(topic?.introZh).toContain("未解");
+  });
+
   it("gives every visible local relation node an unlocked detail summary", () => {
     const view = getPreheatView({
       ...base,

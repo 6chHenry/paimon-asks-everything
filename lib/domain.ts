@@ -224,12 +224,27 @@ export interface PreheatTopic {
   titleEn: string;
   introZh: string;
   introEn: string;
+  mysteryId: string;
+  breakpoint: PreheatBreakpoint;
   heroConceptIds: string[];
   depthConceptIds: Record<PreheatDepth, string[]>;
   timelineNodeIds: string[];
   relationGraphId: string;
   suggestedQuestionsZh: string[];
   suggestedQuestionsEn: string[];
+}
+
+export interface PreheatBreakpoint {
+  id: string;
+  mysteryId: string;
+  questionZh: string;
+  questionEn: string;
+  clueSummaryZh: string;
+  clueSummaryEn: string;
+  boundaryZh: string;
+  boundaryEn: string;
+  unlockLabelZh: string;
+  unlockLabelEn: string;
 }
 
 export interface TimelineNode {
