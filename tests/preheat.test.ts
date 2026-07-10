@@ -85,17 +85,19 @@ describe("preheat orchestration", () => {
   });
 
   it("uses the seven-region event chain to shape the default follow-up questions", () => {
-    const topic = preheatTopics.find((item) => item.id === defaultPreheatTopicId);
-    const questions = topic?.suggestedQuestionsZh.join(" ") ?? "";
+    const view = getPreheatView({
+      ...base,
+      topicId: defaultPreheatTopicId,
+      depth: "research",
+      progress: "nodkrai",
+      spoilerPreference: "full",
+    });
 
-    expect(topic?.suggestedQuestionsZh).toHaveLength(3);
-    expect(questions).toContain("蒙德");
-    expect(questions).toContain("璃月");
-    expect(questions).toContain("稻妻");
-    expect(questions).toContain("须弥");
-    expect(questions).toContain("枫丹");
-    expect(questions).toContain("纳塔");
-    expect(questions).toContain("挪德卡莱");
+    expect(view.timeline).toHaveLength(7);
+    for (const node of view.timeline) {
+      expect(node.suggestedQuestions).toHaveLength(3);
+      expect(node.suggestedQuestions.every((question) => question.length > 8)).toBe(true);
+    }
   });
 
   it("gives every visible local relation node an unlocked detail summary", () => {

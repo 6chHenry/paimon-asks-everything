@@ -205,6 +205,10 @@ function localizeTimelineNode(
         ? node.titleZh
         : node.titleEn,
     locked,
+    suggestedQuestions:
+      query.language === "zh-CN"
+        ? node.suggestedQuestionsZh
+        : node.suggestedQuestionsEn,
     events: visibleEvents,
     implications,
     relationGraphId: node.relationGraphId,

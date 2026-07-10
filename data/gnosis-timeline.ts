@@ -6,6 +6,16 @@ export const gnosisTimeline: TimelineNode[] = [
     region: "mondstadt",
     titleZh: "风神之心被女士夺走",
     titleEn: "Signora takes the Anemo Gnosis",
+    suggestedQuestionsZh: [
+      "温迪为什么没有阻止女士夺走风神之心？",
+      "风神之心被女士带走后，确认的去向是什么？",
+      "蒙德的直接夺取，怎样成为后续神之心流转的起点？",
+    ],
+    suggestedQuestionsEn: [
+      "Why did Venti not stop Signora from taking the Anemo Gnosis?",
+      "What is the last confirmed destination of the Anemo Gnosis after Signora takes it?",
+      "How does the direct seizure in Mondstadt become the starting point for the later Gnosis chain?",
+    ],
     eventConceptIds: ["gnosis-mondstadt"],
     implicationConceptIds: [],
     participantIds: ["venti", "signora", "fatui", "anemo-gnosis"],
@@ -16,6 +26,16 @@ export const gnosisTimeline: TimelineNode[] = [
     region: "liyue",
     titleZh: "岩神之心依契约交付",
     titleEn: "The Geo Gnosis is transferred by contract",
+    suggestedQuestionsZh: [
+      "钟离为什么愿意依契约交付岩神之心？",
+      "岩神之心交给女士后，愚人众的收集链发生了什么变化？",
+      "璃月的契约交付与蒙德的直接夺取，分别说明了什么？",
+    ],
+    suggestedQuestionsEn: [
+      "Why was Zhongli willing to transfer the Geo Gnosis by contract?",
+      "How does the handoff to Signora change the Fatui's collection chain?",
+      "What do Liyue's contract transfer and Mondstadt's seizure reveal by comparison?",
+    ],
     eventConceptIds: ["gnosis-liyue"],
     implicationConceptIds: ["tsaritsa-plan-unknown"],
     participantIds: ["zhongli", "signora", "tsaritsa", "geo-gnosis"],
@@ -26,6 +46,16 @@ export const gnosisTimeline: TimelineNode[] = [
     region: "inazuma",
     titleZh: "雷神之心被用于交换旅行者安全",
     titleEn: "The Electro Gnosis is traded for the Traveler's safety",
+    suggestedQuestionsZh: [
+      "雷电影为什么没有保留雷神之心？",
+      "八重神子用雷神之心交换旅行者安全后，它落入了谁的手中？",
+      "稻妻的交换与蒙德夺取、璃月契约交付有什么不同？",
+    ],
+    suggestedQuestionsEn: [
+      "Why did Ei choose not to keep the Electro Gnosis?",
+      "Who obtains the Electro Gnosis after Yae Miko trades it for the Traveler's safety?",
+      "How does Inazuma's bargain differ from Mondstadt's seizure and Liyue's contract transfer?",
+    ],
     eventConceptIds: ["gnosis-inazuma"],
     implicationConceptIds: [],
     participantIds: ["ei", "yae", "scaramouche", "electro-gnosis"],
@@ -36,6 +66,16 @@ export const gnosisTimeline: TimelineNode[] = [
     region: "sumeru",
     titleZh: "博士通过谈判取得雷、草神之心",
     titleEn: "Dottore negotiates for the Electro and Dendro Gnoses",
+    suggestedQuestionsZh: [
+      "纳西妲为什么用雷神之心与博士谈判？",
+      "博士为什么能在须弥一次取得雷、草两枚神之心？",
+      "须弥的谈判如何改变了雷神之心从稻妻开始的流转线？",
+    ],
+    suggestedQuestionsEn: [
+      "Why did Nahida negotiate with Dottore using the Electro Gnosis?",
+      "How was Dottore able to obtain both the Electro and Dendro Gnoses in Sumeru?",
+      "How does Sumeru's negotiation change the Electro Gnosis thread that began in Inazuma?",
+    ],
     eventConceptIds: ["gnosis-sumeru"],
     implicationConceptIds: ["gnosis-third-descender"],
     participantIds: [
@@ -52,6 +92,16 @@ export const gnosisTimeline: TimelineNode[] = [
     region: "fontaine",
     titleZh: "水神之心被交给仆人",
     titleEn: "The Hydro Gnosis is given to Arlecchino",
+    suggestedQuestionsZh: [
+      "芙卡洛斯为什么把水神之心交给仆人？",
+      "水神之心交给仆人后，已确认的去向和参与者有哪些？",
+      "枫丹没有通过战斗夺取神之心，这说明了什么？",
+    ],
+    suggestedQuestionsEn: [
+      "Why did Focalors give the Hydro Gnosis to Arlecchino?",
+      "What are the confirmed destination and participants after the Hydro Gnosis reaches Arlecchino?",
+      "What does Fontaine's non-combat handoff reveal about the collection chain?",
+    ],
     eventConceptIds: ["gnosis-fontaine"],
     implicationConceptIds: ["gnosis-third-descender"],
     participantIds: [
@@ -67,6 +117,16 @@ export const gnosisTimeline: TimelineNode[] = [
     region: "natlan",
     titleZh: "队长没有强夺火神之心",
     titleEn: "Capitano does not seize the Pyro Gnosis",
+    suggestedQuestionsZh: [
+      "队长为什么没有在纳塔强夺火神之心？",
+      "纳塔这一节点中，火神之心的状态有哪些是已经确认的？",
+      "火神之心没有按前几国的路径流转，会怎样影响愚人众的计划？",
+    ],
+    suggestedQuestionsEn: [
+      "Why does Capitano not seize the Pyro Gnosis in Natlan?",
+      "What is confirmed about the Pyro Gnosis's status at the Natlan point in the chain?",
+      "How might the Pyro Gnosis leaving the earlier pattern affect the Fatui's plan?",
+    ],
     eventConceptIds: ["gnosis-natlan"],
     implicationConceptIds: ["tsaritsa-plan-unknown"],
     participantIds: ["mavuika", "capitano", "fatui", "pyro-gnosis"],
@@ -77,6 +137,16 @@ export const gnosisTimeline: TimelineNode[] = [
     region: "nodkrai",
     titleZh: "火神之心焚烧世界树后下落不明",
     titleEn: "The Pyro Gnosis vanishes after Irminsul burns",
+    suggestedQuestionsZh: [
+      "火神之心在焚烧世界树的事件中发生了什么？",
+      "火神之心下落不明后，哪些人物和线索仍然可以确认？",
+      "这条失踪线如何把七个地区的事件链推向至冬的未解断点？",
+    ],
+    suggestedQuestionsEn: [
+      "What happens to the Pyro Gnosis during the burning of Irminsul?",
+      "Which people and clues remain confirmed after the Pyro Gnosis disappears?",
+      "How does this missing link push the seven-region chain toward the unresolved Snezhnaya breakpoint?",
+    ],
     eventConceptIds: ["gnosis-nodkrai"],
     implicationConceptIds: ["tsaritsa-plan-unknown"],
     participantIds: [

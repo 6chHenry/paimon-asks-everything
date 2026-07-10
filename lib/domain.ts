@@ -252,6 +252,8 @@ export interface TimelineNode {
   region: Progress;
   titleZh: string;
   titleEn: string;
+  suggestedQuestionsZh: [string, string, string];
+  suggestedQuestionsEn: [string, string, string];
   eventConceptIds: string[];
   implicationConceptIds: string[];
   participantIds: string[];
