@@ -1185,7 +1185,7 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 .aside-heading h2 { margin: 6px 0 0; font: 500 24px var(--display); }
 .suggestion-controls { display: grid; gap: 10px; padding: 16px; border-bottom: 1px solid rgba(42,57,63,.12); background: rgba(255,250,239,.5); }
 .suggestion-controls label { display: grid; gap: 5px; color: var(--ink-soft); font-size: 10px; font-weight: 700; letter-spacing: .04em; }
-.suggestion-controls select { width: 100%; min-height: 34px; border: 1px solid rgba(42,57,63,.22); border-radius: 3px; background: rgba(255,252,244,.9); color: var(--ink); font: 12px var(--sans); padding: 0 9px; }
+.suggestion-controls select { width: 100%; min-height: 38px; border: 1px solid rgba(42,57,63,.22); border-radius: 3px; background: rgba(255,252,244,.9); color: var(--ink); font: 14px/1.35 var(--sans); padding: 0 9px; }
 .suggestion-controls select:focus-visible, .suggestion-generate:focus-visible, .suggestion-list button:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
 .suggestion-generate { min-height: 38px; border: 1px solid rgba(42,57,63,.2); border-radius: 3px; background: var(--navy); color: #fffdf8; display: flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; font: 700 11px var(--sans); box-shadow: 3px 3px 0 rgba(200,170,110,.2); }
 .suggestion-generate:disabled { cursor: wait; opacity: .64; }
