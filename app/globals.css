@@ -3415,11 +3415,11 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 }
 .release-decision-kind.amplify {
   color: var(--green);
-  background: rgba(82, 138, 112, .1);
+  background: var(--blue-light);
 }
 .release-decision-kind.explain {
   color: var(--gold);
-  background: rgba(201, 154, 82, .1);
+  background: var(--gold-light);
 }
 .release-decision-kind.hold {
   color: var(--ink-soft);
