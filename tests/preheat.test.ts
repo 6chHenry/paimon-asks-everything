@@ -66,6 +66,18 @@ describe("preheat orchestration", () => {
     }
   });
 
+  it("localizes the unresolved breakpoint through an answer-free projection", () => {
+    const view = getPreheatView({ ...base, depth: "guided" });
+
+    expect(view.breakpoint).toMatchObject({
+      id: "gnosis-final-purpose",
+      mysteryId: "nodkrai-main-breakpoint",
+      question: "收集神之心最终要启动什么？",
+      unlockLabel: "至冬版本开启后揭晓",
+    });
+    expect(view.breakpoint).not.toHaveProperty("answer");
+  });
+
   it("fills the default topic with an opening promise", () => {
     const topic = preheatTopics.find((item) => item.id === defaultPreheatTopicId);
     expect(topic?.introZh).toContain("已确认");
