@@ -95,7 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="game-nav-brand-slot">
             <a href={clientPath("/")} className="game-brand" aria-label="Paimon Asks Everything">
               <span className="brand-sigil">
-                <Sparkles size={18} />
+                <img src="/icon.png" alt="" aria-hidden="true" />
               </span>
               <span>
                 <strong>{isZh ? "派蒙三千问" : "Paimon Asks Everything"}</strong>
