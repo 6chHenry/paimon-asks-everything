@@ -13,6 +13,7 @@ import {
 import { GnosisTimeline } from "@/components/gnosis-timeline";
 import { TravelerContextDrawer } from "@/components/home-intel";
 import { PreheatNote } from "@/components/preheat-note";
+import { PreheatBreakpointCard } from "@/components/preheat-breakpoint";
 import { RelationMap } from "@/components/relation-map";
 import { usePreferences } from "@/components/preferences-provider";
 import {
@@ -343,6 +344,14 @@ export default function PreheatPage() {
                   )}
                 </article>
               ) : null}
+              <PreheatBreakpointCard
+                breakpoint={data.breakpoint}
+                askHref={clientPath(
+                  `/ask?topicId=${encodeURIComponent(topicId)}&timelineNodeId=${encodeURIComponent(
+                    selectedTimelineId ?? "",
+                  )}&question=${encodeURIComponent(data.breakpoint.question)}`,
+                )}
+              />
             </main>
 
             <aside className="relations-column">
@@ -364,7 +373,7 @@ export default function PreheatPage() {
               ) : null}
               <div className="followup-box">
                 <span>{t(language, "继续问派蒙", "Continue with Paimon")}</span>
-                {data.topic.suggestedQuestions.map((question) => (
+                {(selectedTimeline?.suggestedQuestions ?? data.topic.suggestedQuestions).map((question) => (
                   <a
                     key={question}
                     href={clientPath(`/ask?topicId=${encodeURIComponent(

@@ -55,6 +55,51 @@ describe("preheat orchestration", () => {
     expect(validatePreheatCatalog()).toEqual([]);
   });
 
+  it("gives all preheat topics the same version mystery and a locked question", () => {
+    const mysteryIds = new Set(preheatTopics.map((topic) => topic.mysteryId));
+    expect(mysteryIds).toEqual(new Set(["nodkrai-main-breakpoint"]));
+    for (const topic of preheatTopics) {
+      expect(topic.breakpoint.questionZh.trim()).not.toBe("");
+      expect(topic.breakpoint.unlockLabelZh).toContain("至冬版本开启");
+      expect(topic.breakpoint).not.toHaveProperty("answer");
+      expect(topic.breakpoint).not.toHaveProperty("answerZh");
+    }
+  });
+
+  it("localizes the unresolved breakpoint through an answer-free projection", () => {
+    const view = getPreheatView({ ...base, depth: "guided" });
+
+    expect(view.breakpoint).toMatchObject({
+      id: "gnosis-final-purpose",
+      mysteryId: "nodkrai-main-breakpoint",
+      question: "收集神之心最终要启动什么？",
+      unlockLabel: "至冬版本开启后揭晓",
+    });
+    expect(view.breakpoint).not.toHaveProperty("answer");
+  });
+
+  it("fills the default topic with an opening promise", () => {
+    const topic = preheatTopics.find((item) => item.id === defaultPreheatTopicId);
+    expect(topic?.introZh).toContain("已确认");
+    expect(topic?.introZh).toContain("未解");
+  });
+
+  it("uses the seven-region event chain to shape the default follow-up questions", () => {
+    const view = getPreheatView({
+      ...base,
+      topicId: defaultPreheatTopicId,
+      depth: "research",
+      progress: "nodkrai",
+      spoilerPreference: "full",
+    });
+
+    expect(view.timeline).toHaveLength(7);
+    for (const node of view.timeline) {
+      expect(node.suggestedQuestions).toHaveLength(3);
+      expect(node.suggestedQuestions.every((question) => question.length > 8)).toBe(true);
+    }
+  });
+
   it("gives every visible local relation node an unlocked detail summary", () => {
     const view = getPreheatView({
       ...base,

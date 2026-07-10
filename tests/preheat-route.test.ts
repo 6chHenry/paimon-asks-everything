@@ -40,4 +40,21 @@ describe("preheat GET route", () => {
       payload.timeline.find((node) => node.id === "nodkrai-gnosis"),
     ).toMatchObject({ locked: false });
   });
+
+  it("returns a question-led breakpoint without an answer", async () => {
+    const response = await GET(
+      new Request(
+        "http://localhost/api/preheat?topicId=seven-gnosis-journeys&depth=guided&language=zh-CN&profile=story&progress=fontaine&spoilerPreference=low",
+      ),
+    );
+    const payload = (await response.json()) as {
+      breakpoint: { question: string; unlockLabel: string; boundary: string } &
+        Record<string, unknown>;
+    };
+    expect(response.status).toBe(200);
+    expect(payload.breakpoint.question).toContain("神之心");
+    expect(payload.breakpoint.unlockLabel).toContain("至冬版本开启");
+    expect(payload.breakpoint.boundary).toContain("仍未解");
+    expect(payload.breakpoint).not.toHaveProperty("answer");
+  });
 });

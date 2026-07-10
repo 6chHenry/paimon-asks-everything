@@ -87,6 +87,22 @@ function localizeRelationDetail(entry: KnowledgeEntry) {
   };
 }
 
+function localizeBreakpoint(
+  breakpoint: PreheatTopic["breakpoint"],
+  language: Language,
+) {
+  return {
+    id: breakpoint.id,
+    mysteryId: breakpoint.mysteryId,
+    question: language === "zh-CN" ? breakpoint.questionZh : breakpoint.questionEn,
+    clueSummary:
+      language === "zh-CN" ? breakpoint.clueSummaryZh : breakpoint.clueSummaryEn,
+    boundary: language === "zh-CN" ? breakpoint.boundaryZh : breakpoint.boundaryEn,
+    unlockLabel:
+      language === "zh-CN" ? breakpoint.unlockLabelZh : breakpoint.unlockLabelEn,
+  };
+}
+
 function relationNodeDetails(
   node: RelationNode,
   edges: RelationGraph["edges"],
@@ -189,6 +205,10 @@ function localizeTimelineNode(
         ? node.titleZh
         : node.titleEn,
     locked,
+    suggestedQuestions:
+      query.language === "zh-CN"
+        ? node.suggestedQuestionsZh
+        : node.suggestedQuestionsEn,
     events: visibleEvents,
     implications,
     relationGraphId: node.relationGraphId,
@@ -312,6 +332,7 @@ export function getPreheatView(query: PreheatQuery) {
 
   return {
     topic: localizeTopic(topic, query.language),
+    breakpoint: localizeBreakpoint(topic.breakpoint, query.language),
     topics: preheatTopics.map((item) => localizeTopic(item, query.language)),
     depth: {
       id: query.depth,
