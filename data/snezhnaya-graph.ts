@@ -573,17 +573,17 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       kind: "character",
       tier: "official_text_index",
       summary: {
-        "zh-CN": "愚人众第七席，身体在与博士的冲突中被摧毁，核心随后被回收。",
-        en: "The Seventh Harbinger, whose body was destroyed in a confrontation with Dottore while her core was later recovered.",
+        "zh-CN": "愚人众第七席，曾在与博士的冲突中牺牲，现已意外归来并作为可用角色登场。",
+        en: "The Seventh Harbinger, who once sacrificed herself in the conflict with Dottore and has now made an unexpected return as a playable character.",
       },
       detail: {
         "zh-CN": [
           "她为阻止博士利用三月力量而设局，随后身体被博士摧毁。",
-          "仆人回收了她与普洛尼亚的核心，并准备送往枫丹科学院；能否恢复尚未得到确认。",
+          "仆人回收了她与普洛尼亚的核心并送往枫丹科学院；后续资料已确认桑多涅意外归来，并在月之八版本作为角色登场。",
         ],
         en: [
           "She set a trap to prevent Dottore from exploiting the power of the Three Moons, after which he destroyed her body.",
-          "Arlecchino recovered her core and Pulonia's for delivery to the Fontaine Research Institute; whether she can be restored remains unconfirmed.",
+          "Arlecchino recovered her core and Pulonia's for delivery to the Fontaine Research Institute; later material confirms Sandrone's unexpected return, and she debuted as a playable character in Luna VIII.",
         ],
       },
       imageUrl: "/snezhnaya/avatars/sandrone.webp",
@@ -982,7 +982,7 @@ const snezhnayaGraphBase: SnezhnayaGraphData = {
       tone: "lore",
       showLabel: true,
       path: "M 530 235 C 575 230 610 240 636 245",
-      labelPosition: { x: 552, y: 294, width: 106, height: 24 },
+      labelPosition: { x: 552, y: 326, width: 106, height: 24 },
     },
     {
       id: "gnosis-third-descender",
@@ -1101,10 +1101,10 @@ const nodeVisuals: Record<string, NodeVisual> = {
     graphGroup: "harbinger",
     graphPosition: { x: 18, y: 76.5 },
     harbingerRank: 7,
-    status: "deceased",
+    status: "active",
     statusLabel: {
-      "zh-CN": "身体被摧毁 · 核心已回收",
-      en: "Body destroyed · core recovered",
+      "zh-CN": "已复活 · 月之八登场",
+      en: "Revived · released in Luna VIII",
     },
   },
   signora: {

@@ -325,40 +325,44 @@ export function TravelerContextDrawer({
   focus: Focus[];
   allowQuestionTextStorage: boolean;
   profileItems: Array<{ value: Profile; label: string; description?: string }>;
-  progressItems: Array<{ value: Progress; label: string }>;
+  progressItems?: Array<{ value: Progress; label: string }>;
   onSelectProfile: (profile: Profile) => void;
-  onSelectProgress: (progress: Progress) => void;
+  onSelectProgress?: (progress: Progress) => void;
   onToggleFocus: (focus: Focus) => void;
   onToggleStorage: (allowed: boolean) => void;
 }) {
   return (
     <section className="traveler-context-drawer reveal">
-      <div className="home-progress-card">
-        <div>
-          <Compass size={20} />
-          <span>{t(language, "最新完成主线", "Latest completed main quest")}</span>
-          <strong>{labels.progress[progress][language]}</strong>
+      {progressItems && onSelectProgress ? (
+        <div className="home-progress-card">
+          <div>
+            <Compass size={20} />
+            <span>{t(language, "最新完成主线", "Latest completed main quest")}</span>
+            <strong>{labels.progress[progress][language]}</strong>
+          </div>
+          <label>
+            <span>
+              {t(
+                language,
+                "选择你最新完成的地区主线",
+                "Choose the latest region main quest you completed",
+              )}
+            </span>
+            <select
+              value={progress}
+              onChange={(event) =>
+                onSelectProgress(event.target.value as Progress)
+              }
+            >
+              {progressItems.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        <label>
-          <span>
-            {t(
-              language,
-              "选择你最新完成的地区主线",
-              "Choose the latest region main quest you completed",
-            )}
-          </span>
-          <select
-            value={progress}
-            onChange={(event) => onSelectProgress(event.target.value as Progress)}
-          >
-            {progressItems.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      ) : null}
 
       <details>
         <summary>

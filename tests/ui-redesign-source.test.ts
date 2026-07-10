@@ -10,19 +10,27 @@ describe("Genshin-style shell source", () => {
   it("uses the global game navigation shell instead of a topbar-first layout", () => {
     const appShell = source("components", "app-shell.tsx");
 
-    expect(appShell).toContain("game-shell");
-    expect(appShell).toContain("game-nav-rail");
-    expect(appShell).toContain("game-status-bar");
-    expect(appShell).toContain("game-content");
-    expect(appShell).toContain("game-bottom-nav");
-    expect(appShell).toContain("aria-label=\"Main navigation\"");
-    expect(appShell).toContain("aria-current");
-    expect(appShell).toContain("clientPath(\"/\")");
-    expect(appShell).toContain("版本情报");
-    expect(appShell).toContain("navCollapsed");
-    expect(appShell).toContain("game-nav-collapse");
-    expect(appShell).toContain("PanelLeftClose");
-    expect(appShell).toContain("PanelLeftOpen");
+    for (const fragment of [
+      "game-shell",
+      "game-nav-rail",
+      "game-nav-tools",
+      "language-toggle",
+      "game-content",
+      "game-bottom-nav",
+      "aria-label=\"Main navigation\"",
+      "aria-current",
+      "clientPath(\"/\")",
+      "版本情报",
+      "navCollapsed",
+      "game-nav-collapse",
+      "PanelLeftClose",
+      "PanelLeftOpen",
+    ]) {
+      expect(appShell).toContain(fragment);
+    }
+
+    expect(appShell).not.toContain("Unofficial concept demo");
+    expect(appShell).not.toContain("非官方");
     expect(appShell).not.toContain("className=\"topbar\"");
     expect(appShell).not.toContain("className=\"nav-links\"");
   });
@@ -32,12 +40,37 @@ describe("Genshin-style shell source", () => {
 
     expect(css).toContain("--shell-blue");
     expect(css).toContain("--frame-gold");
+    expect(css).toContain("--nav-ease");
+    expect(css).toContain("cubic-bezier(.2, 0, .38, .9)");
+    expect(css).toContain("grid-template-rows: auto 1fr auto");
+    expect(css).toContain("grid-template-areas: \"brand toggle\"");
+    expect(css).toContain(".game-nav-brand-slot");
+    expect(css).toContain(".game-nav-collapse-slot");
+    expect(css).toContain("grid-template-rows: 38px 42px");
+    expect(css).toContain("gap: 18px");
+    expect(css).toContain("padding-top: 9px");
+    expect(css).toContain("align-self: start");
+    expect(css).toContain("position: static !important");
+    expect(css).toContain(".game-shell.nav-collapsed .game-nav-collapse:hover");
     expect(css).toContain(".game-nav-rail");
     expect(css).toContain(".game-shell.nav-collapsed");
     expect(css).toContain(".game-nav-collapse");
-    expect(css).toContain(".game-status-bar");
+    expect(css).toContain(".game-nav-tools");
     expect(css).toContain(".game-bottom-nav");
     expect(css).toContain("@media (max-width: 760px)");
+    expect(css).not.toContain("top: 56px");
+    expect(css).toContain("@supports (content-visibility: auto)");
+    expect(css).toContain("content-visibility: auto");
+    expect(css).toContain("contain-intrinsic-size");
+    expect(css).toContain(".suggestions-panel");
+    expect(css).toContain(".composer:focus-within");
+    expect(css).toContain(".empty-conversation::before");
+    expect(css).toContain(".composer textarea::placeholder");
+    expect(css).toContain("box-shadow: inset 3px 0 0 rgba(200,170,110,.58)");
+    expect(css).toContain("min-height: 198px");
+    expect(css).toContain("-webkit-line-clamp: 2");
+    expect(css).toContain("order: 5");
+    expect(css).toContain("transition-duration: .01ms !important");
   });
 });
 
@@ -58,7 +91,9 @@ describe("Genshin-style homepage source", () => {
     expect(page).not.toContain("HomeGraphSummary");
     expect(page).not.toContain("HomePreheatBrief");
     expect(page).toContain("HomeAskEntry");
-    expect(page).toContain("TravelerContextDrawer");
+    expect(page).not.toContain("TravelerContextDrawer");
+    expect(page).not.toContain("progressItems");
+    expect(page).not.toContain("onSelectProgress");
     expect(page).not.toContain("HomeVideoFeature");
     expect(page).not.toContain("<SnezhnayaGraph graph={snezhnayaGraph} />");
   });
@@ -128,6 +163,14 @@ describe("Genshin-style preheat source", () => {
     expect(page).toContain("preheat-intel-page");
     expect(page).toContain("PreheatNote");
     expect(page).toContain("noteOpened");
+    expect(page).toContain("preheat-settings-panel");
+    expect(page).toContain("preheat-progress-card");
+    expect(page).toContain("TravelerContextDrawer");
+    expect(page).toContain("setPreferences");
+    expect(page).toContain("Latest completed main quest");
+    const css = source("app", "globals.css");
+    expect(css).toContain("grid-template-columns: minmax(300px, .62fr) minmax(360px, 1fr)");
+    expect(css).toContain(".preheat-settings-panel .traveler-context-drawer details:not([open]) summary");
     expect(page).not.toContain("preheat-intel-masthead");
     expect(page).toContain("preheat-intel-workbench");
     expect(page).toContain("GnosisTimeline");
@@ -162,7 +205,11 @@ describe("Genshin-style responsive safeguards", () => {
       ".home-graph-preview",
       ".home-dossier-grid",
       ".traveler-context-drawer",
+      ".preheat-progress-card",
       ".snezhnaya-intel-section",
+      ".ask-layout",
+      ".conversation-panel",
+      ".suggestions-panel",
     ]) {
       expect(css).toContain(selector);
     }
@@ -184,7 +231,7 @@ describe("Genshin-style responsive safeguards", () => {
       source("components", "preheat-note.tsx"),
     ].join("\n");
 
-    for (const badFragment of ["閸?", "缁?", "閳?", "婢?", "闂?"]) {
+    for (const badFragment of ["闁?", "缂?", "闁?", "濠?", "闂?"]) {
       expect(combined).not.toContain(badFragment);
     }
   });

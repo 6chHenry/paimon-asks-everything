@@ -263,7 +263,7 @@ describe("curated Snezhnaya graph catalog", () => {
       arlecchino: "active",
       pulcinella: "active",
       scaramouche: "former",
-      sandrone: "deceased",
+      sandrone: "active",
       signora: "deceased",
       pantalone: "active",
       "unknown-tenth": "unknown",
@@ -344,6 +344,24 @@ describe("curated Snezhnaya graph catalog", () => {
         }),
       );
       expect(edge.path, edge.id).toMatch(/^M /u);
+    }
+
+    for (let index = 0; index < visibleEdges.length; index += 1) {
+      for (let other = index + 1; other < visibleEdges.length; other += 1) {
+        const left = visibleEdges[index].labelPosition;
+        const right = visibleEdges[other].labelPosition;
+        expect(left, visibleEdges[index].id).toBeDefined();
+        expect(right, visibleEdges[other].id).toBeDefined();
+        const overlaps =
+          left!.x < right!.x + right!.width &&
+          left!.x + left!.width > right!.x &&
+          left!.y < right!.y + right!.height &&
+          left!.y + left!.height > right!.y;
+        expect(
+          overlaps,
+          `${visibleEdges[index].id}:${visibleEdges[other].id}`,
+        ).toBe(false);
+      }
     }
   });
 

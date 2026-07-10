@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
@@ -22,12 +22,50 @@ const navigation = [
   { href: "/insights", labelZh: "发行洞察", labelEn: "Insights", icon: BarChart3 },
 ];
 
+const NAV_COLLAPSED_STORAGE_KEY = "paimon-nav-collapsed";
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const activePath = pathname.replace(/^.*\/proxy\/\d+/u, "") || "/";
   const { preferences, setPreferences } = usePreferences();
   const isZh = preferences.language === "zh-CN";
   const [navCollapsed, setNavCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const storedCollapsed =
+        window.localStorage.getItem(NAV_COLLAPSED_STORAGE_KEY) === "true";
+      setNavCollapsed(storedCollapsed);
+      if (storedCollapsed) {
+        document.documentElement.dataset.navCollapsed = "true";
+      } else {
+        delete document.documentElement.dataset.navCollapsed;
+      }
+    } catch {
+      // Ignore private browsing or storage restrictions.
+    }
+  }, []);
+
+  function toggleNavCollapsed() {
+    setNavCollapsed((collapsed) => {
+      const nextCollapsed = !collapsed;
+      try {
+        window.localStorage.setItem(
+          NAV_COLLAPSED_STORAGE_KEY,
+          String(nextCollapsed),
+        );
+        if (nextCollapsed) {
+          document.documentElement.dataset.navCollapsed = "true";
+        } else {
+          delete document.documentElement.dataset.navCollapsed;
+        }
+      } catch {
+        // Ignore private browsing or storage restrictions.
+      }
+      return nextCollapsed;
+    });
+  }
+
 
   const renderNavigation = () =>
     navigation.map((item) => {
@@ -42,8 +80,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           aria-current={isActive ? "page" : undefined}
           title={isZh ? item.labelZh : item.labelEn}
         >
-          <Icon size={17} />
-          <span>{isZh ? item.labelZh : item.labelEn}</span>
+          <span className="game-nav-icon">
+            <Icon size={17} />
+          </span>
+          <span className="game-nav-label">{isZh ? item.labelZh : item.labelEn}</span>
         </a>
       );
     });
@@ -52,34 +92,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className={`site-shell game-shell${navCollapsed ? " nav-collapsed" : ""}`}>
       <aside className="game-nav-rail" aria-label="Global navigation">
         <div className="game-nav-head">
-          <a href={clientPath("/")} className="game-brand" aria-label="Paimon Asks Everything">
-            <span className="brand-sigil">
-              <Sparkles size={18} />
-            </span>
-            <span>
-              <strong>{isZh ? "派蒙三千问" : "Paimon Asks Everything"}</strong>
-              <small>{isZh ? "版本理解 Agent" : "Version understanding agent"}</small>
-            </span>
-          </a>
-          <button
-            className="game-nav-collapse"
-            type="button"
-            onClick={() => setNavCollapsed((collapsed) => !collapsed)}
-            aria-label={navCollapsed ? "Expand navigation" : "Collapse navigation"}
-            aria-expanded={!navCollapsed}
-          >
-            {navCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
-          </button>
+          <div className="game-nav-brand-slot">
+            <a href={clientPath("/")} className="game-brand" aria-label="Paimon Asks Everything">
+              <span className="brand-sigil">
+                <Sparkles size={18} />
+              </span>
+              <span>
+                <strong>{isZh ? "派蒙三千问" : "Paimon Asks Everything"}</strong>
+                <small>{isZh ? "版本理解 Agent" : "Version understanding agent"}</small>
+              </span>
+            </a>
+          </div>
+          <div className="game-nav-collapse-slot">
+            <button
+              className="game-nav-collapse"
+              type="button"
+              onClick={toggleNavCollapsed}
+              aria-label={navCollapsed ? "Expand navigation" : "Collapse navigation"}
+              aria-expanded={!navCollapsed}
+            >
+              <PanelLeftOpen className="game-nav-collapse-open" size={17} aria-hidden="true" />
+              <PanelLeftClose className="game-nav-collapse-close" size={17} aria-hidden="true" />
+            </button>
+          </div>
         </div>
         <nav className="game-nav-list" aria-label="Main navigation">{renderNavigation()}</nav>
-      </aside>
-      <div className="game-frame">
-        <header className="game-status-bar">
-          <span>
-            {isZh
-              ? "非官方概念 Demo · 不读取游戏账号"
-              : "Unofficial concept demo · No game account access"}
-          </span>
+        <div className="game-nav-tools" aria-label={isZh ? "偏好设置" : "Preferences"}>
+          <span className="game-nav-language-label">{isZh ? "语言" : "Language"}</span>
           <button
             className="language-toggle"
             type="button"
@@ -90,11 +129,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               }))
             }
             aria-label="Switch language"
+            title={isZh ? "切换语言" : "Switch language"}
           >
             <span className={isZh ? "selected" : ""}>中</span>
             <span className={!isZh ? "selected" : ""}>EN</span>
           </button>
-        </header>
+        </div>
+      </aside>
+      <div className="game-frame">
         <main className="game-content">{children}</main>
       </div>
       <nav className="game-bottom-nav" aria-label="Mobile navigation">{renderNavigation()}</nav>

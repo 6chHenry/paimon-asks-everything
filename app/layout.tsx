@@ -13,7 +13,20 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+try {
+  if (window.localStorage.getItem("paimon-nav-collapsed") === "true") {
+    document.documentElement.dataset.navCollapsed = "true";
+  }
+} catch {}
+            `.trim(),
+          }}
+        />
+      </head>
       <body>
         <PreferencesProvider>
           <AppShell>{children}</AppShell>

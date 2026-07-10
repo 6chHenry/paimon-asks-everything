@@ -6,10 +6,12 @@ import {
   BookOpenCheck,
   ChevronRight,
   CircleAlert,
+  Compass,
   LoaderCircle,
   Network,
 } from "lucide-react";
 import { GnosisTimeline } from "@/components/gnosis-timeline";
+import { TravelerContextDrawer } from "@/components/home-intel";
 import { PreheatNote } from "@/components/preheat-note";
 import { RelationMap } from "@/components/relation-map";
 import { usePreferences } from "@/components/preferences-provider";
@@ -18,13 +20,22 @@ import {
   preheatTopics,
 } from "@/data/preheat-topics";
 import { clientPath } from "@/lib/client-path";
-import type { PreheatDepth } from "@/lib/domain";
+import type { Focus, PreheatDepth, Profile, Progress } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
 import type { PreheatView } from "@/lib/preheat";
 
+const profileDescriptions = {
+  new: ["先解释阵营和术语", "Explain factions and terms first"],
+  returning: ["只补进入至冬前的必要背景", "Only the context needed before Snezhnaya"],
+  story: ["展开证据、人物与伏笔", "Open evidence, characters, and threads"],
+  exploration: ["轻量理解大世界文本", "Light context from world text"],
+  casual: ["先看核心卖点", "Start with the main hook"],
+};
+
 export default function PreheatPage() {
-  const { preferences } = usePreferences();
+  const { preferences, setPreferences } = usePreferences();
   const language = preferences.language;
+  const isZh = language === "zh-CN";
   const [topicId, setTopicId] = useState(defaultPreheatTopicId);
   const [depth, setDepth] = useState<PreheatDepth>("guided");
   const [data, setData] = useState<PreheatView | null>(null);
@@ -134,6 +145,26 @@ export default function PreheatPage() {
     preheatTopics.find((item) => item.id === topicId) ??
     preheatTopics.find((item) => item.id === defaultPreheatTopicId) ??
     preheatTopics[0];
+  const progressItems = (Object.keys(labels.progress) as Progress[]).map(
+    (value) => ({ value, label: labels.progress[value][language] }),
+  );
+  const profileItems = (Object.keys(labels.profile) as Profile[]).map(
+    (value) => ({
+      value,
+      label: labels.profile[value][language],
+      description: profileDescriptions[value][isZh ? 0 : 1],
+    }),
+  );
+
+  function toggleFocus(focus: Focus) {
+    setPreferences((current) => {
+      const exists = current.focus.includes(focus);
+      const next = exists
+        ? current.focus.filter((item) => item !== focus)
+        : [...current.focus, focus];
+      return { ...current, focus: next.length ? next : [focus] };
+    });
+  }
 
   function openCurrentNote() {
     setNoteOpened(true);
@@ -153,6 +184,59 @@ export default function PreheatPage() {
         onSelectDepth={setDepth}
         onStart={openCurrentNote}
       />
+
+      <section className="preheat-settings-panel" aria-label="Preheat settings">
+      <section className="home-progress-card preheat-progress-card">
+        <div>
+          <Compass size={20} />
+          <span>{t(language, "最新完成主线", "Latest completed main quest")}</span>
+          <strong>{labels.progress[preferences.progress][language]}</strong>
+        </div>
+        <label>
+          <span>
+            {t(
+              language,
+              "选择你最新完成的地区主线",
+              "Choose the latest region main quest you completed",
+            )}
+          </span>
+          <select
+            value={preferences.progress}
+            onChange={(event) =>
+              setPreferences((current) => ({
+                ...current,
+                progress: event.target.value as Progress,
+              }))
+            }
+          >
+            {progressItems.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
+      <TravelerContextDrawer
+        language={language}
+        profile={preferences.profile}
+        progress={preferences.progress}
+        focus={preferences.focus}
+        allowQuestionTextStorage={preferences.allowQuestionTextStorage}
+        profileItems={profileItems}
+        onSelectProfile={(profile) =>
+          setPreferences((current) => ({ ...current, profile }))
+        }
+        onToggleFocus={toggleFocus}
+        onToggleStorage={(allowQuestionTextStorage) =>
+          setPreferences((current) => ({
+            ...current,
+            allowQuestionTextStorage,
+          }))
+        }
+      />
+      </section>
 
       {noteOpened && loading && !data ? (
         <div className="page-loader preheat-result-panel">
@@ -232,7 +316,7 @@ export default function PreheatPage() {
                       {t(
                         language,
                         "这个节点超过首页选择的主线进度。切换到“完整考据”会展示完整剧透；也可以回首页更新进度。",
-                        "This node is beyond the progress selected on the home page. Switch to Research for full spoilers, or return home to update progress.",
+                        "This node is beyond the selected main-quest progress. Switch to Research for full spoilers, or update your progress above.",
                       )}
                     </p>
                   ) : (
