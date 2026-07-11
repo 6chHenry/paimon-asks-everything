@@ -34,19 +34,19 @@ const selectableRegions: Exclude<Progress, "unknown">[] = [
 
 const regionEmblemSources: Record<Exclude<Progress, "unknown">, string> = {
   mondstadt:
-    "https://static.wikia.nocookie.net/gensin-impact/images/8/80/Emblem_Mondstadt.png/revision/latest?cb=20201116194623",
+    "https://static.wikia.nocookie.net/gensin-impact/images/9/99/Emblem_Mondstadt_White.png/revision/latest?cb=20220301033214",
   liyue:
-    "https://static.wikia.nocookie.net/gensin-impact/images/f/f8/Emblem_Liyue.png/revision/latest?cb=20201116194654",
+    "https://static.wikia.nocookie.net/gensin-impact/images/4/49/Emblem_Liyue_White.png/revision/latest?cb=20220301033230",
   inazuma:
-    "https://static.wikia.nocookie.net/gensin-impact/images/9/9e/Emblem_Inazuma.png/revision/latest?cb=20230127155005",
+    "https://static.wikia.nocookie.net/gensin-impact/images/5/51/Emblem_Inazuma_White.png/revision/latest?cb=20220301030931",
   sumeru:
-    "https://static.wikia.nocookie.net/gensin-impact/images/3/38/Emblem_Sumeru.png/revision/latest?cb=20220718183140",
+    "https://static.wikia.nocookie.net/gensin-impact/images/6/6a/Emblem_Sumeru_White.png/revision/latest?cb=20220718184158",
   fontaine:
-    "https://static.wikia.nocookie.net/gensin-impact/images/4/49/Emblem_Fontaine.png/revision/latest?cb=20230922203712",
+    "https://static.wikia.nocookie.net/gensin-impact/images/7/7b/Emblem_Fontaine_White.png/revision/latest?cb=20230807032406",
   natlan:
-    "https://static.wikia.nocookie.net/gensin-impact/images/c/c3/Emblem_Natlan.png/revision/latest?cb=20240828015214",
+    "https://static.wikia.nocookie.net/gensin-impact/images/1/10/Emblem_Natlan_White.png/revision/latest?cb=20240828024938",
   nodkrai:
-    "https://static.wikia.nocookie.net/gensin-impact/images/8/87/Emblem_Nod-Krai.png/revision/latest?cb=20260405005451",
+    "https://static.wikia.nocookie.net/gensin-impact/images/6/62/Emblem_Nod-Krai_White.png/revision/latest?cb=20250912003225",
 };
 
 function fallbackForTopic(topicId: string, language: "zh-CN" | "en") {
