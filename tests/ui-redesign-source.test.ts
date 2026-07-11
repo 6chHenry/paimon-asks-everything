@@ -279,14 +279,15 @@ describe("contextual ask-page suggestions", () => {
     expect(page).toContain("suggestion-region-grid");
     expect(page).toContain("suggestion-topic-grid");
     expect(page).toContain("aria-pressed");
-    expect(page).toContain("regionIcons");
-    expect(page).toContain("region-button-mark");
+    expect(page).toContain("regionEmblemSources");
+    expect(page).toContain("Emblem_Nod-Krai.png");
+    expect(page).toContain("region-button-emblem");
     expect(page).not.toContain("suggestedQuestions[language]");
     expect(page).not.toContain("<select");
     expect(css).toContain(".suggestion-controls");
     expect(css).toContain(".suggestion-chip-grid");
     expect(css).toContain(".region-button.is-selected");
-    expect(css).toContain(".region-button-mark");
+    expect(css).toContain(".region-button-emblem");
     expect(css).toContain(".region-mondstadt");
     expect(css).toContain(".suggestion-generate");
     expect(css).toContain(".suggestion-status");

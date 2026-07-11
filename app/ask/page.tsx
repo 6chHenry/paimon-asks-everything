@@ -5,17 +5,9 @@ import {
   ArrowLeft,
   ArrowUp,
   CircleAlert,
-  Flame,
-  Landmark,
   LoaderCircle,
-  MoonStar,
   Send,
-  Sprout,
   Stars,
-  Waves,
-  Wind,
-  Zap,
-  type LucideIcon,
 } from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
@@ -40,14 +32,21 @@ const selectableRegions: Exclude<Progress, "unknown">[] = [
   "nodkrai",
 ];
 
-const regionIcons: Record<Exclude<Progress, "unknown">, LucideIcon> = {
-  mondstadt: Wind,
-  liyue: Landmark,
-  inazuma: Zap,
-  sumeru: Sprout,
-  fontaine: Waves,
-  natlan: Flame,
-  nodkrai: MoonStar,
+const regionEmblemSources: Record<Exclude<Progress, "unknown">, string> = {
+  mondstadt:
+    "https://static.wikia.nocookie.net/gensin-impact/images/8/80/Emblem_Mondstadt.png/revision/latest?cb=20201116194623",
+  liyue:
+    "https://static.wikia.nocookie.net/gensin-impact/images/f/f8/Emblem_Liyue.png/revision/latest?cb=20201116194654",
+  inazuma:
+    "https://static.wikia.nocookie.net/gensin-impact/images/9/9e/Emblem_Inazuma.png/revision/latest?cb=20230127155005",
+  sumeru:
+    "https://static.wikia.nocookie.net/gensin-impact/images/3/38/Emblem_Sumeru.png/revision/latest?cb=20220718183140",
+  fontaine:
+    "https://static.wikia.nocookie.net/gensin-impact/images/4/49/Emblem_Fontaine.png/revision/latest?cb=20230922203712",
+  natlan:
+    "https://static.wikia.nocookie.net/gensin-impact/images/c/c3/Emblem_Natlan.png/revision/latest?cb=20240828015214",
+  nodkrai:
+    "https://static.wikia.nocookie.net/gensin-impact/images/8/87/Emblem_Nod-Krai.png/revision/latest?cb=20260405005451",
 };
 
 function fallbackForTopic(topicId: string, language: "zh-CN" | "en") {
@@ -399,7 +398,6 @@ export default function AskPage() {
               </span>
               <div className="suggestion-chip-grid suggestion-region-grid">
                 {selectableRegions.map((item) => {
-                  const RegionIcon = regionIcons[item];
                   return (
                     <button
                       className={`region-button region-${item}${
@@ -411,7 +409,12 @@ export default function AskPage() {
                       onClick={() => selectSuggestionRegion(item)}
                     >
                       <span>{labels.progress[item][language]}</span>
-                      <RegionIcon className="region-button-mark" size={25} strokeWidth={1.45} aria-hidden />
+                      <img
+                        className="region-button-emblem"
+                        src={regionEmblemSources[item]}
+                        alt=""
+                        aria-hidden
+                      />
                     </button>
                   );
                 })}
