@@ -276,8 +276,14 @@ describe("contextual ask-page suggestions", () => {
     expect(page).toContain("让派蒙想几个问题");
     expect(page).toContain("派蒙准备的参考问题");
     expect(page).toContain("void submitQuestion(item)");
+    expect(page).toContain("suggestion-region-grid");
+    expect(page).toContain("suggestion-topic-grid");
+    expect(page).toContain("aria-pressed");
     expect(page).not.toContain("suggestedQuestions[language]");
+    expect(page).not.toContain("<select");
     expect(css).toContain(".suggestion-controls");
+    expect(css).toContain(".suggestion-chip-grid");
+    expect(css).toContain(".suggestion-chip-grid button.is-selected");
     expect(css).toContain(".suggestion-generate");
     expect(css).toContain(".suggestion-status");
   });

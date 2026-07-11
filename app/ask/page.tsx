@@ -368,36 +368,46 @@ export default function AskPage() {
             <h2>{t(language, "不知道问什么？", "Need an idea?")}</h2>
           </div>
           <div className="suggestion-controls">
-            <label>
-              <span>{t(language, "选择地区", "Choose a region")}</span>
-              <select
-                value={region}
-                onChange={(event) =>
-                  selectSuggestionRegion(
-                    event.target.value as Exclude<Progress, "unknown">,
-                  )
-                }
-              >
+            <section className="suggestion-choice-group" aria-label={t(language, "选择地区", "Choose a region")}>
+              <span className="suggestion-choice-label">
+                {t(language, "选择地区", "Choose a region")}
+              </span>
+              <div className="suggestion-chip-grid suggestion-region-grid">
                 {selectableRegions.map((item) => (
-                  <option key={item} value={item}>
+                  <button
+                    className={item === region ? "is-selected" : undefined}
+                    type="button"
+                    key={item}
+                    aria-pressed={item === region}
+                    onClick={() => selectSuggestionRegion(item)}
+                  >
                     {labels.progress[item][language]}
-                  </option>
+                  </button>
                 ))}
-              </select>
-            </label>
-            <label>
-              <span>{t(language, "选择剧情专题", "Choose a story topic")}</span>
-              <select
-                value={selectedSuggestionTopic.id}
-                onChange={(event) => setSuggestionTopicId(event.target.value)}
-              >
+              </div>
+            </section>
+            <section className="suggestion-choice-group suggestion-topic-stage" aria-label={t(language, "选择剧情专题", "Choose a story topic")}>
+              <span className="suggestion-choice-label">
+                {t(language, "选择剧情专题", "Choose a story topic")}
+              </span>
+              <div className="suggestion-chip-grid suggestion-topic-grid">
                 {topicsForRegion.map((item) => (
-                  <option key={item.id} value={item.id}>
+                  <button
+                    className={
+                      item.id === selectedSuggestionTopic.id
+                        ? "is-selected"
+                        : undefined
+                    }
+                    type="button"
+                    key={item.id}
+                    aria-pressed={item.id === selectedSuggestionTopic.id}
+                    onClick={() => setSuggestionTopicId(item.id)}
+                  >
                     {item.title[language]}
-                  </option>
+                  </button>
                 ))}
-              </select>
-            </label>
+              </div>
+            </section>
             <button
               className="suggestion-generate"
               type="button"
