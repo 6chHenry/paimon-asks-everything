@@ -423,7 +423,10 @@ export default function AskPage() {
                 })}
               </div>
             </section>
-            <section className="suggestion-choice-group suggestion-topic-stage" aria-label={t(language, "选择剧情专题", "Choose a story topic")}>
+            <section
+              className={`suggestion-choice-group suggestion-topic-stage topic-region-${region}`}
+              aria-label={t(language, "选择剧情专题", "Choose a story topic")}
+            >
               <span className="suggestion-choice-label">
                 {t(language, "选择剧情专题", "Choose a story topic")}
               </span>

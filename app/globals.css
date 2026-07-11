@@ -1207,14 +1207,22 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 .region-natlan { --region-accent: #c86c45; }
 .region-nodkrai { --region-accent: #6b79aa; }
 .region-snezhnaya { --region-accent: #7892aa; }
-.suggestion-topic-stage { padding-top: 14px; border-top: 1px solid rgba(42,57,63,.1); }
+.suggestion-topic-stage { --topic-accent: var(--gold); padding-top: 14px; border-top: 1px solid rgba(42,57,63,.1); }
+.topic-region-mondstadt { --topic-accent: #5f9f9b; }
+.topic-region-liyue { --topic-accent: #bc8a3a; }
+.topic-region-inazuma { --topic-accent: #8b69aa; }
+.topic-region-sumeru { --topic-accent: #6d9660; }
+.topic-region-fontaine { --topic-accent: #4f8eb8; }
+.topic-region-natlan { --topic-accent: #c86c45; }
+.topic-region-nodkrai { --topic-accent: #6b79aa; }
+.topic-region-snezhnaya { --topic-accent: #7892aa; }
 .suggestion-topic-grid button { position: relative; isolation: isolate; overflow: hidden; min-height: 56px; padding: 11px 44px 11px 13px; font: 700 14px/1.25 var(--display); letter-spacing: .02em; }
-.suggestion-topic-grid button::before { position: absolute; z-index: -1; right: -17px; bottom: -30px; width: 82px; height: 82px; border-radius: 50%; background: var(--gold); content: ""; opacity: .08; transition: transform .24s ease, opacity .18s ease; }
-.suggestion-topic-grid button::after { position: absolute; top: 50%; right: 14px; width: 7px; height: 7px; border-top: 1px solid var(--gold); border-right: 1px solid var(--gold); content: ""; opacity: .72; transform: translateY(-50%) rotate(45deg); transition: transform .2s ease; }
-.suggestion-topic-grid button:hover { border-color: rgba(200,170,110,.85); background: linear-gradient(120deg, rgba(255,246,224,.92), rgba(255,253,247,.98)); box-shadow: inset 3px 0 0 rgba(200,170,110,.64), 0 5px 12px rgba(42,57,63,.08); transform: translateY(-1px); }
+.suggestion-topic-grid button::before { position: absolute; z-index: -1; right: -17px; bottom: -30px; width: 82px; height: 82px; border-radius: 50%; background: var(--topic-accent); content: ""; opacity: .08; transition: transform .24s ease, opacity .18s ease; }
+.suggestion-topic-grid button::after { position: absolute; top: 50%; right: 14px; width: 7px; height: 7px; border-top: 1px solid var(--topic-accent); border-right: 1px solid var(--topic-accent); content: ""; opacity: .72; transform: translateY(-50%) rotate(45deg); transition: transform .2s ease; }
+.suggestion-topic-grid button:hover { border-color: color-mix(in srgb, var(--topic-accent) 78%, var(--ink)); background: linear-gradient(120deg, color-mix(in srgb, var(--topic-accent) 15%, #fffdf8), rgba(255,253,247,.98)); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--topic-accent) 72%, #fffdf8), 0 5px 12px rgba(42,57,63,.08); transform: translateY(-1px); }
 .suggestion-topic-grid button:hover::before { opacity: .16; transform: scale(1.15); }
 .suggestion-topic-grid button:hover::after { transform: translate(2px, -50%) rotate(45deg); }
-.suggestion-topic-grid button.is-selected { border-color: var(--gold); background: linear-gradient(120deg, rgba(231,204,142,.38), rgba(255,252,242,.98)); box-shadow: inset 3px 0 0 var(--gold), 0 6px 14px rgba(42,57,63,.1); color: var(--ink); }
+.suggestion-topic-grid button.is-selected { border-color: var(--topic-accent); background: linear-gradient(120deg, color-mix(in srgb, var(--topic-accent) 29%, #fffdf8), rgba(255,252,242,.98)); box-shadow: inset 3px 0 0 var(--topic-accent), 0 6px 14px rgba(42,57,63,.1); color: var(--ink); }
 .suggestion-topic-grid button.is-selected::before { opacity: .21; transform: scale(1.18); }
 .suggestion-chip-grid button:focus-visible, .suggestion-generate:focus-visible, .suggestion-list button:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
 .suggestion-generate { min-height: 43px; border: 1px solid rgba(42,57,63,.2); border-radius: 4px; background: linear-gradient(120deg, #263e47, var(--navy)); color: #fffdf8; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font: 700 14px/1 var(--display); letter-spacing: .025em; box-shadow: 4px 4px 0 rgba(200,170,110,.23); transition: transform .18s ease, box-shadow .18s ease; }

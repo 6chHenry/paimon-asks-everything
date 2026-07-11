@@ -283,6 +283,7 @@ describe("contextual ask-page suggestions", () => {
     expect(page).toContain("Emblem_Nod-Krai_White.png");
     expect(page).toContain("Emblem_Snezhnaya.png");
     expect(page).toContain("region-button-emblem");
+    expect(page).toContain("topic-region-${region}");
     expect(page).not.toContain("suggestedQuestions[language]");
     expect(page).not.toContain("<select");
     expect(css).toContain(".suggestion-controls");
@@ -291,6 +292,8 @@ describe("contextual ask-page suggestions", () => {
     expect(css).toContain(".region-button-emblem");
     expect(css).toContain("filter: brightness(0) saturate(100%)");
     expect(css).toContain(".suggestion-topic-grid button::before");
+    expect(css).toContain(".topic-region-mondstadt");
+    expect(css).toContain("var(--topic-accent)");
     expect(css).toContain("font: 700 14px/1.25 var(--display)");
     expect(css).toContain(".region-mondstadt");
     expect(css).toContain(".suggestion-generate");
