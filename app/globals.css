@@ -1206,6 +1206,7 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 .region-fontaine { --region-accent: #4f8eb8; }
 .region-natlan { --region-accent: #c86c45; }
 .region-nodkrai { --region-accent: #6b79aa; }
+.region-snezhnaya { --region-accent: #7892aa; }
 .suggestion-topic-stage { padding-top: 14px; border-top: 1px solid rgba(42,57,63,.1); }
 .suggestion-topic-grid button { position: relative; min-height: 47px; padding-right: 32px; font: 600 13px/1.4 var(--sans); }
 .suggestion-topic-grid button::after { position: absolute; top: 50%; right: 12px; width: 6px; height: 6px; border-top: 1px solid currentColor; border-right: 1px solid currentColor; content: ""; opacity: .45; transform: translateY(-50%) rotate(45deg); }

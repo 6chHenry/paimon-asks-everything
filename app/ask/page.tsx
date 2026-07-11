@@ -30,6 +30,7 @@ const selectableRegions: Exclude<Progress, "unknown">[] = [
   "fontaine",
   "natlan",
   "nodkrai",
+  "snezhnaya",
 ];
 
 const regionEmblemSources: Record<Exclude<Progress, "unknown">, string> = {
@@ -47,6 +48,8 @@ const regionEmblemSources: Record<Exclude<Progress, "unknown">, string> = {
     "https://static.wikia.nocookie.net/gensin-impact/images/1/10/Emblem_Natlan_White.png/revision/latest?cb=20240828024938",
   nodkrai:
     "https://static.wikia.nocookie.net/gensin-impact/images/6/62/Emblem_Nod-Krai_White.png/revision/latest?cb=20250912003225",
+  snezhnaya:
+    "https://static.wikia.nocookie.net/gensin-impact/images/5/5a/Emblem_Snezhnaya.png/revision/latest?cb=20260429032726",
 };
 
 function fallbackForTopic(topicId: string, language: "zh-CN" | "en") {

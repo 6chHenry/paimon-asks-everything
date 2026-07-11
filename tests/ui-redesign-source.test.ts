@@ -281,6 +281,7 @@ describe("contextual ask-page suggestions", () => {
     expect(page).toContain("aria-pressed");
     expect(page).toContain("regionEmblemSources");
     expect(page).toContain("Emblem_Nod-Krai_White.png");
+    expect(page).toContain("Emblem_Snezhnaya.png");
     expect(page).toContain("region-button-emblem");
     expect(page).not.toContain("suggestedQuestions[language]");
     expect(page).not.toContain("<select");

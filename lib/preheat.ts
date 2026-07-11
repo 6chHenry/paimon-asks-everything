@@ -27,6 +27,7 @@ const progressRank: Record<Progress, number> = {
   fontaine: 5,
   natlan: 6,
   nodkrai: 7,
+  snezhnaya: 8,
 };
 
 const depthLabels: Record<

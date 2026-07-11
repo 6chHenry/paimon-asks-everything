@@ -13,7 +13,8 @@ export type Progress =
   | "sumeru"
   | "fontaine"
   | "natlan"
-  | "nodkrai";
+  | "nodkrai"
+  | "snezhnaya";
 export type SpoilerPreference = "none" | "low" | "full";
 export type Focus = "story" | "character" | "gameplay" | "overview";
 export type PreheatDepth = "guided" | "research";

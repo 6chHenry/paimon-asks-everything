@@ -13,6 +13,7 @@ export const chatRequestSchema = z.object({
     "fontaine",
     "natlan",
     "nodkrai",
+    "snezhnaya",
   ]),
   spoilerPreference: z.enum(["none", "low", "full"]),
   focus: z
@@ -46,6 +47,7 @@ export const questionSuggestionRequestSchema = z
       "fontaine",
       "natlan",
       "nodkrai",
+      "snezhnaya",
     ]),
     spoilerPreference: z.enum(["none", "low", "full"]),
     focus: z
@@ -72,6 +74,7 @@ export const preheatQuerySchema = z.object({
       "fontaine",
       "natlan",
       "nodkrai",
+      "snezhnaya",
     ])
     .default("fontaine"),
   spoilerPreference: z.enum(["none", "low", "full"]).default("low"),

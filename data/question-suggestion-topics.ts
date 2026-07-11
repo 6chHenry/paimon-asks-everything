@@ -153,4 +153,14 @@ export const questionSuggestionTopics: QuestionSuggestionTopic[] = [
       en: ["What characteristics of lunar power are public?", "How do Frostmoon Scions relate to local belief?", "How does lunar power differ from elemental power?", "Which factions connect to the Frostmoon Scions?", "Which lunar-power claims remain reasonable inferences?"],
     },
   },
+  {
+    id: "snezhnaya-fatui", region: "snezhnaya",
+    title: { "zh-CN": "至冬与愚人众", en: "Snezhnaya and the Fatui" },
+    scope: { "zh-CN": "至冬、愚人众执行官、冰之女皇与神之心计划的已公开线索。", en: "Public clues about Snezhnaya, the Fatui Harbingers, the Tsaritsa, and the Gnosis plan." },
+    sourceAnchors: [{ title: "Snezhnaya", url: `${wiki}Snezhnaya`, authority: "trusted_wiki" }],
+    fallbackQuestions: {
+      "zh-CN": ["愚人众为什么持续收集神之心？", "冰之女皇与愚人众执行官之间是什么关系？", "至冬在其他国家的行动该怎样理解？", "哪些关于冰之女皇的内容已经公开？", "哪些至冬相关说法仍然只是推测？"],
+      en: ["Why do the Fatui keep collecting Gnoses?", "How do the Tsaritsa and the Fatui Harbingers relate?", "How should Snezhnaya's actions in other nations be understood?", "What is publicly known about the Tsaritsa?", "Which Snezhnaya claims are still only theories?"],
+    },
+  },
 ];

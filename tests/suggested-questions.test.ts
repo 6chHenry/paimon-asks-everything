@@ -12,9 +12,10 @@ describe("question suggestion topic catalog", () => {
         "fontaine",
         "natlan",
         "nodkrai",
+        "snezhnaya",
       ]),
     );
-    expect(questionSuggestionTopics).toHaveLength(15);
+    expect(questionSuggestionTopics).toHaveLength(16);
 
     for (const topic of questionSuggestionTopics) {
       expect(topic.sourceAnchors.length).toBeGreaterThan(0);
