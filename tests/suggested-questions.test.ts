@@ -32,4 +32,12 @@ describe("question suggestion topic catalog", () => {
     expect(prompts.every((prompt) => /[?？]$/.test(prompt))).toBe(true);
     expect(prompts.join("\n")).not.toMatch(/答案是|the answer is/i);
   });
+
+  it("uses 月矩力 rather than the deprecated 月之力量 wording", () => {
+    const nodkrai = questionSuggestionTopics.find(
+      (topic) => topic.id === "nodkrai-lunar-power",
+    );
+    expect(nodkrai?.title["zh-CN"]).toContain("月矩力");
+    expect(JSON.stringify(nodkrai)).not.toContain("月之力量");
+  });
 });

@@ -145,11 +145,11 @@ export const questionSuggestionTopics: QuestionSuggestionTopic[] = [
   },
   {
     id: "nodkrai-lunar-power", region: "nodkrai",
-    title: { "zh-CN": "月之力量与霜月之子", en: "Lunar power and Frostmoon Scions" },
-    scope: { "zh-CN": "已公开的月之力量、霜月之子与相关信仰。", en: "Public lunar power, Frostmoon Scions, and related beliefs." },
+    title: { "zh-CN": "月矩力与霜月之子", en: "Lunar power and Frostmoon Scions" },
+    scope: { "zh-CN": "已公开的月矩力、霜月之子与相关信仰。", en: "Public lunar power, Frostmoon Scions, and related beliefs." },
     sourceAnchors: [{ title: "Frostmoon Scions", url: `${wiki}Frostmoon_Scions`, authority: "trusted_wiki" }],
     fallbackQuestions: {
-      "zh-CN": ["月之力量有哪些已知特征？", "霜月之子与当地信仰有何关系？", "月之力量如何区别于元素力？", "哪些势力和霜月之子有关？", "哪些月之力量信息仍是合理推测？"],
+      "zh-CN": ["月矩力有哪些已知特征？", "霜月之子与当地信仰有何关系？", "月矩力如何区别于元素力？", "哪些势力和霜月之子有关？", "哪些月矩力信息仍是合理推测？"],
       en: ["What characteristics of lunar power are public?", "How do Frostmoon Scions relate to local belief?", "How does lunar power differ from elemental power?", "Which factions connect to the Frostmoon Scions?", "Which lunar-power claims remain reasonable inferences?"],
     },
   },

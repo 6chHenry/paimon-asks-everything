@@ -290,6 +290,8 @@ describe("contextual ask-page suggestions", () => {
     expect(css).toContain(".region-button.is-selected");
     expect(css).toContain(".region-button-emblem");
     expect(css).toContain("filter: brightness(0) saturate(100%)");
+    expect(css).toContain(".suggestion-topic-grid button::before");
+    expect(css).toContain("font: 700 14px/1.25 var(--display)");
     expect(css).toContain(".region-mondstadt");
     expect(css).toContain(".suggestion-generate");
     expect(css).toContain(".suggestion-status");
