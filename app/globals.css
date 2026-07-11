@@ -1183,16 +1183,34 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 .aside-heading { padding: 22px; border-bottom: 1px solid rgba(42,57,63,.12); background: linear-gradient(135deg, rgba(255,248,234,.66), rgba(184,220,228,.16)); }
 .aside-heading span { font-size: 9px; letter-spacing: .22em; color: var(--coral); font-weight: 800; }
 .aside-heading h2 { margin: 6px 0 0; font: 500 24px var(--display); }
-.suggestion-controls { display: grid; gap: 14px; padding: 16px; border-bottom: 1px solid rgba(42,57,63,.12); background: rgba(255,250,239,.5); }
-.suggestion-choice-group { display: grid; gap: 7px; margin: 0; padding: 0; border: 0; }
-.suggestion-choice-label { color: var(--ink-soft); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
-.suggestion-chip-grid { display: grid; gap: 7px; }
+.suggestion-controls { display: grid; gap: 17px; padding: 18px 16px; border-bottom: 1px solid rgba(42,57,63,.12); background: linear-gradient(145deg, rgba(255,252,244,.78), rgba(235,225,202,.48)); }
+.suggestion-choice-group { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.suggestion-choice-label { color: var(--ink-soft); font: 800 10px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; }
+.suggestion-chip-grid { display: grid; gap: 8px; }
 .suggestion-region-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .suggestion-topic-grid { grid-template-columns: 1fr; }
-.suggestion-chip-grid button { min-height: 36px; border: 1px solid rgba(42,57,63,.22); border-radius: 3px; background: rgba(255,252,244,.82); color: var(--ink); cursor: pointer; font: 600 12px/1.3 var(--sans); padding: 7px 9px; text-align: left; transition: background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease; }
-.suggestion-topic-grid button { min-height: 42px; font-size: 13px; }
-.suggestion-chip-grid button:hover { border-color: rgba(200,170,110,.8); background: rgba(255,248,234,.96); box-shadow: inset 3px 0 0 rgba(200,170,110,.45); }
-.suggestion-chip-grid button.is-selected { border-color: var(--navy); background: var(--navy); color: #fffdf8; box-shadow: inset 3px 0 0 var(--gold), 2px 2px 0 rgba(200,170,110,.22); }
+.suggestion-chip-grid button { min-height: 42px; border: 1px solid rgba(42,57,63,.18); border-radius: 5px; background: rgba(255,253,247,.76); color: var(--ink); cursor: pointer; font: 600 13px/1.35 var(--sans); padding: 9px 11px; text-align: left; transition: transform .18s ease, background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease; }
+.region-button { --region-accent: var(--gold); position: relative; isolation: isolate; overflow: hidden; display: flex; align-items: center; min-height: 54px !important; padding-right: 42px !important; font: 700 13px/1.2 var(--display) !important; letter-spacing: .025em; }
+.region-button::after { position: absolute; z-index: -1; right: -16px; bottom: -28px; width: 78px; height: 78px; border-radius: 50%; background: var(--region-accent); content: ""; opacity: .09; transition: transform .24s ease, opacity .18s ease; }
+.region-button-mark { position: absolute; right: 10px; color: var(--region-accent); opacity: .48; transition: transform .24s ease, opacity .18s ease; }
+.region-button:hover { border-color: color-mix(in srgb, var(--region-accent) 72%, var(--ink)); background: color-mix(in srgb, var(--region-accent) 8%, rgba(255,253,247,.9)); box-shadow: 0 5px 12px rgba(42,57,63,.09); transform: translateY(-1px); }
+.region-button:hover::after { opacity: .16; transform: scale(1.15); }
+.region-button:hover .region-button-mark { opacity: .76; transform: rotate(-8deg) scale(1.1); }
+.region-button.is-selected { border-color: var(--region-accent); background: linear-gradient(120deg, color-mix(in srgb, var(--region-accent) 20%, #fffdf8), rgba(255,253,247,.96)); color: var(--ink); box-shadow: inset 3px 0 0 var(--region-accent), 0 5px 12px rgba(42,57,63,.1); }
+.region-button.is-selected::after { opacity: .2; transform: scale(1.18); }
+.region-button.is-selected .region-button-mark { opacity: .88; }
+.region-mondstadt { --region-accent: #5f9f9b; }
+.region-liyue { --region-accent: #bc8a3a; }
+.region-inazuma { --region-accent: #8b69aa; }
+.region-sumeru { --region-accent: #6d9660; }
+.region-fontaine { --region-accent: #4f8eb8; }
+.region-natlan { --region-accent: #c86c45; }
+.region-nodkrai { --region-accent: #6b79aa; }
+.suggestion-topic-stage { padding-top: 14px; border-top: 1px solid rgba(42,57,63,.1); }
+.suggestion-topic-grid button { position: relative; min-height: 47px; padding-right: 32px; font: 600 13px/1.4 var(--sans); }
+.suggestion-topic-grid button::after { position: absolute; top: 50%; right: 12px; width: 6px; height: 6px; border-top: 1px solid currentColor; border-right: 1px solid currentColor; content: ""; opacity: .45; transform: translateY(-50%) rotate(45deg); }
+.suggestion-topic-grid button:hover { border-color: rgba(200,170,110,.8); background: rgba(255,248,234,.96); box-shadow: inset 3px 0 0 rgba(200,170,110,.45); transform: translateX(2px); }
+.suggestion-topic-grid button.is-selected { border-color: var(--gold); background: rgba(255,246,224,.92); box-shadow: inset 3px 0 0 var(--gold), 0 4px 10px rgba(42,57,63,.06); color: var(--ink); }
 .suggestion-chip-grid button:focus-visible, .suggestion-generate:focus-visible, .suggestion-list button:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
 .suggestion-generate { min-height: 38px; border: 1px solid rgba(42,57,63,.2); border-radius: 3px; background: var(--navy); color: #fffdf8; display: flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; font: 700 11px var(--sans); box-shadow: 3px 3px 0 rgba(200,170,110,.2); }
 .suggestion-generate:disabled { cursor: wait; opacity: .64; }

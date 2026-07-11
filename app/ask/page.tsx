@@ -1,7 +1,22 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowUp, CircleAlert, LoaderCircle, Send, Stars } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUp,
+  CircleAlert,
+  Flame,
+  Landmark,
+  LoaderCircle,
+  MoonStar,
+  Send,
+  Sprout,
+  Stars,
+  Waves,
+  Wind,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
 import { TraceTimeline } from "@/components/trace-timeline";
@@ -24,6 +39,16 @@ const selectableRegions: Exclude<Progress, "unknown">[] = [
   "natlan",
   "nodkrai",
 ];
+
+const regionIcons: Record<Exclude<Progress, "unknown">, LucideIcon> = {
+  mondstadt: Wind,
+  liyue: Landmark,
+  inazuma: Zap,
+  sumeru: Sprout,
+  fontaine: Waves,
+  natlan: Flame,
+  nodkrai: MoonStar,
+};
 
 function fallbackForTopic(topicId: string, language: "zh-CN" | "en") {
   const topic =
@@ -373,17 +398,23 @@ export default function AskPage() {
                 {t(language, "选择地区", "Choose a region")}
               </span>
               <div className="suggestion-chip-grid suggestion-region-grid">
-                {selectableRegions.map((item) => (
-                  <button
-                    className={item === region ? "is-selected" : undefined}
-                    type="button"
-                    key={item}
-                    aria-pressed={item === region}
-                    onClick={() => selectSuggestionRegion(item)}
-                  >
-                    {labels.progress[item][language]}
-                  </button>
-                ))}
+                {selectableRegions.map((item) => {
+                  const RegionIcon = regionIcons[item];
+                  return (
+                    <button
+                      className={`region-button region-${item}${
+                        item === region ? " is-selected" : ""
+                      }`}
+                      type="button"
+                      key={item}
+                      aria-pressed={item === region}
+                      onClick={() => selectSuggestionRegion(item)}
+                    >
+                      <span>{labels.progress[item][language]}</span>
+                      <RegionIcon className="region-button-mark" size={25} strokeWidth={1.45} aria-hidden />
+                    </button>
+                  );
+                })}
               </div>
             </section>
             <section className="suggestion-choice-group suggestion-topic-stage" aria-label={t(language, "选择剧情专题", "Choose a story topic")}>
