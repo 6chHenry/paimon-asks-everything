@@ -298,7 +298,18 @@ export default function AskPage() {
     <div className="ask-page page-wrap">
       <section className="ask-intro">
         <div>
-          <span className="eyebrow"><Stars size={14} />{t(language, "有问题就问派蒙！", "Ask Paimon!")}</span>
+          <span className="eyebrow">
+            {activeAskRegion ? (
+              <img
+                className="ask-intro-region-emblem"
+                src={regionEmblemSources[activeAskRegion]}
+                alt=""
+              />
+            ) : (
+              <Stars size={14} />
+            )}
+            {t(language, "有问题就问派蒙！", "Ask Paimon!")}
+          </span>
           <h1>{t(language, "旅行者，哪里没看懂？", "What’s confusing, Traveler?")}</h1>
         </div>
       </section>
