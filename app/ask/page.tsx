@@ -87,6 +87,9 @@ export default function AskPage() {
       fallbackForTopic(questionSuggestionTopics[0]!.id, "zh-CN"),
     );
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [activeAskRegion, setActiveAskRegion] = useState<
+    Exclude<Progress, "unknown"> | null
+  >(null);
   const activeRequestRef = useRef<AbortController | null>(null);
   const topicsForRegion = questionSuggestionTopics.filter(
     (item) => item.region === region,
@@ -94,6 +97,9 @@ export default function AskPage() {
   const selectedSuggestionTopic =
     topicsForRegion.find((item) => item.id === suggestionTopicId) ??
     topicsForRegion[0]!;
+  const askRegionIcon = activeAskRegion
+    ? regionEmblemSources[activeAskRegion]
+    : "/compass-mark.svg";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -239,6 +245,7 @@ export default function AskPage() {
   async function submitQuestion(
     text: string,
     confirmationToken?: string,
+    askedRegion?: Exclude<Progress, "unknown">,
   ) {
     if (!text.trim()) return;
     activeRequestRef.current?.abort();
@@ -248,6 +255,7 @@ export default function AskPage() {
     setResourcesLoading(false);
     setError("");
     if (!confirmationToken) {
+      setActiveAskRegion(askedRegion ?? null);
       setResult(null);
       setTraceEvents([]);
       setTraceCollapsed(false);
@@ -310,10 +318,26 @@ export default function AskPage() {
       ) : null}
 
       <div className="ask-layout">
-        <section className="conversation-panel">
+        <section
+          className={`conversation-panel${
+            activeAskRegion ? ` ask-context-${activeAskRegion}` : ""
+          }`}
+        >
+          {activeAskRegion ? (
+            <div className="ask-region-context">
+              <img className="ask-context-emblem" src={askRegionIcon} alt="" />
+              <span>
+                {t(
+                  language,
+                  `派蒙翻出了「${labels.progress[activeAskRegion][language]}」的旅行笔记`,
+                  `Paimon opened the ${labels.progress[activeAskRegion][language]} travel notes`,
+                )}
+              </span>
+            </div>
+          ) : null}
           {!result && !loading ? (
             <div className="empty-conversation">
-              <img src="/compass-mark.svg" alt="" />
+              <img src={askRegionIcon} alt="" />
               <h2>{t(language, "派蒙在这儿！", "Paimon’s here!")}</h2>
               <p>{t(language, "选一个问题，或者直接问吧。", "Pick a question, or ask your own.")}</p>
             </div>
@@ -476,7 +500,7 @@ export default function AskPage() {
                 key={item}
                 onClick={() => {
                   setQuestion(item);
-                  void submitQuestion(item);
+                  void submitQuestion(item, undefined, region);
                 }}
               >
                 <span>{String(index + 1).padStart(2, "0")}</span>

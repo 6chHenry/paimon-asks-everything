@@ -1111,6 +1111,7 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 .status-editor .inline-check { grid-column: 1 / -1; flex-direction: row; align-items: center; }
 .ask-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 28px; align-items: start; }
 .conversation-panel {
+  --ask-context-accent: transparent;
   position: relative;
   min-width: 0;
   padding: 1px;
@@ -1121,6 +1122,15 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   box-shadow: 14px 18px 0 rgba(232,220,194,.58), 0 22px 70px rgba(42,57,63,.08);
   isolation: isolate;
 }
+.conversation-panel.ask-context-mondstadt { --ask-context-accent: #5f9f9b; }
+.conversation-panel.ask-context-liyue { --ask-context-accent: #bc8a3a; }
+.conversation-panel.ask-context-inazuma { --ask-context-accent: #8b69aa; }
+.conversation-panel.ask-context-sumeru { --ask-context-accent: #6d9660; }
+.conversation-panel.ask-context-fontaine { --ask-context-accent: #4f8eb8; }
+.conversation-panel.ask-context-natlan { --ask-context-accent: #c86c45; }
+.conversation-panel.ask-context-nodkrai { --ask-context-accent: #6b79aa; }
+.conversation-panel.ask-context-snezhnaya { --ask-context-accent: #7892aa; }
+.conversation-panel[class*="ask-context-"] { box-shadow: inset 3px 0 0 var(--ask-context-accent), 14px 18px 0 rgba(232,220,194,.58), 0 22px 70px rgba(42,57,63,.08); }
 .conversation-panel::before {
   content: "";
   position: absolute;
@@ -1129,6 +1139,9 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   border: 1px solid rgba(255,248,234,.62);
   pointer-events: none;
 }
+.ask-region-context { display: flex; align-items: center; gap: 9px; min-height: 38px; margin: 12px 12px 0; padding: 7px 10px; border-left: 3px solid var(--ask-context-accent); background: color-mix(in srgb, var(--ask-context-accent) 8%, rgba(255,252,244,.92)); color: var(--ink-soft); font: 600 11px/1.35 var(--sans); letter-spacing: .02em; }
+.ask-context-emblem { width: 22px; height: 22px; object-fit: contain; filter: brightness(0) saturate(100%); opacity: .72; }
+.conversation-panel[class*="ask-context-"] .loading-card { border-color: color-mix(in srgb, var(--ask-context-accent) 54%, var(--line)); }
 .empty-conversation {
   position: relative;
   min-height: 332px;

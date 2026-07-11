@@ -275,7 +275,7 @@ describe("contextual ask-page suggestions", () => {
     expect(page).toContain("questionSuggestionTopics");
     expect(page).toContain("让派蒙想几个问题");
     expect(page).toContain("派蒙准备的参考问题");
-    expect(page).toContain("void submitQuestion(item)");
+    expect(page).toContain("void submitQuestion(item, undefined, region)");
     expect(page).toContain("suggestion-region-grid");
     expect(page).toContain("suggestion-topic-grid");
     expect(page).toContain("aria-pressed");
@@ -284,6 +284,11 @@ describe("contextual ask-page suggestions", () => {
     expect(page).toContain("Emblem_Snezhnaya.png");
     expect(page).toContain("region-button-emblem");
     expect(page).toContain("topic-region-${region}");
+    expect(page).toContain("activeAskRegion");
+    expect(page).toContain("void submitQuestion(item, undefined, region)");
+    expect(page).toContain("setActiveAskRegion(askedRegion ?? null)");
+    expect(page).toContain("ask-region-context");
+    expect(page).toContain("派蒙翻出了");
     expect(page).not.toContain("suggestedQuestions[language]");
     expect(page).not.toContain("<select");
     expect(css).toContain(".suggestion-controls");
@@ -294,6 +299,8 @@ describe("contextual ask-page suggestions", () => {
     expect(css).toContain(".suggestion-topic-grid button::before");
     expect(css).toContain(".topic-region-mondstadt");
     expect(css).toContain("var(--topic-accent)");
+    expect(css).toContain(".ask-region-context");
+    expect(css).toContain(".conversation-panel.ask-context-mondstadt");
     expect(css).toContain("font: 700 14px/1.25 var(--display)");
     expect(css).toContain(".region-mondstadt");
     expect(css).toContain(".suggestion-generate");
