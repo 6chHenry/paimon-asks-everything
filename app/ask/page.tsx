@@ -6,6 +6,7 @@ import {
   ArrowUp,
   CircleAlert,
   LoaderCircle,
+  PenLine,
   Send,
   Stars,
 } from "lucide-react";
@@ -31,6 +32,21 @@ const selectableRegions: Exclude<Progress, "unknown">[] = [
   "natlan",
   "nodkrai",
   "snezhnaya",
+];
+
+const customTopicKeywords = [
+  "戴因斯雷布",
+  "坎瑞亚",
+  "深渊",
+  "旅行者血亲",
+  "斯卡拉姆齐",
+  "魔女会",
+  "天理",
+  "虚假之天",
+  "龙王",
+  "世界树",
+  "法涅斯",
+  "水仙十字结社",
 ];
 
 const regionEmblemSources: Record<Exclude<Progress, "unknown">, string> = {
@@ -87,10 +103,13 @@ export default function AskPage() {
       fallbackForTopic(questionSuggestionTopics[0]!.id, "zh-CN"),
     );
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [isCustomSuggestionTopic, setIsCustomSuggestionTopic] = useState(false);
+  const [customSuggestionTopic, setCustomSuggestionTopic] = useState("");
   const [activeAskRegion, setActiveAskRegion] = useState<
     Exclude<Progress, "unknown"> | null
   >(null);
   const activeRequestRef = useRef<AbortController | null>(null);
+  const customTopicInputRef = useRef<HTMLInputElement | null>(null);
   const topicsForRegion = questionSuggestionTopics.filter(
     (item) => item.region === region,
   );
@@ -101,6 +120,11 @@ export default function AskPage() {
     ? regionEmblemSources[activeAskRegion]
     : "/compass-mark.svg";
   const selectedRegionIcon = regionEmblemSources[region];
+  const customTopicCandidates = customSuggestionTopic.trim()
+    ? customTopicKeywords
+        .filter((item) => item.includes(customSuggestionTopic.trim()))
+        .slice(0, 4)
+    : [];
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -132,6 +156,8 @@ export default function AskPage() {
   }
 
   async function generateSuggestions() {
+    const customTopic = customSuggestionTopic.trim();
+    if (isCustomSuggestionTopic && customTopic.length < 2) return;
     setSuggestionsLoading(true);
     try {
       const response = await fetch(clientPath("/api/question-suggestions"), {
@@ -144,6 +170,7 @@ export default function AskPage() {
           progress: preferences.progress,
           spoilerPreference: preferences.spoilerPreference,
           focus: preferences.focus,
+          ...(isCustomSuggestionTopic ? { customTopic } : {}),
         }),
       });
       const payload: unknown = await response.json();
@@ -163,7 +190,10 @@ export default function AskPage() {
       }
       setSuggestionState(payload as QuestionSuggestionResult);
     } catch {
-      setSuggestionState(fallbackForTopic(selectedSuggestionTopic.id, language));
+      const fallback = fallbackForTopic(selectedSuggestionTopic.id, language);
+      setSuggestionState(
+        isCustomSuggestionTopic ? { ...fallback, customFallback: true } : fallback,
+      );
     } finally {
       setSuggestionsLoading(false);
     }
@@ -459,25 +489,84 @@ export default function AskPage() {
                 {topicsForRegion.map((item) => (
                   <button
                     className={
-                      item.id === selectedSuggestionTopic.id
+                      !isCustomSuggestionTopic && item.id === selectedSuggestionTopic.id
                         ? "is-selected"
                         : undefined
                     }
                     type="button"
                     key={item.id}
-                    aria-pressed={item.id === selectedSuggestionTopic.id}
-                    onClick={() => setSuggestionTopicId(item.id)}
+                    aria-pressed={!isCustomSuggestionTopic && item.id === selectedSuggestionTopic.id}
+                    onClick={() => {
+                      setIsCustomSuggestionTopic(false);
+                      setSuggestionTopicId(item.id);
+                    }}
                   >
                     {item.title[language]}
                   </button>
                 ))}
+                <button
+                  className={
+                    isCustomSuggestionTopic
+                      ? "is-selected custom-topic-choice"
+                      : "custom-topic-choice"
+                  }
+                  type="button"
+                  aria-pressed={isCustomSuggestionTopic}
+                  onClick={() => {
+                    setIsCustomSuggestionTopic(true);
+                    window.requestAnimationFrame(() =>
+                      customTopicInputRef.current?.focus(),
+                    );
+                  }}
+                >
+                  <PenLine size={15} />
+                  {t(language, "自定义专题", "Custom topic")}
+                </button>
               </div>
+              {isCustomSuggestionTopic ? (
+                <div className="custom-topic-input">
+                  <label htmlFor="custom-suggestion-topic">
+                    {t(language, "输入剧情名、角色或关键词", "Enter a story, character, or keyword")}
+                  </label>
+                  <input
+                    id="custom-suggestion-topic"
+                    ref={customTopicInputRef}
+                    value={customSuggestionTopic}
+                    onChange={(event) => setCustomSuggestionTopic(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Tab" && customTopicCandidates[0]) {
+                        event.preventDefault();
+                        setCustomSuggestionTopic(customTopicCandidates[0]);
+                      }
+                    }}
+                    placeholder={t(language, "例如：戴因斯雷布", "For example: Dainsleif")}
+                    maxLength={60}
+                  />
+                  {customTopicCandidates.length ? (
+                    <div className="custom-topic-candidates" aria-label={t(language, "可补全的关键词", "Suggested keyword completions")}>
+                      <span>{t(language, "按 Tab 补全", "Press Tab to complete")}</span>
+                      {customTopicCandidates.map((item) => (
+                        <button
+                          type="button"
+                          key={item}
+                          onClick={() => setCustomSuggestionTopic(item)}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </section>
             <button
               className="suggestion-generate"
               type="button"
               onClick={() => void generateSuggestions()}
-              disabled={suggestionsLoading}
+              disabled={
+                suggestionsLoading ||
+                (isCustomSuggestionTopic && customSuggestionTopic.trim().length < 2)
+              }
             >
               {suggestionsLoading ? (
                 <LoaderCircle className="spin" size={15} />
@@ -494,6 +583,15 @@ export default function AskPage() {
                 ? t(language, "派蒙准备的参考问题", "Paimon's prepared prompts")
                 : t(language, "派蒙刚想到的问题", "Paimon's fresh prompts")}
           </div>
+          {suggestionState.customFallback && isCustomSuggestionTopic ? (
+            <div className="custom-topic-fallback" role="status">
+              {t(
+                language,
+                "派蒙暂时没想出来，请换个关键词再试",
+                "Paimon could not think of questions for that keyword. Try another one.",
+              )}
+            </div>
+          ) : null}
           <div className="suggestion-list">
             {suggestionState.questions.map((item, index) => (
               <button
