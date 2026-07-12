@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   getQuestionSuggestionResult,
+  questionSuggestionCacheKey,
 } from "@/lib/question-suggestions";
-import { validateGeneratedQuestions } from "@/lib/question-suggestion-generator";
+import {
+  getQuestionSuggestionPromptContext,
+  validateGeneratedQuestions,
+} from "@/lib/question-suggestion-generator";
+import { questionSuggestionRequestSchema } from "@/lib/schemas";
 
 const request = {
   topicId: "aranyaka",
@@ -50,5 +55,39 @@ describe("question suggestions", () => {
       ],
     );
     expect(result).toMatchObject({ topicId: "golden-slumber", source: "generated" });
+  });
+
+  it("accepts a custom topic, keeps it in the cache key, and overlays the prompt context", () => {
+    const customRequest = { ...request, customTopic: "戴因斯雷布" };
+    expect(questionSuggestionRequestSchema.safeParse(customRequest).success).toBe(true);
+    expect(questionSuggestionCacheKey(customRequest)).not.toBe(
+      questionSuggestionCacheKey({ ...request, customTopic: "坎瑞亚" }),
+    );
+    expect(
+      getQuestionSuggestionPromptContext(
+        {
+          id: "aranyaka",
+          region: "sumeru",
+          title: { "zh-CN": "森林书", en: "Aranyaka" },
+          scope: { "zh-CN": "兰那罗", en: "Aranara" },
+          sourceAnchors: [],
+          fallbackQuestions: { "zh-CN": ["问题一？", "问题二？", "问题三？", "问题四？", "问题五？"], en: ["Question one?", "Question two?", "Question three?", "Question four?", "Question five?"] },
+        },
+        customRequest,
+      ),
+    ).toMatchObject({ topic: "戴因斯雷布", scope: "戴因斯雷布" });
+  });
+
+  it("marks fallback questions when custom generation cannot produce questions", async () => {
+    const result = await getQuestionSuggestionResult(
+      { ...request, customTopic: "戴因斯雷布" },
+      async () => null,
+    );
+    expect(result).toMatchObject({
+      topicId: "aranyaka",
+      source: "fallback",
+      customFallback: true,
+    });
+    expect(result?.questions).toHaveLength(5);
   });
 });

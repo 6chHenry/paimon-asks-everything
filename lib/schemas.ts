@@ -36,6 +36,7 @@ export const feedbackSchema = z.object({
 export const questionSuggestionRequestSchema = z
   .object({
     topicId: z.string().trim().min(3).max(100),
+    customTopic: z.string().trim().min(2).max(60).optional(),
     language: z.enum(["zh-CN", "en"]),
     profile: z.enum(["new", "returning", "story", "exploration", "casual"]),
     progress: z.enum([
