@@ -100,6 +100,7 @@ export default function AskPage() {
   const askRegionIcon = activeAskRegion
     ? regionEmblemSources[activeAskRegion]
     : "/compass-mark.svg";
+  const selectedRegionIcon = regionEmblemSources[region];
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -298,18 +299,7 @@ export default function AskPage() {
     <div className="ask-page page-wrap">
       <section className="ask-intro">
         <div>
-          <span className="eyebrow">
-            {activeAskRegion ? (
-              <img
-                className="ask-intro-region-emblem"
-                src={regionEmblemSources[activeAskRegion]}
-                alt=""
-              />
-            ) : (
-              <Stars size={14} />
-            )}
-            {t(language, "有问题就问派蒙！", "Ask Paimon!")}
-          </span>
+          <span className="eyebrow"><Stars size={14} />{t(language, "有问题就问派蒙！", "Ask Paimon!")}</span>
           <h1>{t(language, "旅行者，哪里没看懂？", "What’s confusing, Traveler?")}</h1>
         </div>
       </section>
@@ -348,7 +338,7 @@ export default function AskPage() {
           ) : null}
           {!result && !loading ? (
             <div className="empty-conversation">
-              <img src={askRegionIcon} alt="" />
+              <img src={selectedRegionIcon} alt="" />
               <h2>{t(language, "派蒙在这儿！", "Paimon’s here!")}</h2>
               <p>{t(language, "选一个问题，或者直接问吧。", "Pick a question, or ask your own.")}</p>
             </div>

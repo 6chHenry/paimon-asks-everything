@@ -289,7 +289,8 @@ describe("contextual ask-page suggestions", () => {
     expect(page).toContain("setActiveAskRegion(askedRegion ?? null)");
     expect(page).toContain("ask-region-context");
     expect(page).toContain("派蒙翻出了");
-    expect(page).toContain("ask-intro-region-emblem");
+    expect(page).toContain("const selectedRegionIcon = regionEmblemSources[region]");
+    expect(page).toContain("<img src={selectedRegionIcon} alt=\"\" />");
     expect(page).not.toContain("suggestedQuestions[language]");
     expect(page).not.toContain("<select");
     expect(css).toContain(".suggestion-controls");
@@ -302,7 +303,6 @@ describe("contextual ask-page suggestions", () => {
     expect(css).toContain("var(--topic-accent)");
     expect(css).toContain(".ask-region-context");
     expect(css).toContain(".conversation-panel.ask-context-mondstadt");
-    expect(css).toContain(".ask-intro-region-emblem");
     expect(css).toContain("font: 700 14px/1.25 var(--display)");
     expect(css).toContain(".region-mondstadt");
     expect(css).toContain(".suggestion-generate");

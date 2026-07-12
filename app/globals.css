@@ -578,7 +578,6 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 
 .page-wrap { width: min(1260px, calc(100% - 48px)); margin: 0 auto; padding: 70px 0 90px; }
 .eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--coral); font-size: 11px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
-.ask-intro-region-emblem { width: 16px; height: 16px; object-fit: contain; filter: brightness(0) saturate(100%); opacity: .84; }
 .section-index { font-family: var(--display); color: var(--gold); font-size: 13px; letter-spacing: .16em; }
 
 .primary-button, .secondary-button, .danger-button {
