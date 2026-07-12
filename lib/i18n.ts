@@ -25,8 +25,12 @@ export const labels = {
     fontaine: { "zh-CN": "枫丹", en: "Fontaine" },
     natlan: { "zh-CN": "纳塔", en: "Natlan" },
     nodkrai: {
-      "zh-CN": "挪德卡莱（月之一至月之七）",
-      en: "Nod-Krai (Luna I–VII)",
+      "zh-CN": "挪德卡莱",
+      en: "Nod-Krai",
+    },
+    snezhnaya: {
+      "zh-CN": "至冬",
+      en: "Snezhnaya",
     },
   },
   spoiler: {

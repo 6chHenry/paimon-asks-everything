@@ -27,6 +27,7 @@ const progressRank: Record<Progress, number> = {
   fontaine: 5,
   natlan: 6,
   nodkrai: 7,
+  snezhnaya: 8,
 };
 
 const depthLabels: Record<
@@ -84,22 +85,6 @@ function localizeRelationDetail(entry: KnowledgeEntry) {
     factStatus: entry.factStatus,
     sourceTitle: entry.source.title,
     sourceUrl: entry.source.url,
-  };
-}
-
-function localizeBreakpoint(
-  breakpoint: PreheatTopic["breakpoint"],
-  language: Language,
-) {
-  return {
-    id: breakpoint.id,
-    mysteryId: breakpoint.mysteryId,
-    question: language === "zh-CN" ? breakpoint.questionZh : breakpoint.questionEn,
-    clueSummary:
-      language === "zh-CN" ? breakpoint.clueSummaryZh : breakpoint.clueSummaryEn,
-    boundary: language === "zh-CN" ? breakpoint.boundaryZh : breakpoint.boundaryEn,
-    unlockLabel:
-      language === "zh-CN" ? breakpoint.unlockLabelZh : breakpoint.unlockLabelEn,
   };
 }
 
@@ -332,7 +317,6 @@ export function getPreheatView(query: PreheatQuery) {
 
   return {
     topic: localizeTopic(topic, query.language),
-    breakpoint: localizeBreakpoint(topic.breakpoint, query.language),
     topics: preheatTopics.map((item) => localizeTopic(item, query.language)),
     depth: {
       id: query.depth,

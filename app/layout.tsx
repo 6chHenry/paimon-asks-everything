@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@/app/globals.css";
 import { AppShell } from "@/components/app-shell";
+import { DiscoveriesProvider } from "@/components/discoveries-provider";
 import { PreferencesProvider } from "@/components/preferences-provider";
 
 export const metadata: Metadata = {
@@ -29,7 +30,9 @@ try {
       </head>
       <body>
         <PreferencesProvider>
-          <AppShell>{children}</AppShell>
+          <DiscoveriesProvider>
+            <AppShell>{children}</AppShell>
+          </DiscoveriesProvider>
         </PreferencesProvider>
       </body>
     </html>

@@ -11,11 +11,21 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
-import type { ChatResult, Language } from "@/lib/domain";
+import type { ChatResult, FactStatus, Language } from "@/lib/domain";
 import { parseAnswerCitationMarkers } from "@/lib/citation-markers";
 import { labels, t } from "@/lib/i18n";
 import { ReadingAppendix } from "@/components/reading-appendix";
 import { clientPath } from "@/lib/client-path";
+
+function playerFactBoundary(status: FactStatus, language: Language) {
+  if (status === "official_explicit" || status === "trusted_secondary") {
+    return t(language, "已确认", "Confirmed");
+  }
+  if (status === "narrative_implied" || status === "community_analysis") {
+    return t(language, "合理推测", "Reasonable inference");
+  }
+  return t(language, "尚未公开", "Not publicly confirmed");
+}
 
 export function AnswerCard({
   result,
@@ -195,13 +205,16 @@ export function AnswerCard({
       ) : null}
 
       {result.claims.length ? (
-        <section className="claim-list">
-          <h3>{t(language, "关键依据", "Key evidence")}</h3>
+        <section className="claim-list clue-ledger">
+          <div className="clue-ledger-heading">
+            <h3><Sparkles size={18} />{t(language, "派蒙查到的线索", "Clues Paimon found")}</h3>
+            <small>{t(language, "线索会标明确认边界", "Every clue shows its certainty boundary")}</small>
+          </div>
           {result.claims.map((claim) => (
-            <div key={claim.text}>
+            <div key={claim.text} className={`boundary-${claim.factStatus}`}>
               <Check size={15} />
               <p>{claim.text}</p>
-              <span>{labels.fact[claim.factStatus][language]}</span>
+              <span>{playerFactBoundary(claim.factStatus, language)}</span>
             </div>
           ))}
         </section>

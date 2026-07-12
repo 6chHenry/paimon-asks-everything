@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
+import { useDiscoveries } from "@/components/discoveries-provider";
 import { usePreferences } from "@/components/preferences-provider";
 import { SnezhnayaVideoSlider } from "@/components/snezhnaya-video-slider";
 import { TraceTimeline } from "@/components/trace-timeline";
@@ -135,6 +136,7 @@ export function SnezhnayaGraph({
   showVideos?: boolean;
 }) {
   const { preferences } = usePreferences();
+  const { discoveries, discoverNode } = useDiscoveries();
   const language = preferences.language;
   const [selectedId, setSelectedId] = useState(initialSnezhnayaNodeId(graph));
   const [relationIds, setRelationIds] = useState<string[]>([]);
@@ -153,8 +155,10 @@ export function SnezhnayaGraph({
     () => new Map(graph.nodes.map((node) => [node.id, node])),
     [graph.nodes],
   );
+  const discoveryCount = Math.min(discoveries.visitedNodeIds.length, 3);
 
   function selectGraphNode(node: SnezhnayaNode) {
+    discoverNode(node.id);
     setSelectedId(node.id);
     setAnswer(null);
     setRelationError("");
@@ -279,6 +283,11 @@ export function SnezhnayaGraph({
                 "窄屏可左右拖动查看完整席位",
                 "Drag horizontally on narrow screens to view every seat",
               )}
+            </div>
+            <div className="snezhnaya-discovery-progress" aria-live="polite">
+              <Sparkles size={14} />
+              <span>{t(language, "巡游星图", "Constellation trail")}</span>
+              <strong>{discoveryCount} / 3</strong>
             </div>
           </div>
           <div className="snezhnaya-map-viewport">
@@ -693,10 +702,7 @@ export function SnezhnayaGraph({
                       <button
                         type="button"
                         onClick={() => {
-                          setSelectedId(related.id);
-                          setAnswer(null);
-                          setRelationError("");
-                          setTraceEvents([]);
+                          selectGraphNode(related);
                         }}
                       >
                         {localize(related.label, language)}

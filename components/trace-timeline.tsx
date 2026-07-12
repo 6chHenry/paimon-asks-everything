@@ -53,7 +53,7 @@ export function TraceTimeline({
         <span>
           <strong>
             {collapsed
-              ? t(language, "派蒙查到了这些", "What Paimon checked")
+              ? t(language, "考据记录", "Research record")
               : t(language, "派蒙正在查资料！", "Paimon is checking!")}
           </strong>
           <small>

@@ -13,6 +13,7 @@ export const chatRequestSchema = z.object({
     "fontaine",
     "natlan",
     "nodkrai",
+    "snezhnaya",
   ]),
   spoilerPreference: z.enum(["none", "low", "full"]),
   focus: z
@@ -32,6 +33,30 @@ export const feedbackSchema = z.object({
   helpful: z.boolean(),
 });
 
+export const questionSuggestionRequestSchema = z
+  .object({
+    topicId: z.string().trim().min(3).max(100),
+    language: z.enum(["zh-CN", "en"]),
+    profile: z.enum(["new", "returning", "story", "exploration", "casual"]),
+    progress: z.enum([
+      "unknown",
+      "mondstadt",
+      "liyue",
+      "inazuma",
+      "sumeru",
+      "fontaine",
+      "natlan",
+      "nodkrai",
+      "snezhnaya",
+    ]),
+    spoilerPreference: z.enum(["none", "low", "full"]),
+    focus: z
+      .array(z.enum(["story", "character", "gameplay", "overview"]))
+      .min(1)
+      .max(4),
+  })
+  .strict();
+
 export const preheatQuerySchema = z.object({
   topicId: z.string().trim().min(3).max(100),
   depth: z.enum(["guided", "research"]),
@@ -49,6 +74,7 @@ export const preheatQuerySchema = z.object({
       "fontaine",
       "natlan",
       "nodkrai",
+      "snezhnaya",
     ])
     .default("fontaine"),
   spoilerPreference: z.enum(["none", "low", "full"]).default("low"),
@@ -77,3 +103,6 @@ export const preheatEventSchema = z
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 export type PreheatQuery = z.infer<typeof preheatQuerySchema>;
+export type QuestionSuggestionRequest = z.infer<
+  typeof questionSuggestionRequestSchema
+>;

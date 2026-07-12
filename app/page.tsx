@@ -9,6 +9,7 @@ import { HomeCountdown } from "@/components/home-countdown";
 import { usePreferences } from "@/components/preferences-provider";
 import { SnezhnayaCharacterCarousel } from "@/components/snezhnaya-character-carousel";
 import { SnezhnayaGraph } from "@/components/snezhnaya-graph";
+import { TodayPaimonNote } from "@/components/today-paimon-note";
 import { snezhnayaGraph } from "@/data/snezhnaya-graph";
 
 export default function HomePage() {
@@ -18,6 +19,7 @@ export default function HomePage() {
   return (
     <div className="home-page home-intel-page">
       <HomeCountdown language={language} />
+      <TodayPaimonNote language={language} />
       <HomeVideoCarousel language={language} graph={snezhnayaGraph} />
       <SnezhnayaCharacterCarousel language={language} graph={snezhnayaGraph} />
       <HomeHeroIntel
