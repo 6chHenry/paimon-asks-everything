@@ -45,6 +45,7 @@ export interface QuestionSuggestionResult {
   topicId: string;
   questions: string[];
   source: "generated" | "fallback";
+  customFallback?: boolean;
 }
 export type FactStatus =
   | "official_explicit"

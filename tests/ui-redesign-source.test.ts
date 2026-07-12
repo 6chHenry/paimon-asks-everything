@@ -66,6 +66,7 @@ describe("Genshin-style shell source", () => {
     expect(css).toContain(".composer:focus-within");
     expect(css).toContain(".empty-conversation::before");
     expect(css).toContain(".composer textarea::placeholder");
+    expect(css).toContain("brightness(0) saturate(100%) drop-shadow");
     expect(css).toContain("box-shadow: inset 3px 0 0 rgba(200,170,110,.58)");
     expect(css).toContain("min-height: 198px");
     expect(css).toContain("-webkit-line-clamp: 2");
@@ -289,7 +290,8 @@ describe("contextual ask-page suggestions", () => {
     expect(page).toContain("setActiveAskRegion(askedRegion ?? null)");
     expect(page).toContain("ask-region-context");
     expect(page).toContain("派蒙翻出了");
-    expect(page).toContain("ask-intro-region-emblem");
+    expect(page).toContain("const selectedRegionIcon = regionEmblemSources[region]");
+    expect(page).toContain("<img src={selectedRegionIcon} alt=\"\" />");
     expect(page).not.toContain("suggestedQuestions[language]");
     expect(page).not.toContain("<select");
     expect(css).toContain(".suggestion-controls");
@@ -302,10 +304,18 @@ describe("contextual ask-page suggestions", () => {
     expect(css).toContain("var(--topic-accent)");
     expect(css).toContain(".ask-region-context");
     expect(css).toContain(".conversation-panel.ask-context-mondstadt");
-    expect(css).toContain(".ask-intro-region-emblem");
     expect(css).toContain("font: 700 14px/1.25 var(--display)");
     expect(css).toContain(".region-mondstadt");
     expect(css).toContain(".suggestion-generate");
     expect(css).toContain(".suggestion-status");
+    expect(page).toContain("customSuggestionTopic");
+    expect(page).toContain('event.key === "Tab"');
+    expect(page).toContain("customFallback");
+    expect(page).toContain("派蒙暂时没想出来，请换个关键词再试");
+    expect(css).toContain(".custom-topic-choice");
+    expect(css).toContain(".custom-topic-input");
+    expect(css).toContain(".custom-topic-candidates");
+    expect(page).toContain("getCustomTopicCandidates(");
+    expect(page).not.toContain('const customTopicKeywords = [');
   });
 });

@@ -58,6 +58,12 @@ describe("question suggestions route", () => {
     expect(unknown.status).toBe(400);
   });
 
+  it("accepts a valid custom topic and rejects values outside the allowed length", async () => {
+    expect((await POST(requestFor({ customTopic: "戴因斯雷布" }))).status).toBe(200);
+    expect((await POST(requestFor({ customTopic: "深" }))).status).toBe(400);
+    expect((await POST(requestFor({ customTopic: "长".repeat(61) }))).status).toBe(400);
+  });
+
   it("rate limits suggestion generation requests", async () => {
     for (let index = 0; index < 12; index += 1) {
       expect((await POST(requestFor({}, "rate-limit-test"))).status).toBe(200);

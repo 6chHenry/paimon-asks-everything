@@ -35,6 +35,7 @@ export function questionSuggestionCacheKey(request: QuestionSuggestionRequest) {
     request.progress,
     request.spoilerPreference,
     request.focus.join(","),
+    request.customTopic?.trim().normalize("NFKC").toLocaleLowerCase() ?? "",
   ].join(":");
 }
 
@@ -57,7 +58,12 @@ export async function getQuestionSuggestionResult(
   const validated = generated
     ? validateGeneratedQuestions(JSON.stringify(generated))
     : null;
-  if (!validated) return fallbackQuestionSuggestions(request);
+  if (!validated) {
+    const fallback = fallbackQuestionSuggestions(request);
+    return fallback && request.customTopic
+      ? { ...fallback, customFallback: true }
+      : fallback;
+  }
 
   return generatedSuggestionsCache.set(cacheKey, {
     topicId: topic.id,

@@ -56,6 +56,17 @@ export function validateGeneratedQuestions(content: string): string[] | null {
   }
 }
 
+export function getQuestionSuggestionPromptContext(
+  topic: QuestionSuggestionTopic,
+  request: QuestionSuggestionRequest,
+) {
+  const customTopic = request.customTopic?.trim();
+  return {
+    topic: customTopic || topic.title[request.language],
+    scope: customTopic || topic.scope[request.language],
+  };
+}
+
 export async function generateQuestionSuggestions(
   topic: QuestionSuggestionTopic,
   request: QuestionSuggestionRequest,
@@ -64,6 +75,7 @@ export async function generateQuestionSuggestions(
   if (!apiKey) return null;
   const baseURL = process.env.LLM_BASE_URL || "https://api.deepseek.com";
   const endpoint = new URL("/chat/completions", baseURL);
+  const promptContext = getQuestionSuggestionPromptContext(topic, request);
   const body = JSON.stringify({
     model: process.env.LLM_MODEL || "deepseek-v4-flash",
     thinking: { type: "disabled" },
@@ -79,8 +91,8 @@ export async function generateQuestionSuggestions(
         role: "user",
         content: JSON.stringify({
           language: request.language,
-          topic: topic.title[request.language],
-          scope: topic.scope[request.language],
+          topic: promptContext.topic,
+          scope: promptContext.scope,
           playerProfile: request.profile,
           playerProgress: request.progress,
           spoilerPreference: request.spoilerPreference,
