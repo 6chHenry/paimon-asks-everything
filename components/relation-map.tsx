@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Language } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
 import type { PreheatView } from "@/lib/preheat";
@@ -21,20 +21,23 @@ const positions = [
 export function RelationMap({
   graph,
   language,
+  selectedNodeId,
   onNodeSelect,
 }: {
   graph: Graph;
   language: Language;
+  selectedNodeId?: string;
   onNodeSelect: (nodeId: string) => void;
 }) {
-  const [selectedNodeId, setSelectedNodeId] = useState<string>();
+  const [localSelectedNodeId, setLocalSelectedNodeId] = useState(selectedNodeId);
+  useEffect(() => setLocalSelectedNodeId(selectedNodeId), [graph.id, selectedNodeId]);
   const coordinates = Object.fromEntries(
     graph.nodes.map((node, index) => [node.id, positions[index] ?? [50, 50]]),
   );
   const selectedNode = useMemo(
     () =>
-      graph.nodes.find((node) => node.id === selectedNodeId) ?? graph.nodes[0],
-    [graph.nodes, selectedNodeId],
+      graph.nodes.find((node) => node.id === localSelectedNodeId) ?? graph.nodes[0],
+    [graph.nodes, localSelectedNodeId],
   );
   return (
     <div className="relation-map">
@@ -68,7 +71,7 @@ export function RelationMap({
               style={{ left: `${left}%`, top: `${top}%` }}
               aria-pressed={selectedNode?.id === node.id}
               onClick={() => {
-                setSelectedNodeId(node.id);
+                setLocalSelectedNodeId(node.id);
                 onNodeSelect(node.id);
               }}
             >

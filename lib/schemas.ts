@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const focusValueSchema = z.enum(["story", "character", "gameplay", "overview"]);
+
 export const chatRequestSchema = z.object({
   question: z.string().trim().min(2).max(800),
   language: z.enum(["zh-CN", "en"]),
@@ -16,7 +18,7 @@ export const chatRequestSchema = z.object({
   ]),
   spoilerPreference: z.enum(["none", "low", "full"]),
   focus: z
-    .array(z.enum(["story", "character", "gameplay", "overview"]))
+    .array(focusValueSchema)
     .min(1)
     .max(4),
   allowQuestionTextStorage: z.boolean().default(false),
@@ -52,6 +54,15 @@ export const preheatQuerySchema = z.object({
     ])
     .default("fontaine"),
   spoilerPreference: z.enum(["none", "low", "full"]).default("low"),
+  focus: z
+    .preprocess(
+      (value) =>
+        typeof value === "string"
+          ? value.split(",").map((item) => item.trim()).filter(Boolean)
+          : value,
+      z.array(focusValueSchema).min(1).max(4),
+    )
+    .default(["story", "overview"]),
 });
 
 export const preheatEventSchema = z

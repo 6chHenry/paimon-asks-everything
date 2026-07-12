@@ -753,6 +753,23 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   min-height: 46px;
   background: rgba(255, 248, 234, .72);
 }
+.preheat-progress-control { display: flex; flex-direction: column; gap: 9px; }
+.preheat-progress-control > span { color: var(--ink-soft); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.progress-button-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.progress-button {
+  min-height: 42px; padding: 7px 8px; border: 1px solid rgba(42,57,63,.18); border-radius: 3px;
+  background: rgba(255,248,234,.72); color: var(--ink); cursor: pointer; font-size: 11px; line-height: 1.25;
+}
+.progress-button:hover { border-color: var(--gold); }
+.progress-button.active { border-color: var(--navy); background: var(--navy); color: white; box-shadow: inset 3px 0 0 var(--gold); font-weight: 800; }
+.progress-button:focus-visible, .pill:focus-visible, .choice:focus-visible,
+.section-collapse-toggle:focus-visible { outline: 3px solid rgba(58,126,154,.38); outline-offset: 2px; }
+.traveler-context-summary { max-width: 64%; overflow-wrap: anywhere; text-align: right; line-height: 1.4; }
+.preheat-refresh-status { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 8px 0; color: var(--ink-soft); font-size: 10px; }
+.section-collapse-toggle { margin-left: auto; border: 0; background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 9px; }
+.preheat-section-body[hidden] { display: none; }
+.preheat-intel-page .error-card { display: flex; align-items: center; gap: 9px; }
+.preheat-intel-page .error-card button { margin-left: auto; border: 1px solid var(--coral); background: transparent; color: var(--coral); padding: 7px 12px; cursor: pointer; }
 .preheat-intel-page .traveler-context-drawer {
   position: relative;
   z-index: 1;
@@ -963,6 +980,12 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   display: grid; grid-template-columns: 270px minmax(0, 1fr) 330px;
   border: 1px solid var(--line); background: rgba(255,255,255,.45); min-height: 720px;
 }
+.preheat-workbench .timeline-column { grid-area: timeline; }
+.preheat-workbench .narration-column { grid-area: brief; }
+.preheat-workbench .relations-column { grid-area: relations; }
+.preheat-workbench[data-section-order="timeline-brief-relations"] { grid-template-columns: 270px minmax(0, 1fr) 330px; grid-template-areas: "timeline brief relations"; }
+.preheat-workbench[data-section-order="brief-timeline-relations"] { grid-template-columns: minmax(0, 1fr) 270px 330px; grid-template-areas: "brief timeline relations"; }
+.preheat-workbench[data-section-order="relations-timeline-brief"] { grid-template-columns: 330px 270px minmax(0, 1fr); grid-template-areas: "relations timeline brief"; }
 .preheat-intel-workbench {
   gap: 1px; padding: 1px; border-color: rgba(200,170,110,.5);
   background:
@@ -2749,6 +2772,7 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   .note-margin { transform: none; }
   .preheat-masthead { grid-template-columns: 1fr; }
   .preheat-workbench { grid-template-columns: 230px 1fr; }
+  .preheat-workbench[data-section-order] { grid-template-columns: 230px 1fr; grid-template-areas: "timeline brief" "relations relations"; }
   .relations-column { grid-column: 1 / -1; border-top: 1px solid var(--line); }
   .relations-column .relation-map { display: grid; grid-template-columns: minmax(280px, 420px) 1fr; gap: 22px; }
   .relations-column .relation-detail { grid-column: 2; margin-top: 0; }
@@ -2813,6 +2837,8 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   .preheat-home-heading h2 { font-size: 43px; }
   .home-progress-card { padding: 14px; }
   .preheat-progress-card { width: 100%; }
+  .progress-button-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .traveler-context-summary { max-width: none; text-align: left; }
   .home-progress-card > div { align-items: flex-start; flex-direction: column; gap: 5px; }
   .home-progress-card strong { white-space: normal; }
   .preheat-note, .intel-brief { padding: 30px 20px 25px; transform: none; background: repeating-linear-gradient(0deg, transparent 0 31px, rgba(33,52,62,.055) 32px), #fffaf0; }
@@ -2822,11 +2848,11 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   .depth-selector button { border-right: 0; border-bottom: 1px solid var(--line); }
   .preheat-note footer, .intel-brief footer { align-items: stretch; flex-direction: column; }
   .traveler-settings summary { align-items: flex-start; flex-direction: column; justify-content: center; padding: 15px 8px; }
-  .preheat-workbench { display: flex; flex-direction: column; }
+  .preheat-workbench[data-section-order] { display: grid; grid-template-columns: 1fr; }
+  .preheat-workbench[data-section-order="timeline-brief-relations"] { grid-template-areas: "timeline" "brief" "relations"; }
+  .preheat-workbench[data-section-order="brief-timeline-relations"] { grid-template-areas: "brief" "timeline" "relations"; }
+  .preheat-workbench[data-section-order="relations-timeline-brief"] { grid-template-areas: "relations" "timeline" "brief"; }
   .preheat-intel-workbench { gap: 0; }
-  .narration-column { order: 1; }
-  .timeline-column { order: 2; }
-  .relations-column { order: 3; }
   .timeline-column, .narration-column { border-right: 0; border-bottom: 1px solid var(--line); }
   .timeline-column, .narration-column, .relations-column { padding: 20px 15px; }
   .relations-column .relation-map { display: block; }
