@@ -66,6 +66,7 @@ describe("Genshin-style shell source", () => {
     expect(css).toContain(".composer:focus-within");
     expect(css).toContain(".empty-conversation::before");
     expect(css).toContain(".composer textarea::placeholder");
+    expect(css).toContain("brightness(0) saturate(100%) drop-shadow");
     expect(css).toContain("box-shadow: inset 3px 0 0 rgba(200,170,110,.58)");
     expect(css).toContain("min-height: 198px");
     expect(css).toContain("-webkit-line-clamp: 2");
@@ -234,5 +235,87 @@ describe("Genshin-style responsive safeguards", () => {
     for (const badFragment of ["闁?", "缂?", "闁?", "濠?", "闂?"]) {
       expect(combined).not.toContain(badFragment);
     }
+  });
+});
+
+describe("Paimon evidence experience source", () => {
+  it("reframes evidence and trace details in player-facing language", () => {
+    const answerCard = source("components", "answer-card.tsx");
+    const traceTimeline = source("components", "trace-timeline.tsx");
+
+    expect(answerCard).toContain("派蒙查到的线索");
+    expect(answerCard).toContain("playerFactBoundary");
+    expect(answerCard).toContain("clue-ledger");
+    expect(traceTimeline).toContain("考据记录");
+    expect(traceTimeline).toContain("open={!collapsed}");
+  });
+});
+
+describe("Paimon discoveries source", () => {
+  it("wires the daily note and shareable clue card into the app", () => {
+    expect(source("app", "layout.tsx")).toContain("DiscoveriesProvider");
+    expect(source("app", "page.tsx")).toContain("TodayPaimonNote");
+    expect(source("components", "traveler-clue-card.tsx")).toContain("navigator.share");
+    expect(source("components", "today-paimon-note.tsx")).toContain("今日派蒙小纸条");
+  });
+
+  it("records constellation exploration and keeps the brand easter egg discoverable", () => {
+    expect(source("components", "snezhnaya-graph.tsx")).toContain("discoverNode(node.id)");
+    expect(source("components", "snezhnaya-graph.tsx")).toContain("巡游星图");
+    expect(source("components", "app-shell.tsx")).toContain("registerPaimonTap");
+    expect(source("components", "app-shell.tsx")).toContain("派蒙才不是搜索按钮");
+  });
+});
+
+describe("contextual ask-page suggestions", () => {
+  it("uses region and story selectors with server-backed suggestion requests", () => {
+    const page = source("app", "ask", "page.tsx");
+    const css = source("app", "globals.css");
+
+    expect(page).toContain('clientPath("/api/question-suggestions")');
+    expect(page).toContain("questionSuggestionTopics");
+    expect(page).toContain("让派蒙想几个问题");
+    expect(page).toContain("派蒙准备的参考问题");
+    expect(page).toContain("void submitQuestion(item, undefined, region)");
+    expect(page).toContain("suggestion-region-grid");
+    expect(page).toContain("suggestion-topic-grid");
+    expect(page).toContain("aria-pressed");
+    expect(page).toContain("regionEmblemSources");
+    expect(page).toContain("Emblem_Nod-Krai_White.png");
+    expect(page).toContain("Emblem_Snezhnaya.png");
+    expect(page).toContain("region-button-emblem");
+    expect(page).toContain("topic-region-${region}");
+    expect(page).toContain("activeAskRegion");
+    expect(page).toContain("void submitQuestion(item, undefined, region)");
+    expect(page).toContain("setActiveAskRegion(askedRegion ?? null)");
+    expect(page).toContain("ask-region-context");
+    expect(page).toContain("派蒙翻出了");
+    expect(page).toContain("const selectedRegionIcon = regionEmblemSources[region]");
+    expect(page).toContain("<img src={selectedRegionIcon} alt=\"\" />");
+    expect(page).not.toContain("suggestedQuestions[language]");
+    expect(page).not.toContain("<select");
+    expect(css).toContain(".suggestion-controls");
+    expect(css).toContain(".suggestion-chip-grid");
+    expect(css).toContain(".region-button.is-selected");
+    expect(css).toContain(".region-button-emblem");
+    expect(css).toContain("filter: brightness(0) saturate(100%)");
+    expect(css).toContain(".suggestion-topic-grid button::before");
+    expect(css).toContain(".topic-region-mondstadt");
+    expect(css).toContain("var(--topic-accent)");
+    expect(css).toContain(".ask-region-context");
+    expect(css).toContain(".conversation-panel.ask-context-mondstadt");
+    expect(css).toContain("font: 700 14px/1.25 var(--display)");
+    expect(css).toContain(".region-mondstadt");
+    expect(css).toContain(".suggestion-generate");
+    expect(css).toContain(".suggestion-status");
+    expect(page).toContain("customSuggestionTopic");
+    expect(page).toContain('event.key === "Tab"');
+    expect(page).toContain("customFallback");
+    expect(page).toContain("派蒙暂时没想出来，请换个关键词再试");
+    expect(css).toContain(".custom-topic-choice");
+    expect(css).toContain(".custom-topic-input");
+    expect(css).toContain(".custom-topic-candidates");
+    expect(page).toContain("getCustomTopicCandidates(");
+    expect(page).not.toContain('const customTopicKeywords = [');
   });
 });

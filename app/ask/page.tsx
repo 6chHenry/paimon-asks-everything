@@ -1,15 +1,69 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowUp, CircleAlert, LoaderCircle, Send, Stars } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUp,
+  CircleAlert,
+  LoaderCircle,
+  PenLine,
+  Send,
+  Stars,
+} from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
 import { TraceTimeline } from "@/components/trace-timeline";
+import { questionSuggestionTopics } from "@/data/question-suggestion-topics";
+import { getCustomTopicCandidates } from "@/data/custom-topic-candidates";
 import { clientPath } from "@/lib/client-path";
-import type { ChatResult } from "@/lib/domain";
-import { t } from "@/lib/i18n";
-import { suggestedQuestions } from "@/lib/suggested-questions";
+import type {
+  ChatResult,
+  Progress,
+  QuestionSuggestionResult,
+} from "@/lib/domain";
+import { labels, t } from "@/lib/i18n";
 import type { TraceEvent } from "@/lib/trace";
+
+const selectableRegions: Exclude<Progress, "unknown">[] = [
+  "mondstadt",
+  "liyue",
+  "inazuma",
+  "sumeru",
+  "fontaine",
+  "natlan",
+  "nodkrai",
+  "snezhnaya",
+];
+
+const regionEmblemSources: Record<Exclude<Progress, "unknown">, string> = {
+  mondstadt:
+    "https://static.wikia.nocookie.net/gensin-impact/images/9/99/Emblem_Mondstadt_White.png/revision/latest?cb=20220301033214",
+  liyue:
+    "https://static.wikia.nocookie.net/gensin-impact/images/4/49/Emblem_Liyue_White.png/revision/latest?cb=20220301033230",
+  inazuma:
+    "https://static.wikia.nocookie.net/gensin-impact/images/5/51/Emblem_Inazuma_White.png/revision/latest?cb=20220301030931",
+  sumeru:
+    "https://static.wikia.nocookie.net/gensin-impact/images/6/6a/Emblem_Sumeru_White.png/revision/latest?cb=20220718184158",
+  fontaine:
+    "https://static.wikia.nocookie.net/gensin-impact/images/7/7b/Emblem_Fontaine_White.png/revision/latest?cb=20230807032406",
+  natlan:
+    "https://static.wikia.nocookie.net/gensin-impact/images/1/10/Emblem_Natlan_White.png/revision/latest?cb=20240828024938",
+  nodkrai:
+    "https://static.wikia.nocookie.net/gensin-impact/images/6/62/Emblem_Nod-Krai_White.png/revision/latest?cb=20250912003225",
+  snezhnaya:
+    "https://static.wikia.nocookie.net/gensin-impact/images/5/5a/Emblem_Snezhnaya.png/revision/latest?cb=20260429032726",
+};
+
+function fallbackForTopic(topicId: string, language: "zh-CN" | "en") {
+  const topic =
+    questionSuggestionTopics.find((item) => item.id === topicId) ??
+    questionSuggestionTopics[0]!;
+  return {
+    topicId: topic.id,
+    questions: [...topic.fallbackQuestions[language]],
+    source: "fallback",
+  } satisfies QuestionSuggestionResult;
+}
 
 export default function AskPage() {
   const { preferences, sessionId } = usePreferences();
@@ -24,7 +78,38 @@ export default function AskPage() {
   const [error, setError] = useState("");
   const [sourceTopicId, setSourceTopicId] = useState("");
   const [sourceTimelineNodeId, setSourceTimelineNodeId] = useState("");
+  const [region, setRegion] = useState<Exclude<Progress, "unknown">>(
+    "mondstadt",
+  );
+  const [suggestionTopicId, setSuggestionTopicId] = useState(
+    questionSuggestionTopics[0]!.id,
+  );
+  const [suggestionState, setSuggestionState] =
+    useState<QuestionSuggestionResult>(() =>
+      fallbackForTopic(questionSuggestionTopics[0]!.id, "zh-CN"),
+    );
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [isCustomSuggestionTopic, setIsCustomSuggestionTopic] = useState(false);
+  const [customSuggestionTopic, setCustomSuggestionTopic] = useState("");
+  const [activeAskRegion, setActiveAskRegion] = useState<
+    Exclude<Progress, "unknown"> | null
+  >(null);
   const activeRequestRef = useRef<AbortController | null>(null);
+  const customTopicInputRef = useRef<HTMLInputElement | null>(null);
+  const topicsForRegion = questionSuggestionTopics.filter(
+    (item) => item.region === region,
+  );
+  const selectedSuggestionTopic =
+    topicsForRegion.find((item) => item.id === suggestionTopicId) ??
+    topicsForRegion[0]!;
+  const askRegionIcon = activeAskRegion
+    ? regionEmblemSources[activeAskRegion]
+    : "/compass-mark.svg";
+  const selectedRegionIcon = regionEmblemSources[region];
+  const customTopicCandidates = getCustomTopicCandidates(
+    region,
+    customSuggestionTopic,
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -40,6 +125,64 @@ export default function AskPage() {
     },
     [],
   );
+
+  useEffect(() => {
+    setSuggestionState(fallbackForTopic(suggestionTopicId, language));
+  }, [language, suggestionTopicId]);
+
+  function selectSuggestionRegion(nextRegion: Exclude<Progress, "unknown">) {
+    const nextTopic = questionSuggestionTopics.find(
+      (item) => item.region === nextRegion,
+    );
+    if (!nextTopic) return;
+    setRegion(nextRegion);
+    setSuggestionTopicId(nextTopic.id);
+    setSuggestionState(fallbackForTopic(nextTopic.id, language));
+  }
+
+  async function generateSuggestions() {
+    const customTopic = customSuggestionTopic.trim();
+    if (isCustomSuggestionTopic && customTopic.length < 2) return;
+    setSuggestionsLoading(true);
+    try {
+      const response = await fetch(clientPath("/api/question-suggestions"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topicId: selectedSuggestionTopic.id,
+          language,
+          profile: preferences.profile,
+          progress: preferences.progress,
+          spoilerPreference: preferences.spoilerPreference,
+          focus: preferences.focus,
+          ...(isCustomSuggestionTopic ? { customTopic } : {}),
+        }),
+      });
+      const payload: unknown = await response.json();
+      if (
+        !response.ok ||
+        !payload ||
+        typeof payload !== "object" ||
+        !Array.isArray((payload as QuestionSuggestionResult).questions) ||
+        (payload as QuestionSuggestionResult).topicId !== selectedSuggestionTopic.id ||
+        (payload as QuestionSuggestionResult).questions.length < 4 ||
+        (payload as QuestionSuggestionResult).questions.length > 5 ||
+        !(payload as QuestionSuggestionResult).questions.every(
+          (item) => typeof item === "string",
+        )
+      ) {
+        throw new Error("invalid_suggestions");
+      }
+      setSuggestionState(payload as QuestionSuggestionResult);
+    } catch {
+      const fallback = fallbackForTopic(selectedSuggestionTopic.id, language);
+      setSuggestionState(
+        isCustomSuggestionTopic ? { ...fallback, customFallback: true } : fallback,
+      );
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }
 
   async function submitStreamingRequest(
     text: string,
@@ -118,6 +261,7 @@ export default function AskPage() {
   async function submitQuestion(
     text: string,
     confirmationToken?: string,
+    askedRegion?: Exclude<Progress, "unknown">,
   ) {
     if (!text.trim()) return;
     activeRequestRef.current?.abort();
@@ -127,6 +271,7 @@ export default function AskPage() {
     setResourcesLoading(false);
     setError("");
     if (!confirmationToken) {
+      setActiveAskRegion(askedRegion ?? null);
       setResult(null);
       setTraceEvents([]);
       setTraceCollapsed(false);
@@ -189,10 +334,26 @@ export default function AskPage() {
       ) : null}
 
       <div className="ask-layout">
-        <section className="conversation-panel">
+        <section
+          className={`conversation-panel${
+            activeAskRegion ? ` ask-context-${activeAskRegion}` : ""
+          }`}
+        >
+          {activeAskRegion ? (
+            <div className="ask-region-context">
+              <img className="ask-context-emblem" src={askRegionIcon} alt="" />
+              <span>
+                {t(
+                  language,
+                  `派蒙翻出了「${labels.progress[activeAskRegion][language]}」的旅行笔记`,
+                  `Paimon opened the ${labels.progress[activeAskRegion][language]} travel notes`,
+                )}
+              </span>
+            </div>
+          ) : null}
           {!result && !loading ? (
             <div className="empty-conversation">
-              <img src="/compass-mark.svg" alt="" />
+              <img src={selectedRegionIcon} alt="" />
               <h2>{t(language, "派蒙在这儿！", "Paimon’s here!")}</h2>
               <p>{t(language, "选一个问题，或者直接问吧。", "Pick a question, or ask your own.")}</p>
             </div>
@@ -273,14 +434,157 @@ export default function AskPage() {
             <span>FIELD NOTES</span>
             <h2>{t(language, "不知道问什么？", "Need an idea?")}</h2>
           </div>
+          <div className="suggestion-controls">
+            <section className="suggestion-choice-group" aria-label={t(language, "选择地区", "Choose a region")}>
+              <span className="suggestion-choice-label">
+                {t(language, "选择地区", "Choose a region")}
+              </span>
+              <div className="suggestion-chip-grid suggestion-region-grid">
+                {selectableRegions.map((item) => {
+                  return (
+                    <button
+                      className={`region-button region-${item}${
+                        item === region ? " is-selected" : ""
+                      }`}
+                      type="button"
+                      key={item}
+                      aria-pressed={item === region}
+                      onClick={() => selectSuggestionRegion(item)}
+                    >
+                      <span>{labels.progress[item][language]}</span>
+                      <img
+                        className="region-button-emblem"
+                        src={regionEmblemSources[item]}
+                        alt=""
+                        aria-hidden
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+            <section
+              className={`suggestion-choice-group suggestion-topic-stage topic-region-${region}`}
+              aria-label={t(language, "选择剧情专题", "Choose a story topic")}
+            >
+              <span className="suggestion-choice-label">
+                {t(language, "选择剧情专题", "Choose a story topic")}
+              </span>
+              <div className="suggestion-chip-grid suggestion-topic-grid">
+                {topicsForRegion.map((item) => (
+                  <button
+                    className={
+                      !isCustomSuggestionTopic && item.id === selectedSuggestionTopic.id
+                        ? "is-selected"
+                        : undefined
+                    }
+                    type="button"
+                    key={item.id}
+                    aria-pressed={!isCustomSuggestionTopic && item.id === selectedSuggestionTopic.id}
+                    onClick={() => {
+                      setIsCustomSuggestionTopic(false);
+                      setSuggestionTopicId(item.id);
+                    }}
+                  >
+                    {item.title[language]}
+                  </button>
+                ))}
+                <button
+                  className={
+                    isCustomSuggestionTopic
+                      ? "is-selected custom-topic-choice"
+                      : "custom-topic-choice"
+                  }
+                  type="button"
+                  aria-pressed={isCustomSuggestionTopic}
+                  onClick={() => {
+                    setIsCustomSuggestionTopic(true);
+                    window.requestAnimationFrame(() =>
+                      customTopicInputRef.current?.focus(),
+                    );
+                  }}
+                >
+                  <PenLine size={15} />
+                  {t(language, "自定义专题", "Custom topic")}
+                </button>
+              </div>
+              {isCustomSuggestionTopic ? (
+                <div className="custom-topic-input">
+                  <label htmlFor="custom-suggestion-topic">
+                    {t(language, "输入剧情名、角色或关键词", "Enter a story, character, or keyword")}
+                  </label>
+                  <input
+                    id="custom-suggestion-topic"
+                    ref={customTopicInputRef}
+                    value={customSuggestionTopic}
+                    onChange={(event) => setCustomSuggestionTopic(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Tab" && customTopicCandidates[0]) {
+                        event.preventDefault();
+                        setCustomSuggestionTopic(customTopicCandidates[0]);
+                      }
+                    }}
+                    placeholder={t(language, "例如：戴因斯雷布", "For example: Dainsleif")}
+                    maxLength={60}
+                  />
+                  {customTopicCandidates.length ? (
+                    <div className="custom-topic-candidates" aria-label={t(language, "可补全的关键词", "Suggested keyword completions")}>
+                      <span>{t(language, "按 Tab 补全", "Press Tab to complete")}</span>
+                      {customTopicCandidates.map((item) => (
+                        <button
+                          type="button"
+                          key={item}
+                          onClick={() => setCustomSuggestionTopic(item)}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+            <button
+              className="suggestion-generate"
+              type="button"
+              onClick={() => void generateSuggestions()}
+              disabled={
+                suggestionsLoading ||
+                (isCustomSuggestionTopic && customSuggestionTopic.trim().length < 2)
+              }
+            >
+              {suggestionsLoading ? (
+                <LoaderCircle className="spin" size={15} />
+              ) : (
+                <Stars size={15} />
+              )}
+              {t(language, "让派蒙想几个问题", "Let Paimon suggest questions")}
+            </button>
+          </div>
+          <div className="suggestion-status" role="status" aria-live="polite">
+            {suggestionsLoading
+              ? t(language, "派蒙正在整理问题…", "Paimon is preparing questions…")
+              : suggestionState.source === "fallback"
+                ? t(language, "派蒙准备的参考问题", "Paimon's prepared prompts")
+                : t(language, "派蒙刚想到的问题", "Paimon's fresh prompts")}
+          </div>
+          {suggestionState.customFallback && isCustomSuggestionTopic ? (
+            <div className="custom-topic-fallback" role="status">
+              {t(
+                language,
+                "派蒙暂时没想出来，请换个关键词再试",
+                "Paimon could not think of questions for that keyword. Try another one.",
+              )}
+            </div>
+          ) : null}
           <div className="suggestion-list">
-            {suggestedQuestions[language].map((item, index) => (
+            {suggestionState.questions.map((item, index) => (
               <button
                 type="button"
                 key={item}
                 onClick={() => {
                   setQuestion(item);
-                  void submitQuestion(item);
+                  void submitQuestion(item, undefined, region);
                 }}
               >
                 <span>{String(index + 1).padStart(2, "0")}</span>

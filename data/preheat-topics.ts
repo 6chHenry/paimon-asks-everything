@@ -10,20 +10,7 @@ export const preheatTopics: PreheatTopic[] = [
     introZh:
       "从六国到挪德卡莱，神之心的经历并不相同：有的被夺走，有的用于交易，也有的在其他危机中被消耗并失踪。把这些事件连起来，能看见愚人众任务的连续性，也能看见“目的尚未公开”的边界。",
     introEn:
-      "From the six nations through Nod-Krai, the Gnoses do not share one journey: some were taken, some traded, and one vanished after being used in another crisis. Connecting those events reveals a continuous Fatui mission—and the limits of what its purpose currently tells us.",
-    mysteryId: "nodkrai-main-breakpoint",
-    breakpoint: {
-      id: "gnosis-final-purpose",
-      mysteryId: "nodkrai-main-breakpoint",
-      questionZh: "收集神之心最终要启动什么？",
-      questionEn: "What will the Gnosis collection ultimately set in motion?",
-      clueSummaryZh: "已确认的流转、参与者与文本暗示，正在把问题指向同一个版本级断点。",
-      clueSummaryEn: "Confirmed transfers, participants, and textual clues point toward one version-level breakpoint.",
-      boundaryZh: "现有资料可以说明收集行动如何推进，但不能证明最终用途、代价或完整步骤。",
-      boundaryEn: "Released material shows how the collection advances, but not its final use, cost, or complete procedure.",
-      unlockLabelZh: "至冬版本开启后揭晓",
-      unlockLabelEn: "Revealed when the Snezhnaya version opens",
-    },
+      "From the six nations through Nod-Krai, the Gnoses do not share one journey: some were taken, some traded, and one disappeared after being used in another crisis. This timeline follows the released events and their confirmed participants.",
     heroConceptIds: [
       "gnosis-mondstadt",
       "tsaritsa-plan-unknown",
@@ -61,33 +48,20 @@ export const preheatTopics: PreheatTopic[] = [
     suggestedQuestionsZh: [
       "从蒙德夺取到璃月依契约交付，为什么愚人众在前两国采用了完全不同的方式？",
       "从稻妻的交换到须弥的谈判，雷神之心如何变成博士取得两枚神之心的筹码？",
-      "枫丹交付、纳塔未强夺、挪德卡莱失踪：这条后半段事件链为什么出现了断点？",
+      "枫丹交付、纳塔未强夺、挪德卡莱失踪：这些后半段事件的已确认节点如何排列？",
     ],
     suggestedQuestionsEn: [
       "Why does the Fatui shift from seizing the Gnosis in Mondstadt to a contract transfer in Liyue?",
       "How does the Electro Gnosis move from an Inazuma bargain to Dottore's negotiation for two Gnoses in Sumeru?",
-      "Fontaine hands one over, Natlan resists a seizure, and Nod-Krai loses the trail: where does the later chain break?",
+      "How do the confirmed Fontaine, Natlan, and Nod-Krai events connect in the later Gnosis chain?",
     ],
   },
   {
     id: defaultPreheatTopicId,
     titleZh: "七枚神之心分别经历了什么？",
     titleEn: "What happened to each of the seven Gnoses?",
-    introZh: "本栏目会先把已确认的事实与未解的问题分开，并把后者留在至冬版本解锁的未知中。",
-    introEn: "This page separates confirmed events from unresolved questions; the final purpose remains locked until the Snezhnaya version.",
-    mysteryId: "nodkrai-main-breakpoint",
-    breakpoint: {
-      id: "gnosis-final-purpose",
-      mysteryId: "nodkrai-main-breakpoint",
-      questionZh: "收集神之心最终要启动什么？",
-      questionEn: "What will the Gnosis collection ultimately set in motion?",
-      clueSummaryZh: "每枚神之心的确认经历指向同一个版本级断点。",
-      clueSummaryEn: "Each confirmed Gnosis transfer forms a clue toward one version-level breakpoint.",
-      boundaryZh: "可以还原神之心的经历，但最终动机和步骤仍未解。",
-      boundaryEn: "The journey can be reconstructed, but the final motive and procedure remain unresolved.",
-      unlockLabelZh: "至冬版本开启后揭晓",
-      unlockLabelEn: "Revealed when the Snezhnaya version opens",
-    },
+    introZh: "本栏目按地区串联七枚神之心的已确认经历，并标出每一步的直接参与者与来源。",
+    introEn: "This page connects the seven Gnoses through confirmed regional events, direct participants, and sources.",
     heroConceptIds: [
       "gnosis-mondstadt",
       "gnosis-sumeru",
@@ -124,12 +98,12 @@ export const preheatTopics: PreheatTopic[] = [
     suggestedQuestionsZh: [
       "蒙德到璃月：风神之心被夺、岩神之心依契约交付，这两段起点有什么差异？",
       "稻妻到须弥：雷神之心如何从交换旅行者安全，变成博士取得两枚神之心的筹码？",
-      "枫丹、纳塔到挪德卡莱：水神之心交给仆人、火神之心未被强夺后又下落不明，留下了什么未解问题？",
+      "枫丹、纳塔到挪德卡莱：水神之心交接、火神之心未被强夺及其后续状态，哪些事实已被剧情确认？",
     ],
     suggestedQuestionsEn: [
       "Mondstadt to Liyue: how do Signora's seizure and the contract transfer change the starting point?",
       "Inazuma to Sumeru: how does the Electro Gnosis move from a bargain for safety to Dottore's leverage for two Gnoses?",
-      "Fontaine, Natlan, and Nod-Krai: what unresolved question remains after the Hydro handoff, the failed seizure, and the missing Pyro Gnosis?",
+      "Fontaine, Natlan, and Nod-Krai: which facts are confirmed about the Hydro handoff, the uncompleted mission, and the Pyro Gnosis's later status?",
     ],
   },
   {
@@ -139,20 +113,7 @@ export const preheatTopics: PreheatTopic[] = [
     introZh:
       "已知的是长期收集行动与对旧秩序的敌意；未知的是集齐后的完整步骤、代价和最终用途。这个主题专门把证据层级拆开。",
     introEn:
-      "What is known is the long-running collection campaign and hostility toward the old order. What remains unknown is the complete procedure, cost, and final use. This topic separates those evidence layers.",
-    mysteryId: "nodkrai-main-breakpoint",
-    breakpoint: {
-      id: "gnosis-final-purpose",
-      mysteryId: "nodkrai-main-breakpoint",
-      questionZh: "收集神之心最终要启动什么？",
-      questionEn: "What will the Gnosis collection ultimately set in motion?",
-      clueSummaryZh: "长期收集与反抗旧秩序的证据指向未解的版本级断点。",
-      clueSummaryEn: "The campaign points toward an unresolved version-level breakpoint.",
-      boundaryZh: "证据层级可以分层，但最终用途不能按已确认写成结论。",
-      boundaryEn: "Evidence layers can be separated, but the final use cannot be stated as confirmed.",
-      unlockLabelZh: "至冬版本开启后揭晓",
-      unlockLabelEn: "Revealed when the Snezhnaya version opens",
-    },
+      "This topic separates released evidence about the long-running collection campaign and hostility toward the old order into clear fact-status layers.",
     heroConceptIds: [
       "tsaritsa-plan-unknown",
       "tsaritsa-old-world-implication",

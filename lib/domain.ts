@@ -13,7 +13,8 @@ export type Progress =
   | "sumeru"
   | "fontaine"
   | "natlan"
-  | "nodkrai";
+  | "nodkrai"
+  | "snezhnaya";
 export type SpoilerPreference = "none" | "low" | "full";
 export type Focus = "story" | "character" | "gameplay" | "overview";
 export type PreheatDepth = "guided" | "research";
@@ -21,6 +22,31 @@ export type PreheatInteractionKind =
   | "depth_selected"
   | "timeline_node_opened"
   | "relation_node_opened";
+
+export interface QuestionSuggestionSourceAnchor {
+  title: string;
+  url: string;
+  authority: "official" | "trusted_wiki";
+}
+
+export interface QuestionSuggestionTopic {
+  id: string;
+  region: Exclude<Progress, "unknown">;
+  title: Record<Language, string>;
+  scope: Record<Language, string>;
+  sourceAnchors: QuestionSuggestionSourceAnchor[];
+  fallbackQuestions: Record<
+    Language,
+    [string, string, string, string, string]
+  >;
+}
+
+export interface QuestionSuggestionResult {
+  topicId: string;
+  questions: string[];
+  source: "generated" | "fallback";
+  customFallback?: boolean;
+}
 export type FactStatus =
   | "official_explicit"
   | "narrative_implied"
@@ -224,27 +250,12 @@ export interface PreheatTopic {
   titleEn: string;
   introZh: string;
   introEn: string;
-  mysteryId: string;
-  breakpoint: PreheatBreakpoint;
   heroConceptIds: string[];
   depthConceptIds: Record<PreheatDepth, string[]>;
   timelineNodeIds: string[];
   relationGraphId: string;
   suggestedQuestionsZh: string[];
   suggestedQuestionsEn: string[];
-}
-
-export interface PreheatBreakpoint {
-  id: string;
-  mysteryId: string;
-  questionZh: string;
-  questionEn: string;
-  clueSummaryZh: string;
-  clueSummaryEn: string;
-  boundaryZh: string;
-  boundaryEn: string;
-  unlockLabelZh: string;
-  unlockLabelEn: string;
 }
 
 export interface TimelineNode {

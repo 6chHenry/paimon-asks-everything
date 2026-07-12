@@ -10,7 +10,10 @@ import {
   PanelLeftOpen,
   Sparkles,
   TestTube2,
+  X,
 } from "lucide-react";
+import { PAIMON_EGG_PENDING_KEY } from "@/lib/traveler-discoveries";
+import { useDiscoveries } from "@/components/discoveries-provider";
 import { usePreferences } from "@/components/preferences-provider";
 import { clientPath } from "@/lib/client-path";
 
@@ -28,8 +31,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const activePath = pathname.replace(/^.*\/proxy\/\d+/u, "") || "/";
   const { preferences, setPreferences } = usePreferences();
+  const { registerPaimonTap } = useDiscoveries();
   const isZh = preferences.language === "zh-CN";
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const [easterEggOpen, setEasterEggOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -43,6 +48,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
     } catch {
       // Ignore private browsing or storage restrictions.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (window.sessionStorage.getItem(PAIMON_EGG_PENDING_KEY) === "true") {
+        window.sessionStorage.removeItem(PAIMON_EGG_PENDING_KEY);
+        setEasterEggOpen(true);
+      }
+    } catch {
+      // The immediate in-page reveal remains available without session storage.
     }
   }, []);
 
@@ -93,7 +109,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="game-nav-rail" aria-label="Global navigation">
         <div className="game-nav-head">
           <div className="game-nav-brand-slot">
-            <a href={clientPath("/")} className="game-brand" aria-label="Paimon Asks Everything">
+            <a
+              href={clientPath("/")}
+              className="game-brand"
+              aria-label="Paimon Asks Everything"
+              onClick={() => {
+                if (registerPaimonTap()) {
+                  try {
+                    window.sessionStorage.removeItem(PAIMON_EGG_PENDING_KEY);
+                  } catch {
+                    // The same-page dialog does not need storage.
+                  }
+                  setEasterEggOpen(true);
+                }
+              }}
+            >
               <span className="brand-sigil">
                 <img src="/icon.png" alt="" aria-hidden="true" />
               </span>
@@ -140,6 +170,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="game-content">{children}</main>
       </div>
       <nav className="game-bottom-nav" aria-label="Mobile navigation">{renderNavigation()}</nav>
+      {easterEggOpen ? (
+        <div className="paimon-easter-overlay" role="presentation">
+          <section className="paimon-easter-card" role="dialog" aria-modal="true" aria-labelledby="paimon-easter-title">
+            <button type="button" onClick={() => setEasterEggOpen(false)} aria-label={isZh ? "关闭派蒙彩蛋" : "Close Paimon easter egg"}>
+              <X size={17} />
+            </button>
+            <Sparkles size={24} />
+            <span>PAIMON NOTE</span>
+            <h2 id="paimon-easter-title">{isZh ? "派蒙才不是搜索按钮！" : "Paimon is not a search button!"}</h2>
+            <p>{isZh ? "不过……既然旅行者这么认真，派蒙就再帮你翻一页线索册吧。" : "But… since the Traveler is this determined, Paimon will turn one more page in the clue book."}</p>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
