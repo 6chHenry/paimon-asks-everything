@@ -370,8 +370,8 @@ export function TravelerContextDrawer({
             <Settings2 size={16} />
             {t(language, "调整旅行者状态", "Adjust Traveler context")}
           </span>
-          <small>
-            {labels.profile[profile][language]} / {labels.progress[progress][language]}
+          <small className="traveler-context-summary">
+            {labels.progress[progress][language]} · {labels.profile[profile][language]} · {focus.map((item) => labels.focus[item][language]).join(" / ")}
           </small>
         </summary>
         <div className="settings-body">
@@ -395,6 +395,7 @@ export function TravelerContextDrawer({
                   type="button"
                   key={item}
                   className={focus.includes(item) ? "pill active" : "pill"}
+                  aria-pressed={focus.includes(item)}
                   onClick={() => onToggleFocus(item)}
                 >
                   {labels.focus[item][language]}

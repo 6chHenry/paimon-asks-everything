@@ -13,6 +13,7 @@ import {
 import { GnosisTimeline } from "@/components/gnosis-timeline";
 import { TravelerContextDrawer } from "@/components/home-intel";
 import { PreheatNote } from "@/components/preheat-note";
+import { ProgressButtonGroup } from "@/components/progress-button-group";
 import { RelationMap } from "@/components/relation-map";
 import { usePreferences } from "@/components/preferences-provider";
 import {
@@ -23,6 +24,7 @@ import { clientPath } from "@/lib/client-path";
 import type { Focus, PreheatDepth, Profile, Progress } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
 import type { PreheatView } from "@/lib/preheat";
+import type { PreheatSection } from "@/lib/preheat-personalization";
 
 const profileDescriptions = {
   new: ["先解释阵营和术语", "Explain factions and terms first"],
@@ -44,6 +46,10 @@ export default function PreheatPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [noteOpened, setNoteOpened] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [expandedSections, setExpandedSections] = useState<PreheatSection[]>([
+    "timeline", "brief", "relations",
+  ]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -95,6 +101,7 @@ export default function PreheatPage() {
         profile: preferences.profile,
         progress: preferences.progress,
         spoilerPreference: preferences.spoilerPreference,
+        focus: preferences.focus.join(","),
       });
       try {
         const response = await fetch(clientPath(`/api/preheat?${params}`), {
@@ -103,10 +110,12 @@ export default function PreheatPage() {
         });
         if (!response.ok) throw new Error("load_failed");
         const next = (await response.json()) as PreheatView;
-        const firstAvailable = next.timeline.find((item) => !item.locked);
         setData(next);
-        setSelectedTimelineId(firstAvailable?.id);
-        setGraphId(firstAvailable?.relationGraphId ?? next.relationGraph.id);
+        setSelectedTimelineId(next.presentation.defaultTimelineId);
+        setGraphId(next.presentation.defaultRelationGraphId ?? next.relationGraph.id);
+        setExpandedSections(next.presentation.sectionOrder.filter(
+          (section) => !next.presentation.collapsedSections.includes(section),
+        ));
         void record("depth_selected", depth, depth);
       } catch (loadError) {
         if ((loadError as Error).name !== "AbortError") {
@@ -128,9 +137,11 @@ export default function PreheatPage() {
     depth,
     language,
     preferences.profile,
+    preferences.focus,
     preferences.progress,
     preferences.spoilerPreference,
     record,
+    reloadKey,
     topicId,
   ]);
 
@@ -145,6 +156,13 @@ export default function PreheatPage() {
     preheatTopics.find((item) => item.id === topicId) ??
     preheatTopics.find((item) => item.id === defaultPreheatTopicId) ??
     preheatTopics[0];
+  const sectionOrder = data?.presentation.sectionOrder.join("-");
+  const sectionNumber = (section: PreheatSection) =>
+    String((data?.presentation.sectionOrder.indexOf(section) ?? 0) + 1).padStart(2, "0");
+  const toggleSection = (section: PreheatSection) =>
+    setExpandedSections((current) => current.includes(section)
+      ? current.filter((item) => item !== section)
+      : [...current, section]);
   const progressItems = (Object.keys(labels.progress) as Progress[]).map(
     (value) => ({ value, label: labels.progress[value][language] }),
   );
@@ -192,7 +210,7 @@ export default function PreheatPage() {
           <span>{t(language, "最新完成主线", "Latest completed main quest")}</span>
           <strong>{labels.progress[preferences.progress][language]}</strong>
         </div>
-        <label>
+        <div className="preheat-progress-control">
           <span>
             {t(
               language,
@@ -200,22 +218,9 @@ export default function PreheatPage() {
               "Choose the latest region main quest you completed",
             )}
           </span>
-          <select
-            value={preferences.progress}
-            onChange={(event) =>
-              setPreferences((current) => ({
-                ...current,
-                progress: event.target.value as Progress,
-              }))
-            }
-          >
-            {progressItems.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
+          <ProgressButtonGroup items={progressItems} value={preferences.progress}
+            onChange={(progress) => setPreferences((current) => ({ ...current, progress }))} />
+        </div>
       </section>
 
       <TravelerContextDrawer
@@ -246,19 +251,30 @@ export default function PreheatPage() {
       ) : null}
 
       {noteOpened && error ? (
-        <div className="error-card preheat-result-panel">
+        <div className="error-card preheat-result-panel" role="alert">
           <CircleAlert size={18} />
-          {error}
+          <span>{error}</span>
+          <button type="button" onClick={() => setReloadKey((value) => value + 1)}>
+            {t(language, "重试", "Retry")}
+          </button>
+        </div>
+      ) : null}
+
+      {noteOpened && loading && data ? (
+        <div className="preheat-refresh-status" role="status" aria-live="polite">
+          <LoaderCircle className="spin" size={15} />
+          {t(language, "正在重新整理路线…", "Rearranging your route…")}
         </div>
       ) : null}
 
       {noteOpened && data ? (
         <>
           <div className="content-notice preheat-result-panel">{data.contentNotice}</div>
-          <section className="preheat-workbench preheat-intel-workbench">
+          <section className="preheat-workbench preheat-intel-workbench"
+            data-section-order={sectionOrder}>
             <aside className="timeline-column">
               <div className="column-heading">
-                <span>01</span>
+                <span>{sectionNumber("timeline")}</span>
                 <div>
                   <h2>{t(language, "事件链", "Event chain")}</h2>
                   <p>
@@ -267,7 +283,13 @@ export default function PreheatPage() {
                       : t(language, "包含后续地区线索", "Includes later-region clues")}
                   </p>
                 </div>
+                <button type="button" className="section-collapse-toggle"
+                  aria-expanded={expandedSections.includes("timeline")}
+                  onClick={() => toggleSection("timeline")}>
+                  {expandedSections.includes("timeline") ? t(language, "收起", "Collapse") : t(language, "展开", "Expand")}
+                </button>
               </div>
+              <div className="preheat-section-body" hidden={!expandedSections.includes("timeline")}>
               <GnosisTimeline
                 items={data.timeline}
                 selectedId={selectedTimelineId}
@@ -278,16 +300,23 @@ export default function PreheatPage() {
                   void record("timeline_node_opened", item.id);
                 }}
               />
+              </div>
             </aside>
 
             <main className="narration-column">
               <div className="column-heading">
-                <span>02</span>
+                <span>{sectionNumber("brief")}</span>
                 <div>
                   <h2>{data.depth.label}</h2>
                   <p>{data.depth.description}</p>
                 </div>
+                <button type="button" className="section-collapse-toggle"
+                  aria-expanded={expandedSections.includes("brief")}
+                  onClick={() => toggleSection("brief")}>
+                  {expandedSections.includes("brief") ? t(language, "收起", "Collapse") : t(language, "展开", "Expand")}
+                </button>
               </div>
+              <div className="preheat-section-body" hidden={!expandedSections.includes("brief")}>
               <article className="narration-card">
                 <BookOpenCheck size={22} />
                 {data.narration.lead ? (
@@ -343,20 +372,28 @@ export default function PreheatPage() {
                   )}
                 </article>
               ) : null}
+              </div>
             </main>
 
             <aside className="relations-column">
               <div className="column-heading">
-                <span>03</span>
+                <span>{sectionNumber("relations")}</span>
                 <div>
                   <h2>{t(language, "局部关系", "Local relations")}</h2>
                   <p>{t(language, "随节点切换", "Follows the selected node")}</p>
                 </div>
+                <button type="button" className="section-collapse-toggle"
+                  aria-expanded={expandedSections.includes("relations")}
+                  onClick={() => toggleSection("relations")}>
+                  {expandedSections.includes("relations") ? t(language, "收起", "Collapse") : t(language, "展开", "Expand")}
+                </button>
               </div>
+              <div className="preheat-section-body" hidden={!expandedSections.includes("relations")}>
               {activeGraph ? (
                 <RelationMap
                   graph={activeGraph}
                   language={language}
+                  selectedNodeId={data.presentation.defaultRelationNodeId}
                   onNodeSelect={(nodeId) =>
                     void record("relation_node_opened", nodeId)
                   }
@@ -377,6 +414,7 @@ export default function PreheatPage() {
                     <ArrowRight size={14} />
                   </a>
                 ))}
+              </div>
               </div>
             </aside>
           </section>

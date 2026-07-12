@@ -51,4 +51,31 @@ describe("preheat GET route", () => {
     expect(response.status).toBe(200);
     expect(payload).not.toHaveProperty("breakpoint");
   });
+
+  it("accepts multiple focus values and returns a presentation contract", async () => {
+    const response = await GET(new Request(
+      "http://localhost/api/preheat?topicId=seven-gnosis-journeys&depth=guided&language=zh-CN&profile=story&progress=sumeru&spoilerPreference=low&focus=character,story",
+    ));
+    const payload = await response.json() as {
+      presentation: { defaultTimelineId?: string; sectionOrder: string[] };
+    };
+    expect(response.status).toBe(200);
+    expect(payload.presentation.defaultTimelineId).toBe("sumeru-gnoses");
+    expect(payload.presentation.sectionOrder).toEqual(["brief", "timeline", "relations"]);
+  });
+
+  it("rejects an invalid focus value", async () => {
+    const response = await GET(new Request(
+      "http://localhost/api/preheat?topicId=seven-gnosis-journeys&depth=guided&language=en&focus=story,secrets",
+    ));
+    expect(response.status).toBe(400);
+  });
+
+  it("uses stable default focuses when focus is omitted", async () => {
+    const response = await GET(new Request(
+      "http://localhost/api/preheat?topicId=seven-gnosis-journeys&depth=guided&language=en",
+    ));
+    expect(response.status).toBe(200);
+    expect((await response.json()).presentation).toBeDefined();
+  });
 });

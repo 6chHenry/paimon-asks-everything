@@ -18,6 +18,7 @@ const base = {
   profile: "returning" as const,
   progress: "fontaine" as const,
   spoilerPreference: "low" as const,
+  focus: ["story", "overview"] as Array<"story" | "overview">,
 };
 
 describe("preheat orchestration", () => {
@@ -247,5 +248,22 @@ describe("preheat orchestration", () => {
     expect(
       isValidPreheatTarget(base.topicId, "timeline_node_opened", "fake-node"),
     ).toBe(false);
+  });
+
+  it("changes presentation by profile without changing spoiler locks", () => {
+    const newcomer = getPreheatView({ ...base, depth: "guided", progress: "sumeru", profile: "new", focus: ["story"] });
+    const story = getPreheatView({ ...base, depth: "guided", progress: "sumeru", profile: "story", focus: ["character"] });
+    expect(newcomer.presentation).not.toEqual(story.presentation);
+    expect(newcomer.timeline.find((node) => node.id === "fontaine-gnosis")?.locked).toBe(true);
+    expect(story.timeline.find((node) => node.id === "fontaine-gnosis")?.locked).toBe(true);
+  });
+
+  it("keeps multi-focus output stable regardless of query order", () => {
+    const first = getPreheatView({ ...base, depth: "research", focus: ["character", "story"] });
+    const second = getPreheatView({ ...base, depth: "research", focus: ["story", "character"] });
+    expect(first.narration.points).toEqual(second.narration.points);
+    expect(first.timeline.map((node) => node.suggestedQuestions)).toEqual(
+      second.timeline.map((node) => node.suggestedQuestions),
+    );
   });
 });

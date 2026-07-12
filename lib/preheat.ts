@@ -17,6 +17,11 @@ import type {
   TimelineNode,
 } from "@/lib/domain";
 import type { PreheatQuery } from "@/lib/schemas";
+import {
+  buildPreheatPresentation,
+  rankPreheatEntries,
+  rankSuggestedQuestions,
+} from "@/lib/preheat-personalization";
 
 const progressRank: Record<Progress, number> = {
   unknown: 0,
@@ -182,6 +187,7 @@ function localizeTimelineNode(
   return {
     id: node.id,
     region: node.region,
+    participantIds: node.participantIds,
     title: locked
       ? query.language === "zh-CN"
         ? "该地区主线事件已锁定"
@@ -201,12 +207,10 @@ function localizeTimelineNode(
 }
 
 function buildNarration(
-  topic: PreheatTopic,
-  depth: PreheatDepth,
-  language: Language,
   entries: KnowledgeEntry[],
+  limit: number,
 ) {
-  const visible = entries.slice(0, depth === "guided" ? 8 : 10);
+  const visible = entries.slice(0, limit);
   return {
     lead: "",
     points: visible.map((entry) => entry.summary),
@@ -314,9 +318,38 @@ export function getPreheatView(query: PreheatQuery) {
   const graph = relationGraphs.find(
     (item) => item.id === topic.relationGraphId,
   )!;
+  const localizedGraphs = Object.fromEntries(
+    [graph.id, ...timeline.map((node) => node.relationGraphId)].map((id) => {
+      const target = relationGraphs.find((item) => item.id === id)!;
+      return [
+        id,
+        localizeGraph(target, query.language, query, { allowFutureRegions }),
+      ];
+    }),
+  );
+  const presentation = buildPreheatPresentation(query, timeline, localizedGraphs);
+  const rankedEntries = rankPreheatEntries(entries, query);
+  const personalizedTimeline = timeline.map((node) => ({
+    ...node,
+    events: node.events.slice(0, presentation.eventLimit),
+    implications: node.implications.slice(0, presentation.implicationLimit),
+    suggestedQuestions: rankSuggestedQuestions(
+      node.suggestedQuestions,
+      query.focus,
+      query.profile,
+    ).slice(0, presentation.questionLimit),
+  }));
+  const localizedTopic = localizeTopic(topic, query.language);
 
   return {
-    topic: localizeTopic(topic, query.language),
+    topic: {
+      ...localizedTopic,
+      suggestedQuestions: rankSuggestedQuestions(
+        localizedTopic.suggestedQuestions,
+        query.focus,
+        query.profile,
+      ).slice(0, presentation.questionLimit),
+    },
     topics: preheatTopics.map((item) => localizeTopic(item, query.language)),
     depth: {
       id: query.depth,
@@ -329,21 +362,12 @@ export function getPreheatView(query: PreheatQuery) {
           ? depthLabels[query.depth].durationZh
           : depthLabels[query.depth].durationEn,
     },
-    narration: buildNarration(topic, query.depth, query.language, entries),
-    evidence: entries,
-    timeline,
-    relationGraph: localizeGraph(graph, query.language, query, {
-      allowFutureRegions,
-    }),
-    availableRelationGraphs: Object.fromEntries(
-      [graph.id, ...timeline.map((node) => node.relationGraphId)].map((id) => {
-        const target = relationGraphs.find((item) => item.id === id)!;
-        return [
-          id,
-          localizeGraph(target, query.language, query, { allowFutureRegions }),
-        ];
-      }),
-    ),
+    narration: buildNarration(rankedEntries, presentation.narrationLimit),
+    evidence: rankedEntries,
+    timeline: personalizedTimeline,
+    relationGraph: localizedGraphs[graph.id],
+    availableRelationGraphs: localizedGraphs,
+    presentation,
     contentNotice:
       query.language === "zh-CN"
         ? query.depth === "guided"
