@@ -14,6 +14,7 @@ import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
 import { TraceTimeline } from "@/components/trace-timeline";
 import { questionSuggestionTopics } from "@/data/question-suggestion-topics";
+import { getCustomTopicCandidates } from "@/data/custom-topic-candidates";
 import { clientPath } from "@/lib/client-path";
 import type {
   ChatResult,
@@ -32,21 +33,6 @@ const selectableRegions: Exclude<Progress, "unknown">[] = [
   "natlan",
   "nodkrai",
   "snezhnaya",
-];
-
-const customTopicKeywords = [
-  "戴因斯雷布",
-  "坎瑞亚",
-  "深渊",
-  "旅行者血亲",
-  "斯卡拉姆齐",
-  "魔女会",
-  "天理",
-  "虚假之天",
-  "龙王",
-  "世界树",
-  "法涅斯",
-  "水仙十字结社",
 ];
 
 const regionEmblemSources: Record<Exclude<Progress, "unknown">, string> = {
@@ -120,11 +106,10 @@ export default function AskPage() {
     ? regionEmblemSources[activeAskRegion]
     : "/compass-mark.svg";
   const selectedRegionIcon = regionEmblemSources[region];
-  const customTopicCandidates = customSuggestionTopic.trim()
-    ? customTopicKeywords
-        .filter((item) => item.includes(customSuggestionTopic.trim()))
-        .slice(0, 4)
-    : [];
+  const customTopicCandidates = getCustomTopicCandidates(
+    region,
+    customSuggestionTopic,
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

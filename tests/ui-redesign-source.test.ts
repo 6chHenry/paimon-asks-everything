@@ -308,7 +308,6 @@ describe("contextual ask-page suggestions", () => {
     expect(css).toContain(".region-mondstadt");
     expect(css).toContain(".suggestion-generate");
     expect(css).toContain(".suggestion-status");
-    expect(page).toContain("customTopicKeywords");
     expect(page).toContain("customSuggestionTopic");
     expect(page).toContain('event.key === "Tab"');
     expect(page).toContain("customFallback");
@@ -316,5 +315,7 @@ describe("contextual ask-page suggestions", () => {
     expect(css).toContain(".custom-topic-choice");
     expect(css).toContain(".custom-topic-input");
     expect(css).toContain(".custom-topic-candidates");
+    expect(page).toContain("getCustomTopicCandidates(");
+    expect(page).not.toContain('const customTopicKeywords = [');
   });
 });
