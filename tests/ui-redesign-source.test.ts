@@ -66,6 +66,7 @@ describe("Genshin-style shell source", () => {
     expect(css).toContain(".composer:focus-within");
     expect(css).toContain(".empty-conversation::before");
     expect(css).toContain(".composer textarea::placeholder");
+    expect(css).toContain("brightness(0) saturate(100%) drop-shadow");
     expect(css).toContain("box-shadow: inset 3px 0 0 rgba(200,170,110,.58)");
     expect(css).toContain("min-height: 198px");
     expect(css).toContain("-webkit-line-clamp: 2");

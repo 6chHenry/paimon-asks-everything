@@ -1181,7 +1181,7 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   position: relative;
   z-index: 1;
 }
-.empty-conversation img { width: 74px; opacity: .76; filter: drop-shadow(0 10px 24px rgba(42,57,63,.12)); }
+.empty-conversation img { width: 74px; opacity: .82; filter: brightness(0) saturate(100%) drop-shadow(0 10px 24px rgba(42,57,63,.16)); }
 .empty-conversation h2 { font: 500 28px var(--display); margin: 18px 0 8px; }
 .empty-conversation p { max-width: 520px; margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.7; }
 .composer { margin-top: 0; border: 0; border-top: 1px solid rgba(255,255,255,.56); background: rgba(255,255,255,.88); box-shadow: none; }
