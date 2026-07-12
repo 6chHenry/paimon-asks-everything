@@ -755,14 +755,13 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 }
 .preheat-progress-control { display: flex; flex-direction: column; gap: 9px; }
 .preheat-progress-control > span { color: var(--ink-soft); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
-.progress-button-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
-.progress-button {
-  min-height: 42px; padding: 7px 8px; border: 1px solid rgba(42,57,63,.18); border-radius: 3px;
-  background: rgba(255,248,234,.72); color: var(--ink); cursor: pointer; font-size: 11px; line-height: 1.25;
-}
-.progress-button:hover { border-color: var(--gold); }
-.progress-button.active { border-color: var(--navy); background: var(--navy); color: white; box-shadow: inset 3px 0 0 var(--gold); font-weight: 800; }
-.progress-button:focus-visible, .pill:focus-visible, .choice:focus-visible,
+.progress-region-picker { display: grid; gap: 9px; }
+.progress-button-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.preheat-progress-card .region-button { min-height: 58px !important; padding: 10px 42px 10px 13px !important; border-radius: 6px; font-size: 14px !important; }
+.preheat-progress-card .region-button-emblem { right: 10px; width: 31px; height: 31px; }
+.progress-unknown { justify-self: start; border: 0; border-bottom: 1px solid transparent; padding: 3px 1px; background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 10px; }
+.progress-unknown:hover, .progress-unknown.is-selected { border-bottom-color: var(--gold); color: var(--ink); }
+.progress-unknown:focus-visible, .pill:focus-visible, .choice:focus-visible,
 .section-collapse-toggle:focus-visible { outline: 3px solid rgba(58,126,154,.38); outline-offset: 2px; }
 .traveler-context-summary { max-width: 64%; overflow-wrap: anywhere; text-align: right; line-height: 1.4; }
 .preheat-refresh-status { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 8px 0; color: var(--ink-soft); font-size: 10px; }

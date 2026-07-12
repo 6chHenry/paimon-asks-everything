@@ -293,8 +293,9 @@ describe("contextual ask-page suggestions", () => {
     expect(page).toContain("suggestion-topic-grid");
     expect(page).toContain("aria-pressed");
     expect(page).toContain("regionEmblemSources");
-    expect(page).toContain("Emblem_Nod-Krai_White.png");
-    expect(page).toContain("Emblem_Snezhnaya.png");
+    const regionEmblems = source("data", "region-emblems.ts");
+    expect(regionEmblems).toContain("Emblem_Nod-Krai_White.png");
+    expect(regionEmblems).toContain("Emblem_Snezhnaya.png");
     expect(page).toContain("region-button-emblem");
     expect(page).toContain("topic-region-${region}");
     expect(page).toContain("activeAskRegion");
