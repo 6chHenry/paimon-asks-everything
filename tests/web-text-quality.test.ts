@@ -31,6 +31,14 @@ describe("web text quality", () => {
     ).toBe(true);
   });
 
+  it("detects a compact task-index run with fewer than six navigation tokens", () => {
+    expect(
+      isNavigationHeavy(
+        "任务攻略 任务流程 前置任务 后续任务 智慧筑屋,凿成七柱 流沙如泪的神殿 埋葬丰饶的沙丘",
+      ),
+    ).toBe(true);
+  });
+
   it("detects an uncontextualized speaker-label dialogue dump", () => {
     expect(
       looksLikeDialogueDump(
@@ -45,6 +53,22 @@ describe("web text quality", () => {
         "婕德：那个家伙让我不爽\n旅行者：我们先冷静下来\n婕德：现在已经安静了",
       ),
     ).toBe(true);
+  });
+
+  it("detects a dense raw transcript even when every speaker label differs", () => {
+    expect(
+      looksLikeDialogueDump(
+        "婕德：我不能再相信她了。旅行者：先把线索理清。派蒙：这里还有一封信。阿萨里格：你们不该看到它。芭别尔：一切都是为了部族。",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps a concise narrative summary that includes one quoted exchange", () => {
+    expect(
+      looksLikeDialogueDump(
+        "剧情概述：两人先因共同目标合作。博士：研究可以继续。富人：资金会按约定提供。此后双方仍保持利益合作。",
+      ),
+    ).toBe(false);
   });
 
   it("does not mistake structured prose labels for dialogue turns", () => {

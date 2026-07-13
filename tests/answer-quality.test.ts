@@ -204,4 +204,49 @@ describe("answer quality", () => {
 
     expect(failures).toContain("web_noise");
   });
+
+  it.each([
+    "任务攻略 任务流程 前置任务 后续任务 智慧筑屋,凿成七柱 流沙如泪的神殿 埋葬丰饶的沙丘",
+    "婕德：我不会再服从。旅行者：我们先离开。派蒙：出口在那边。阿萨里格：你们休想。芭别尔：抓住他们。",
+  ])(
+    "rejects a character-arc paragraph citing unusable source text: %s",
+    (sourceText) => {
+      const failures = validateAnswerQuality({
+        paragraphs: [
+          {
+            text: "婕德认清操控后选择离开，并开始决定自己的道路。",
+            citationIds: ["external-1"],
+          },
+        ],
+        language: "zh-CN",
+        question: "婕德经历了怎样的变化？",
+        allowedSourceIds: new Set(["external-1"]),
+        sourceTextById: new Map([["external-1", sourceText]]),
+      });
+
+      expect(failures).toContain("web_noise");
+    },
+  );
+
+  it("allows clean relationship evidence with a concise quoted exchange", () => {
+    const failures = validateAnswerQuality({
+      paragraphs: [
+        {
+          text: "两人的关系以持续的利益合作为主。",
+          citationIds: ["external-1"],
+        },
+      ],
+      language: "zh-CN",
+      question: "富人和博士是什么关系？",
+      allowedSourceIds: new Set(["external-1"]),
+      sourceTextById: new Map([
+        [
+          "external-1",
+          "剧情概述：两人因共同目标合作。博士：研究可以继续。富人：资金会按约定提供。此后双方仍保持利益合作。",
+        ],
+      ]),
+    });
+
+    expect(failures).not.toContain("web_noise");
+  });
 });

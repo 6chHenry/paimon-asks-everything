@@ -1,9 +1,13 @@
 import type { AnswerParagraph, Language } from "@/lib/domain";
-import { detectQuestionEntities } from "@/lib/entity-lexicon";
+import {
+  detectQuestionEntities,
+  isCharacterArcQuestion,
+} from "@/lib/entity-lexicon";
 import {
   containsUnrenderedHtmlEntity,
   hasRepeatedSiteChrome,
   isNavigationHeavy,
+  isUnusableWebText,
 } from "@/lib/web-text-quality";
 
 export interface ParsedGeneratedAnswer {
@@ -276,6 +280,21 @@ export function validateAnswerQuality(input: {
     if (hasUnsupportedNegative) failures.push("unsupported_negative_claim");
   }
   if (containsWebNoise(text)) failures.push("web_noise");
+  const rejectsDialogueSources =
+    isCharacterArcQuestion(input.question) ||
+    /剧情|劇情|故事|传说任务|傳說任務|story|quest|lore/iu.test(input.question);
+  if (
+    input.sourceTextById &&
+    input.paragraphs.some((paragraph) =>
+      paragraph.citationIds.some((id) =>
+        isUnusableWebText(input.sourceTextById?.get(id) ?? "", {
+          rejectDialogue: rejectsDialogueSources,
+        }),
+      ),
+    )
+  ) {
+    failures.push("web_noise");
+  }
   if (isTemplateHeavy(text, input.language)) failures.push("template_heavy");
   return Array.from(new Set(failures));
 }

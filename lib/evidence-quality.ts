@@ -7,10 +7,7 @@ import {
 } from "@/lib/external-search";
 import {
   cleanWebText,
-  containsUnrenderedHtmlEntity,
-  hasRepeatedSiteChrome,
-  isNavigationHeavy,
-  looksLikeDialogueDump,
+  isUnusableWebText,
 } from "@/lib/web-text-quality";
 
 const genericPagePattern =
@@ -66,10 +63,7 @@ function looksLikeGameplayQuestion(question: string) {
 
 function isUnusableWebEvidence(citation: Citation, intent: SearchIntent) {
   const text = `${citation.title} ${citation.excerpt}`;
-  if (containsUnrenderedHtmlEntity(cleanWebText(text))) return true;
-  if (hasRepeatedSiteChrome(text) || isNavigationHeavy(text)) return true;
-  if (intent === "story" && looksLikeDialogueDump(citation.excerpt)) return true;
-  return false;
+  return isUnusableWebText(text, { rejectDialogue: intent === "story" });
 }
 
 export function selectAnswerEvidence(

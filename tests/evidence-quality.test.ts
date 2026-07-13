@@ -237,6 +237,26 @@ describe("evidence quality", () => {
     expect(selected).toEqual([]);
   });
 
+  it("rejects live-shaped task indexes and alternating-speaker transcripts", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "task-index",
+          "智慧筑屋,凿成七柱",
+          "任务攻略 任务流程 前置任务 后续任务 智慧筑屋,凿成七柱 流沙如泪的神殿 埋葬丰饶的沙丘",
+        ),
+        citation(
+          "raw-transcript",
+          "永恒的葱茏之梦",
+          "婕德：我不想再被利用。旅行者：我们会查清真相。派蒙：这里还有线索。阿萨里格：你们走不了。芭别尔：服从我的安排。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toEqual([]);
+  });
+
   it("keeps dialogue-shaped evidence for a relationship answer", () => {
     const selected = selectAnswerEvidence(
       [

@@ -603,6 +603,54 @@ describe("whitelisted external search", () => {
     ).toBe(true);
   });
 
+  it("rejects incidental story mentions on pages titled for another subject", () => {
+    const plan = normalizeSearchPlan(
+      {
+        coreEntities: ["婕德"],
+        aliases: [],
+        intent: "story",
+        queries: ["婕德 剧情 经历", "婕德 结局 变化"],
+      },
+      "婕德经历了怎样的变化？",
+    );
+    const candidates: Citation[] = [
+      {
+        id: "other-subject",
+        title: "娜布·玛莉卡塔",
+        url: "https://example.com/other-subject",
+        sourceName: "剧情文本索引",
+        sourceKind: "trusted_wiki",
+        credibility: "trusted_wiki",
+        factStatus: "trusted_secondary",
+        excerpt: "赤王曾追忆花神。资料索引还列出婕德，但没有叙述她的经历。",
+        external: true,
+        crossLanguage: false,
+      },
+      {
+        id: "quest-event",
+        title: "因为她的罪恶滔天…",
+        url: "https://example.com/quest-event",
+        sourceName: "剧情文本索引",
+        sourceKind: "game_text",
+        credibility: "official",
+        factStatus: "official_explicit",
+        excerpt:
+          "任务中，婕德查明族长的陷害，拒绝继续受人操控，与部族决裂后选择独自踏上新的道路。",
+        external: true,
+        crossLanguage: false,
+      },
+    ];
+
+    const selected = selectCandidatesForAssessment(
+      candidates,
+      plan,
+      "婕德经历了怎样的变化？",
+    );
+
+    expect(selected.map((citation) => citation.id)).toEqual(["external-1"]);
+    expect(selected[0]?.title).toBe("因为她的罪恶滔天…");
+  });
+
   it("uses Sogou as a Chinese web-search fallback for direct interaction evidence", async () => {
     vi.stubGlobal(
       "fetch",

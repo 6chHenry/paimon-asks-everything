@@ -91,21 +91,63 @@ export function isNavigationHeavy(value: string) {
   const tokens = text.match(
     /Created with Sketch|首页|新闻|公告|攻略|图鉴|角色|武器|圣遗物|社区|编辑|历史|Toggle|Contents?|Navigation|Gallery|Change History/giu,
   ) ?? [];
-  return /Created with Sketch/iu.test(text) || new Set(tokens.map((token) => token.toLowerCase())).size >= 6;
+  const taskIndexTokens = text.match(
+    /任务攻略|任务流程|前置任务|后续任务|任务列表|任务索引|章节列表|上一任务|下一任务|quest\s*(?:guide|steps?|list|index)|previous\s+quest|next\s+quest/giu,
+  ) ?? [];
+  const compactLength = text.replace(/\s+/gu, "").length;
+  const navigationDensity =
+    tokens.reduce((total, token) => total + token.length, 0) /
+    Math.max(compactLength, 1);
+  return (
+    /Created with Sketch/iu.test(text) ||
+    new Set(tokens.map((token) => token.toLowerCase())).size >= 6 ||
+    (tokens.length >= 4 && navigationDensity >= 0.25) ||
+    taskIndexTokens.length >= 3
+  );
 }
 
 export function looksLikeDialogueDump(value: string) {
+  const structuralLabels = new Set([
+    "前因",
+    "转折",
+    "轉折",
+    "结果",
+    "結果",
+    "结局",
+    "結局",
+    "背景",
+    "概述",
+    "总结",
+    "總結",
+    "原因",
+  ]);
   const labels = Array.from(
-    value.matchAll(/(?:^|[\r\n]+|[。！？!?]\s*)([\p{L}\p{N}·]{1,16})\s*[:：]/gu),
+    value.matchAll(/(?:^|\s+|[。！？!?]\s*)([\p{L}\p{N}·]{1,16})\s*[:：]/gu),
     (match) => match[1]!.normalize("NFKC").toLowerCase(),
-  );
+  ).filter((label) => !structuralLabels.has(label));
   if (labels.length < 3) return false;
 
   const turnsBySpeaker = new Map<string, number>();
   for (const label of labels) {
     turnsBySpeaker.set(label, (turnsBySpeaker.get(label) ?? 0) + 1);
   }
-  return Array.from(turnsBySpeaker.values()).some((turns) => turns >= 2);
+  return (
+    Array.from(turnsBySpeaker.values()).some((turns) => turns >= 2) ||
+    labels.length >= 5 ||
+    (labels.length >= 4 && value.normalize("NFKC").length >= 60)
+  );
+}
+
+export function isUnusableWebText(
+  value: string,
+  options: { rejectDialogue?: boolean } = {},
+) {
+  return (
+    containsUnrenderedHtmlEntity(cleanWebText(value)) ||
+    hasRepeatedSiteChrome(value) ||
+    isNavigationHeavy(value) ||
+    (options.rejectDialogue === true && looksLikeDialogueDump(value))
+  );
 }
 
 export function cleanWebText(value: string) {
@@ -122,12 +164,7 @@ export function cleanWebText(value: string) {
 
 export function webTextQualityScore(value: string) {
   const clean = cleanWebText(value);
-  if (
-    containsUnrenderedHtmlEntity(clean) ||
-    hasRepeatedSiteChrome(value) ||
-    isNavigationHeavy(value) ||
-    looksLikeDialogueDump(value)
-  ) {
+  if (isUnusableWebText(value, { rejectDialogue: true })) {
     return Number.NEGATIVE_INFINITY;
   }
 

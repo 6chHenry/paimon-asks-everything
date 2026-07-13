@@ -684,6 +684,58 @@ function passesEntityGate(
         entityRelevanceScore(citation, plan) >= 30)
     );
   }
+  if (plan.intent === "story") {
+    if (titleOrUrlMatch) return true;
+    const combined = `${citation.title} ${citation.excerpt}`;
+    const storyContextPattern =
+      /任务|任務|剧情|劇情|故事|事件|章节|章節|幕|结局|結局|转折|轉折|成长|成長|变化|變化|战斗|戰鬥|决斗|決鬥|story|quest|chapter|act|event|ending|turning point|duel|battle/giu;
+    const subjectActionPattern =
+      /加入|离开|離開|失去|渴望|寻找|尋找|帮助|幫助|发现|發現|查明|认清|認清|拒绝|拒絕|背叛|操控|利用|欺骗|欺騙|陷害|决裂|決裂|反抗|选择|選擇|决定|決定|成为|成為|改变|改變|成长|成長|转变|轉變|败北|敗北|击败|擊敗|处决|處決|死亡|join(?:ed)?|leave|left|lose|lost|long(?:ed)?\s+for|discover(?:ed)?|recogniz(?:e|ed)|betray(?:al|ed)?|manipulat(?:e|ed|ion)|break\s+with|choose|chose|decid(?:e|ed)|change(?:d)?|grow|grew|defeat(?:ed)?|execut(?:e|ed)|die|died/giu;
+    const contextualTitle =
+      (citation.title.match(storyContextPattern) ?? []).length > 0;
+    const subjectSentences = combined
+      .split(/[。！？!?；;\n]+/u)
+      .filter((sentence) =>
+        [...plan.coreEntities, ...plan.aliases].some((entity) =>
+          includesEntity(sentence, entity),
+        ),
+      );
+    const normalizedCombined = normalizedExcerptText(combined);
+    const subjectWindows = [...plan.coreEntities, ...plan.aliases].flatMap(
+      (entity) => {
+        const normalizedEntity = normalizedExcerptText(entity);
+        const windows: string[] = [];
+        let cursor = normalizedCombined.indexOf(normalizedEntity);
+        while (cursor >= 0) {
+          windows.push(normalizedCombined.slice(cursor, cursor + 180));
+          cursor = normalizedCombined.indexOf(
+            normalizedEntity,
+            cursor + normalizedEntity.length,
+          );
+        }
+        return windows;
+      },
+    );
+    const actionCount = Math.max(
+      0,
+      ...subjectWindows.map(
+        (window) => (window.match(subjectActionPattern) ?? []).length,
+      ),
+    );
+    const contextualExcerpt = subjectSentences.some(
+      (sentence) => (sentence.match(storyContextPattern) ?? []).length > 0,
+    );
+    const contextCount = subjectSentences.reduce(
+      (count, sentence) =>
+        count + (sentence.match(storyContextPattern) ?? []).length,
+      0,
+    );
+    return (
+      actionCount >= 2 ||
+      (actionCount >= 1 && (contextualTitle || contextualExcerpt)) ||
+      contextCount >= 2
+    );
+  }
   const excerptThreshold = plan.intent === "relationship" ? 60 : 30;
   return titleOrUrlMatch || entityRelevanceScore(citation, plan) >= excerptThreshold;
 }
