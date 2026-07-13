@@ -1054,18 +1054,30 @@ export interface CharacterArcCandidateBucket {
 
 export function balanceCharacterArcCandidateBuckets(
   buckets: CharacterArcCandidateBucket[],
+  plan: SearchPlan,
+  question: string,
   limit = 16,
 ) {
   const bucketCandidates = buckets.map((bucket) => {
     const unique = new Map<string, Citation>();
     for (const citation of bucket.candidates) {
+      if (citationTextQuality(citation) === Number.NEGATIVE_INFINITY) continue;
       const key = canonicalCitationUrl(citation.url);
       const current = unique.get(key);
       if (!current || citationTextQuality(citation) > citationTextQuality(current)) {
         unique.set(key, citation);
       }
     }
-    return [...unique.values()];
+    const candidatesByCanonicalUrl = new Map(
+      [...unique.values()].map((citation) => [
+        canonicalCitationUrl(citation.url),
+        citation,
+      ]),
+    );
+    return dedupeAndRank([...unique.values()], plan, question).flatMap(
+      (citation) =>
+        candidatesByCanonicalUrl.get(canonicalCitationUrl(citation.url)) ?? [],
+    );
   });
 
   const winners = new Map<
@@ -2064,6 +2076,8 @@ export async function searchWebEvidence(
             query: tiers.first[index] ?? "",
             candidates: result.status === "fulfilled" ? result.value : [],
           })),
+          plan,
+          question,
         )
       : collectCandidates(firstResults);
   const firstAssessed = await assessCandidates(firstCandidates, false, false);

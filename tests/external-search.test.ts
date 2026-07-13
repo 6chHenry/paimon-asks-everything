@@ -610,6 +610,16 @@ describe("whitelisted external search", () => {
   ])(
     "reserves mandatory character-arc candidates when the raw query is shallow: %s",
     (question) => {
+      const plan = normalizeSearchPlan(
+        {
+          coreEntities: ["婕德"],
+          aliases: [],
+          intent: "story",
+          storyScope: "character_arc",
+          queries: [question, "婕德 剧情 经历", "婕德 结局 变化"],
+        },
+        question,
+      );
       const makeCandidate = (
         id: string,
         url: string,
@@ -664,7 +674,7 @@ describe("whitelisted external search", () => {
         { query: question, candidates: raw },
         { query: "婕德 剧情 经历", candidates: firstMandatory },
         { query: "婕德 结局 变化", candidates: secondMandatory },
-      ]);
+      ], plan, question);
       const canonicalUrls = selected.map((candidate) =>
         candidate.url.replace(/#.*$/u, "").toLowerCase(),
       );
@@ -692,6 +702,131 @@ describe("whitelisted external search", () => {
         .toBe("end-0");
       expect(selected.find((candidate) => candidate.url.includes("shared-source"))?.id)
         .toBe("start-0");
+    },
+  );
+
+  it.each([
+    ["婕德经历了怎样的变化？", "standard"],
+    ["婕德经历了怎么的变化？", "typo"],
+  ])(
+    "ranks and removes unusable character-arc candidates before mandatory quotas: %s",
+    (question, rawVariant) => {
+      const plan = normalizeSearchPlan(
+        {
+          coreEntities: ["婕德"],
+          aliases: [],
+          intent: "story",
+          storyScope: "character_arc",
+          queries: [question, "婕德 剧情 经历", "婕德 结局 变化"],
+        },
+        question,
+      );
+      const makeCandidate = (
+        id: string,
+        title: string,
+        excerpt: string,
+        sourceKind: Citation["sourceKind"] = "trusted_wiki",
+      ): Citation => ({
+        id,
+        title,
+        url: `https://example.com/${rawVariant}/${id}`,
+        sourceName: sourceKind === "unknown_web" ? "example.com" : "Test Wiki",
+        sourceKind,
+        credibility: sourceKind === "unknown_web" ? "unknown_web" : "trusted_wiki",
+        factStatus:
+          sourceKind === "unknown_web" ? "community_analysis" : "trusted_secondary",
+        excerpt,
+        external: true,
+        crossLanguage: false,
+      });
+      const raw = Array.from({ length: 14 }, (_, index) =>
+        makeCandidate(
+          `raw-${index}`,
+          `婕德资料 ${rawVariant} ${index}`,
+          `婕德人物资料与基础档案 ${rawVariant} ${index}。`,
+        ),
+      );
+      const dirtyMandatory = (prefix: string) => [
+        makeCandidate(
+          `${prefix}-site-shell`,
+          "社区入口",
+          "星港论坛是由北辰互动运营的官方社区平台，提供新闻、攻略、图鉴与活动内容。",
+        ),
+        makeCandidate(
+          `${prefix}-browser-shell`,
+          "婕德页面",
+          "This site requires JavaScript enabled. Please check your browser settings.",
+        ),
+        makeCandidate(
+          `${prefix}-chrome`,
+          "婕德索引",
+          "旅行者创作平台-观测枢-wiki旅行者创作平台-观测枢-wiki",
+        ),
+        makeCandidate(
+          `${prefix}-navigation`,
+          "婕德资料",
+          "Created with Sketch 首页 新闻 公告 攻略 图鉴 角色 武器 圣遗物 社区 编辑",
+        ),
+        makeCandidate(
+          `${prefix}-dialogue`,
+          "婕德对话",
+          "婕德：我不再服从。旅行者：先离开这里。派蒙：出口在前面。阿萨里格：拦住他们。芭别尔：执行命令。",
+        ),
+        makeCandidate(
+          `${prefix}-entity`,
+          "婕德资料",
+          "婕德人物资料仍含有无法渲染的标记 &unknownentity;",
+        ),
+      ];
+      const cleanStart = makeCandidate(
+        "clean-start",
+        "永恒的葱茏之梦：婕德经历",
+        "失去父亲后，婕德渴望新的归属，并把塔尼特和芭别尔视为替代家庭。",
+        "unknown_web",
+      );
+      const cleanEnd = makeCandidate(
+        "clean-end",
+        "因为她的罪恶滔天：婕德结局",
+        "婕德认清芭别尔的操控与背叛后同塔尼特决裂，决定自己选择未来的道路。",
+        "unknown_web",
+      );
+
+      const selected = balanceCharacterArcCandidateBuckets(
+        [
+          { query: question, candidates: raw },
+          {
+            query: "婕德 剧情 经历",
+            candidates: [...dirtyMandatory("start"), cleanStart],
+          },
+          {
+            query: "婕德 结局 变化",
+            candidates: [...dirtyMandatory("end"), cleanEnd],
+          },
+        ],
+        plan,
+        question,
+      );
+      const canonicalUrls = selected.map((candidate) =>
+        candidate.url.replace(/#.*$/u, "").toLowerCase(),
+      );
+
+      expect(selected.map((candidate) => candidate.id)).toEqual(
+        expect.arrayContaining(["clean-start", "clean-end"]),
+      );
+      expect(selected.some((candidate) => candidate.id.includes("shell")))
+        .toBe(false);
+      expect(selected.some((candidate) => candidate.id.includes("chrome")))
+        .toBe(false);
+      expect(selected.some((candidate) => candidate.id.includes("navigation")))
+        .toBe(false);
+      expect(selected.some((candidate) => candidate.id.includes("dialogue")))
+        .toBe(false);
+      expect(selected.some((candidate) => candidate.id.includes("entity")))
+        .toBe(false);
+      expect(selected.filter((candidate) => candidate.id.startsWith("raw-")))
+        .toHaveLength(4);
+      expect(new Set(canonicalUrls).size).toBe(selected.length);
+      expect(selected.length).toBeLessThanOrEqual(16);
     },
   );
 
