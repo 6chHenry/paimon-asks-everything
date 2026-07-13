@@ -270,6 +270,18 @@ describe("Paimon evidence experience source", () => {
     expect(traceTimeline).toContain("考据记录");
     expect(traceTimeline).toContain("open={!collapsed}");
   });
+
+  it("keeps the clue heading out of the evidence-row grid", () => {
+    const styles = source("app", "globals.css");
+
+    expect(styles).toContain(
+      ".claim-list > div:not(.clue-ledger-heading) { display: grid;",
+    );
+    expect(styles).not.toMatch(/\.claim-list > div\s*\{\s*display: grid;/u);
+    expect(styles).toContain(
+      ".clue-ledger-heading small { max-width: none; text-align: left; }",
+    );
+  });
 });
 
 describe("Paimon discoveries source", () => {
