@@ -1036,10 +1036,11 @@ function canonicalCitationUrl(value: string) {
   try {
     const url = new URL(value);
     url.hash = "";
+    url.protocol = url.protocol.toLowerCase();
     url.hostname = url.hostname.toLowerCase();
-    return url.toString().replace(/\/$/u, "").toLowerCase();
+    return url.toString().replace(/\/$/u, "");
   } catch {
-    return value.trim().replace(/#.*$/u, "").replace(/\/$/u, "").toLowerCase();
+    return value.trim().replace(/#.*$/u, "").replace(/\/$/u, "");
   }
 }
 

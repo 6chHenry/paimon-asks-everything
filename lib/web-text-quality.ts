@@ -219,13 +219,13 @@ export function looksLikePromotionalListingShell(value: string) {
     " ",
   );
   const metricCategories = [
-    /视频播放量|視頻播放量|播放量|观看量|觀看量|浏览量|瀏覽量|\bviews?\b|\bplay\s*count\b/iu,
-    /弹幕量|彈幕量|弹幕|彈幕|\bdanmaku\b|\bbullet\s*comments?\b/iu,
-    /点赞数|點讚數|点赞量|點讚量|点赞|點讚|\blikes?\b/iu,
-    /投硬币枚数|投硬幣枚數|硬币数|硬幣數|投币|投幣|打赏|打賞|小费|小費|\bcoins?\b|\btips?\b|\bdonations?\b/iu,
-    /收藏数|收藏數|收藏量|收藏|\bfavou?rites?\b|\bbookmarks?\b/iu,
-    /分享数|分享數|转发数|轉發數|分享|转发|轉發|\bshares?\b|\breposts?\b/iu,
-    /评论数|評論數|评论量|評論量|评论|評論|留言数|留言數|\bcomments?\b|\breplies?\b/iu,
+    /(?:视频|視頻)?播放(?:量|数|數|次数|次數)|观看(?:量|数|數|次数|次數)|觀看(?:量|數|次數)|浏览(?:量|数|數|次数|次數)|瀏覽(?:量|數|次數)|\bplay\s*count\b|\bviews?\b\s*[:：]?\s*\d[\d.,]*[kmb]?/iu,
+    /弹幕(?:量|数)|彈幕(?:量|數)|(?:弹幕|彈幕)\s*[:：]?\s*\d|\bdanmaku(?:\s+count)?\b\s*[:：]?\s*\d|\bbullet\s*comments?\b\s*[:：]?\s*\d|\bbullet\s*comment\s*count\b/iu,
+    /点赞(?:数|量)|點讚(?:數|量)|(?:点赞|點讚)\s*[:：]?\s*\d|\blike\s*count\b|\blikes?\b\s*[:：]?\s*\d/iu,
+    /投硬币枚数|投硬幣枚數|硬币(?:数|量)|硬幣(?:數|量)|投币(?:数|量)|投幣(?:數|量)|打赏(?:数|量)|打賞(?:數|量)|小费(?:数|量)|小費(?:數|量)|(?:投币|投幣|打赏|打賞|小费|小費)\s*[:：]?\s*\d|\b(?:coin|tip|donation)\s*count\b|\b(?:coins?|tips?|donations?)\b\s*[:：]?\s*\d/iu,
+    /收藏(?:数|數|量)|收藏\s*[:：]?\s*\d|\b(?:favou?rite|bookmark)\s*count\b|\b(?:favou?rites?|bookmarks?)\b\s*[:：]?\s*\d/iu,
+    /分享(?:数|數|量)|转发(?:数|量)|轉發(?:數|量)|(?:分享|转发|轉發)\s*[:：]?\s*\d|\b(?:share|repost)\s*count\b|\b(?:shares?|reposts?)\b\s*[:：]?\s*\d/iu,
+    /评论(?:数|數|量)|評論(?:數|量)|留言(?:数|數|量)|(?:评论|評論|留言)\s*[:：]?\s*\d|\b(?:comment|reply)\s*count\b|\b(?:comments?|replies?)\b\s*[:：]?\s*\d/iu,
   ];
   return (
     metricCategories.filter((pattern, index) =>

@@ -705,6 +705,68 @@ describe("whitelisted external search", () => {
     },
   );
 
+  it("dedupes scheme and host case while preserving case-sensitive path and query URLs", () => {
+    const question = "婕德经历了怎样的变化？";
+    const plan = normalizeSearchPlan(
+      {
+        coreEntities: ["婕德"],
+        aliases: [],
+        intent: "story",
+        storyScope: "character_arc",
+        queries: [question, "婕德 剧情 经历", "婕德 结局 变化"],
+      },
+      question,
+    );
+    const citation = (id: string, url: string, excerpt: string): Citation => ({
+      id,
+      title: "婕德剧情经历与结局变化",
+      url,
+      sourceName: "Test",
+      sourceKind: "trusted_wiki",
+      credibility: "trusted_wiki",
+      factStatus: "trusted_secondary",
+      excerpt,
+      external: true,
+      crossLanguage: false,
+    });
+    const upperPath = citation(
+      "upper-path",
+      "https://MEDIA.example/Video/BVAbC?Token=X",
+      "婕德经历背叛后逐渐形成自己的判断，最终选择独立前行。",
+    );
+    const hostCaseDuplicate = citation(
+      "host-case-duplicate",
+      "https://media.EXAMPLE/Video/BVAbC?Token=X#mirror",
+      "婕德剧情变化。",
+    );
+    const lowerPath = citation(
+      "lower-path",
+      "https://media.example/video/bvabc?Token=x",
+      "婕德在结局中认清利用并决定由自己选择未来，这是完整的角色变化。",
+    );
+
+    const selected = balanceCharacterArcCandidateBuckets(
+      [
+        { query: question, candidates: [] },
+        {
+          query: "婕德 剧情 经历",
+          candidates: [upperPath, hostCaseDuplicate, lowerPath],
+        },
+        { query: "婕德 结局 变化", candidates: [] },
+      ],
+      plan,
+      question,
+    );
+
+    expect(selected).toHaveLength(2);
+    expect(selected.map((candidate) => candidate.id)).toEqual(
+      expect.arrayContaining(["upper-path", "lower-path"]),
+    );
+    expect(selected.map((candidate) => candidate.id)).not.toContain(
+      "host-case-duplicate",
+    );
+  });
+
   it.each([
     ["婕德经历了怎样的变化？", "standard"],
     ["婕德经历了怎么的变化？", "typo"],

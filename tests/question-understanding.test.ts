@@ -201,6 +201,32 @@ describe("question understanding", () => {
     );
   });
 
+  it.each([
+    "婕德经历了怎么的变化？",
+    "婕德经历了怎样的变化？",
+  ])("bypasses model understanding for a complete character-arc rule: %s", async (question) => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    process.env.QUESTION_UNDERSTANDING_LLM_ENABLED = "true";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    const fetchMock = vi.fn(async () => new Response("unexpected", { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await understandQuestion(question, "zh-CN");
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.entities.map((entity) => entity.canonical)).toEqual(["婕德"]);
+    expect(result.intent).toBe("story");
+    expect(result.queries).toEqual([
+      question,
+      "婕德 剧情 经历",
+      "婕德 结局 变化",
+    ]);
+  });
+
   it("preserves mandatory arc queries when an agreeing model supplies queries", () => {
     const question = "婕德经历了怎样的变化？";
     const rule = ruleUnderstandQuestion(question, "zh-CN");
@@ -225,6 +251,39 @@ describe("question understanding", () => {
         ["婕德", "Jeht"].some((term) => query.includes(term)),
       ),
     ).toBe(true);
+  });
+
+  it("pins and sanitizes a character-arc rule against polluted model understanding", () => {
+    const question = "婕德经历了怎样的变化？";
+    const rule = ruleUnderstandQuestion(question, "zh-CN");
+    const reconciled = reconcileQuestionUnderstanding(question, rule, {
+      entities: [
+        {
+          canonical: "婕德经历了",
+          aliases: ["婕德", "Jeht", "婕德怎样变化"],
+          kind: "character",
+        },
+      ],
+      intent: "identity",
+      claim: "婕德经历了是谁",
+      queries: ["婕德经历了 身份", "婕德怎样变化 是谁"],
+    });
+    const plan = searchPlanFromUnderstanding(reconciled, question);
+
+    expect(reconciled.entities).toEqual([
+      { canonical: "婕德", aliases: ["Jeht"], kind: "character" },
+    ]);
+    expect(reconciled.intent).toBe("story");
+    expect(reconciled.claim).toBeUndefined();
+    expect(reconciled.queries).toEqual([
+      question,
+      "婕德 剧情 经历",
+      "婕德 结局 变化",
+    ]);
+    expect(plan.coreEntities).toEqual(["婕德"]);
+    expect(plan.aliases).toContain("Jeht");
+    expect(plan.intent).toBe("story");
+    expect(plan.storyScope).toBe("character_arc");
   });
 
   it("keeps the English alias and Story Quest query returned for a new character", () => {

@@ -169,6 +169,14 @@ describe("web text quality", () => {
     expect(isUnusableWebText(prose)).toBe(false);
   });
 
+  it("keeps narrative prose with several bare engagement verbs", () => {
+    const prose =
+      "这篇剧情分析分享了角色的成长，读者评论了关键转折，也有人收藏这段故事。";
+
+    expect(looksLikePromotionalListingShell(prose)).toBe(false);
+    expect(isUnusableWebText(prose)).toBe(false);
+  });
+
   it("keeps a concise narrative summary that includes one quoted exchange", () => {
     expect(
       looksLikeDialogueDump(

@@ -147,6 +147,7 @@ export function shouldUseModelQuestionUnderstanding(
 ) {
   if (process.env.QUESTION_UNDERSTANDING_LLM_ENABLED === "false") return false;
   if (!rule.entities.length) return true;
+  if (hasCompleteCharacterArcRule(question, rule)) return false;
   if (
     rule.intent === "story" &&
     rule.entities.some((entity) => entity.aliases.length === 0)
@@ -166,6 +167,19 @@ export function shouldUseModelQuestionUnderstanding(
     ),
   );
   return anchoredQueries.length !== rule.queries.length;
+}
+
+function hasCompleteCharacterArcRule(
+  question: string,
+  rule: QuestionUnderstanding,
+) {
+  if (!isCharacterArcQuestion(question) || rule.intent !== "story") return false;
+  const primaryEntity = rule.entities[0];
+  if (!primaryEntity) return false;
+  return (
+    rule.queries.includes(`${primaryEntity.canonical} 剧情 经历`) &&
+    rule.queries.includes(`${primaryEntity.canonical} 结局 变化`)
+  );
 }
 
 function mergeAliases(base: QuestionEntity, model: QuestionEntity) {
@@ -189,6 +203,64 @@ function mergeAliases(base: QuestionEntity, model: QuestionEntity) {
       ),
       8,
     ),
+  };
+}
+
+const CHARACTER_ARC_PREDICATE_PATTERN =
+  /经历了?|怎么(?:的)?变化|怎样(?:的)?变化|如何(?:转变|变化|改变)|有什么(?:成长|变化)|成长|变化|转变|改变|结局|剧情|故事|character\s+(?:development|arc)|how\s+.*(?:change|develop)/iu;
+
+const CHARACTER_ARC_QUERY_PATTERN =
+  /剧情|劇情|经历|經歷|变化|變化|成长|成長|转变|轉變|结局|結局|故事|story|character\s+(?:development|arc)|quest|development/iu;
+
+function reconcileCharacterArcUnderstanding(
+  rule: QuestionUnderstanding,
+  model: ModelQuestionUnderstanding,
+): QuestionUnderstanding {
+  const acceptedModelEntities = model.entities.filter((modelEntity) =>
+    rule.entities.some((ruleEntity) => entitiesOverlap(ruleEntity, modelEntity)),
+  );
+  const entities = rule.entities.map((ruleEntity) => {
+    const matchingEntities = acceptedModelEntities.filter((modelEntity) =>
+      entitiesOverlap(ruleEntity, modelEntity),
+    );
+    const aliases = uniqueStrings(
+      [
+        ...ruleEntity.aliases,
+        ...matchingEntities.flatMap((entity) => [entity.canonical, ...entity.aliases]),
+      ].filter(
+        (candidate) =>
+          normalized(candidate) !== normalized(ruleEntity.canonical) &&
+          !CHARACTER_ARC_PREDICATE_PATTERN.test(candidate),
+      ),
+      8,
+    );
+    return { ...ruleEntity, aliases };
+  });
+  const terms = entities.flatMap((entity) => [entity.canonical, ...entity.aliases]);
+  const safeModelQueries =
+    model.intent === "story"
+      ? model.queries.filter(
+          (query) =>
+            CHARACTER_ARC_QUERY_PATTERN.test(query) &&
+            terms.some((term) => normalized(query).includes(normalized(term))),
+        )
+      : [];
+  const rejectedModelEntities = model.entities.length - acceptedModelEntities.length;
+  const agreement = rejectedModelEntities
+    ? "conflict"
+    : acceptedModelEntities.length
+      ? "confirmed"
+      : "rule_only";
+
+  return {
+    entities,
+    ruleEntities: rule.ruleEntities,
+    modelEntities: model.entities,
+    intent: "story",
+    claim: rule.claim,
+    queries: uniqueStrings([...rule.queries, ...safeModelQueries], 4),
+    classification: rule.classification,
+    agreement,
   };
 }
 
@@ -224,6 +296,9 @@ export function reconcileQuestionUnderstanding(
   model?: ModelQuestionUnderstanding | null,
 ): QuestionUnderstanding {
   if (!model) return rule;
+  if (hasCompleteCharacterArcRule(question, rule)) {
+    return reconcileCharacterArcUnderstanding(rule, model);
+  }
 
   const mergedEntities = [...rule.entities];
   const acceptedModelEntities: QuestionEntity[] = [];
