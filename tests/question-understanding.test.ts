@@ -195,6 +195,32 @@ describe("question understanding", () => {
     expect(result.queries.every((query) => query.includes("婕德"))).toBe(true);
   });
 
+  it("preserves mandatory arc queries when an agreeing model supplies queries", () => {
+    const question = "婕德经历了怎样的变化？";
+    const rule = ruleUnderstandQuestion(question, "zh-CN");
+    const reconciled = reconcileQuestionUnderstanding(question, rule, {
+      entities: [{ canonical: "Jeht", aliases: ["婕德"], kind: "character" }],
+      intent: "story",
+      queries: ["Jeht character development"],
+    });
+
+    expect(reconciled.agreement).toBe("confirmed");
+    expect(reconciled.queries).toEqual(
+      expect.arrayContaining([
+        question,
+        "婕德 剧情 经历",
+        "婕德 结局 变化",
+        "Jeht character development",
+      ]),
+    );
+    expect(reconciled.queries).toHaveLength(4);
+    expect(
+      reconciled.queries.every((query) =>
+        ["婕德", "Jeht"].some((term) => query.includes(term)),
+      ),
+    ).toBe(true);
+  });
+
   it("keeps the English alias and Story Quest query returned for a new character", () => {
     const rule = ruleUnderstandQuestion("法尔伽传说任务故事梗概", "zh-CN");
     const reconciled = reconcileQuestionUnderstanding(

@@ -201,9 +201,13 @@ function anchorQueries(
   if (!entities.length) return uniqueStrings(queries.length ? queries : [fallback], 4);
   const terms = entities.flatMap((entity) => [entity.canonical, ...entity.aliases]);
   const primary = entities[0]!.canonical;
-  const sourceQueries = queries.length
-    ? queries
-    : queriesForEntities(fallback, entities, intent);
+  const fallbackQueries = queriesForEntities(fallback, entities, intent);
+  const sourceQueries =
+    intent === "story" && isCharacterArcQuestion(fallback)
+      ? [...fallbackQueries, ...queries]
+      : queries.length
+        ? queries
+        : fallbackQueries;
   return uniqueStrings(
     sourceQueries.map((query) =>
       terms.some((term) => normalized(query).includes(normalized(term)))
