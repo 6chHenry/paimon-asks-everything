@@ -226,6 +226,11 @@ describe("chat stream route", () => {
                     extract:
                       "婕德：我不会服从。旅行者：我们先离开。派蒙：出口在那里。阿萨里格：拦住他们。芭别尔：执行命令。",
                   },
+                  "7006": {
+                    pageid: 7006,
+                    extract:
+                      '首页 > 头像 > 婕德与奔奔 如果是第一次来,按"Ctrl+D"...按右上角“WIKI功能→编辑”...',
+                  },
                 },
               },
             }),
@@ -244,13 +249,13 @@ describe("chat stream route", () => {
               query: {
                 search: [
                   {
-                    title: "永恒的葱茏之梦",
-                    snippet: "婕德失去亲人后寻找新的归属，并加入塔尼特。",
+                    title: "婕德剧情经历：永恒的葱茏之梦",
+                    snippet: "婕德的剧情经历始于失去亲人后寻找新的归属，并加入塔尼特。",
                     pageid: 7001,
                   },
                   {
-                    title: "因为她的罪恶滔天…",
-                    snippet: "婕德认清操控与背叛后同塔尼特决裂，选择自己的道路。",
+                    title: "婕德结局变化：因为她的罪恶滔天…",
+                    snippet: "婕德的结局变化是认清操控与背叛后同塔尼特决裂，选择自己的道路。",
                     pageid: 7002,
                   },
                   {
@@ -268,6 +273,12 @@ describe("chat stream route", () => {
                     title: "婕德对话记录",
                     snippet: "多人对话逐句记录。",
                     pageid: 7005,
+                  },
+                  {
+                    title: "婕德与奔奔",
+                    snippet:
+                      '首页 > 头像 > 婕德与奔奔 如果是第一次来,按"Ctrl+D"...按右上角“WIKI功能→编辑”...',
+                    pageid: 7006,
                   },
                 ],
               },
@@ -326,15 +337,20 @@ describe("chat stream route", () => {
       citations?: Array<{ id: string; title: string; excerpt: string }>;
       answerParagraphs?: Array<{ citationIds: string[] }>;
     };
-
     expect(result.status).toBe("answered");
     expect(result.answerMode).toBe("deep_story");
     expect(confirmedBody).toContain("character · story / 婕德");
+    expect(confirmedBody).toContain("storyScope=character_arc");
     expect(searchedQueries.length).toBeGreaterThan(0);
     expect(searchedQueries.every((query) => query.includes("婕德"))).toBe(true);
     expect(searchedQueries.some((query) => /经历|变化|剧情|故事|结局/u.test(query))).toBe(
       true,
     );
+    expect(Array.from(new Set(searchedQueries))).toEqual([
+      question,
+      "婕德 剧情 经历",
+      "婕德 结局 变化",
+    ]);
     expect(result.answer).toContain("失去父亲后");
     expect(result.answer).toContain("替代家庭");
     expect(result.answer).toContain("操控与背叛");
@@ -351,6 +367,10 @@ describe("chat stream route", () => {
       .filter((citation) => answerBearingIds.has(citation.id))
       .map((citation) => `${citation.title} ${citation.excerpt}`)
       .join(" ");
+    const allCitationText = (result.citations ?? [])
+      .map((citation) => `${citation.title} ${citation.excerpt}`)
+      .join(" ");
+    expect(allCitationText).not.toMatch(/首页\s*>|Ctrl\+D|WIKI功能\s*→\s*编辑/iu);
     expect(`${result.answer} ${answerBearingText}`).not.toMatch(
       /婕德经历了|旅行者创作平台.*旅行者创作平台|&(?:[a-z][a-z0-9]*|#x?[0-9a-z]+);|Created with Sketch|任务攻略\s+任务流程\s+前置任务\s+后续任务|(?:婕德|旅行者|派蒙|阿萨里格|芭别尔)[:：][^。！？]*[。！？](?:婕德|旅行者|派蒙|阿萨里格|芭别尔)[:：]/iu,
     );

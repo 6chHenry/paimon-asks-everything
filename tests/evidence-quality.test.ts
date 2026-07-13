@@ -257,6 +257,21 @@ describe("evidence quality", () => {
     expect(selected).toEqual([]);
   });
 
+  it("rejects live wiki browser and editing instructions", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "live-wiki-ui",
+          "婕德与奔奔",
+          '首页 > 头像 > 婕德与奔奔 如果是第一次来,按"Ctrl+D"...按右上角“WIKI功能→编辑”...',
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toEqual([]);
+  });
+
   it("keeps dialogue-shaped evidence for a relationship answer", () => {
     const selected = selectAnswerEvidence(
       [

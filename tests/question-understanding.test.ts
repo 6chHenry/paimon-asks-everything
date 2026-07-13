@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   reconcileQuestionUnderstanding,
   ruleUnderstandQuestion,
+  searchPlanFromUnderstanding,
   shouldUseModelQuestionUnderstanding,
   understandQuestion,
   understandQuestionWithModel,
@@ -189,10 +190,15 @@ describe("question understanding", () => {
 
     expect(result.entities.map((entity) => entity.canonical)).toEqual(["婕德"]);
     expect(result.intent).toBe("story");
-    expect(result.queries).toEqual(
-      expect.arrayContaining(["婕德 剧情 经历", "婕德 结局 变化"]),
-    );
+    expect(result.queries).toEqual([
+      question,
+      "婕德 剧情 经历",
+      "婕德 结局 变化",
+    ]);
     expect(result.queries.every((query) => query.includes("婕德"))).toBe(true);
+    expect(searchPlanFromUnderstanding(result, question).storyScope).toBe(
+      "character_arc",
+    );
   });
 
   it("preserves mandatory arc queries when an agreeing model supplies queries", () => {

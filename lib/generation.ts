@@ -777,6 +777,7 @@ function mergeQuestionEntityAnchors(
         ? "identity"
         : plan.intent,
     queries: Array.from(new Set(anchoredQueries)).slice(0, 4),
+    storyScope: plan.storyScope,
   };
 }
 

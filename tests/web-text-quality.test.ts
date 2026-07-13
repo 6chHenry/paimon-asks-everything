@@ -7,6 +7,7 @@ import {
   isNavigationHeavy,
   looksLikeDialogueDump,
   preferHigherQualityWebText,
+  webTextQualityScore,
 } from "@/lib/web-text-quality";
 
 describe("web text quality", () => {
@@ -37,6 +38,14 @@ describe("web text quality", () => {
         "任务攻略 任务流程 前置任务 后续任务 智慧筑屋,凿成七柱 流沙如泪的神殿 埋葬丰饶的沙丘",
       ),
     ).toBe(true);
+  });
+
+  it("hard-rejects live wiki breadcrumb, bookmark, and editing instructions", () => {
+    const liveExcerpt =
+      '首页 > 头像 > 婕德与奔奔 如果是第一次来,按"Ctrl+D"...按右上角“WIKI功能→编辑”...';
+
+    expect(isNavigationHeavy(liveExcerpt)).toBe(true);
+    expect(webTextQualityScore(liveExcerpt)).toBe(Number.NEGATIVE_INFINITY);
   });
 
   it("detects an uncontextualized speaker-label dialogue dump", () => {

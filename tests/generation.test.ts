@@ -1169,6 +1169,52 @@ describe("grounded generation", () => {
     ).toEqual([]);
   });
 
+  it("drops live wiki UI instructions from a cold character-arc fallback", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("cold_start_timeout");
+      }),
+    );
+
+    const question = "婕德经历了怎样的变化？";
+    const dirty: Citation = {
+      id: "live-wiki-ui",
+      title: "婕德与奔奔",
+      url: "https://example.com/live-wiki-ui",
+      sourceName: "原神WIKI_BWIKI",
+      sourceKind: "trusted_wiki",
+      credibility: "trusted_wiki",
+      factStatus: "trusted_secondary",
+      excerpt:
+        '首页 > 头像 > 婕德与奔奔 如果是第一次来,按"Ctrl+D"...按右上角“WIKI功能→编辑”...',
+      external: true,
+      crossLanguage: false,
+    };
+    const result = await generateGroundedResponse({
+      question,
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [dirty],
+      understanding: ruleUnderstandQuestion(question, "zh-CN"),
+    });
+
+    expect(result.answer).toBe("派蒙暂时没找到足够可靠的资料，先不乱下结论。");
+    expect(result.external).toEqual([]);
+    expect(result.citedSourceIds).toEqual([]);
+    expect(
+      result.answerParagraphs?.flatMap((paragraph) => paragraph.citationIds) ?? [],
+    ).toEqual([]);
+  });
+
   it("sanitizes a supported external citation before returning it from a cold character-arc fallback", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";

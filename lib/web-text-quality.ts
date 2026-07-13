@@ -88,6 +88,8 @@ export function hasRepeatedSiteChrome(value: string) {
 
 export function isNavigationHeavy(value: string) {
   const text = value.normalize("NFKC");
+  const browserOrWikiUi =
+    /(?:^|\s)(?:首页|主页|home)\s*(?:>|›|→)|\bCtrl\s*\+\s*D\b|(?:WIKI\s*)?功能\s*(?:>|›|→)\s*(?:编辑|edit)/iu;
   const tokens = text.match(
     /Created with Sketch|首页|新闻|公告|攻略|图鉴|角色|武器|圣遗物|社区|编辑|历史|Toggle|Contents?|Navigation|Gallery|Change History/giu,
   ) ?? [];
@@ -100,6 +102,7 @@ export function isNavigationHeavy(value: string) {
     Math.max(compactLength, 1);
   return (
     /Created with Sketch/iu.test(text) ||
+    browserOrWikiUi.test(text) ||
     new Set(tokens.map((token) => token.toLowerCase())).size >= 6 ||
     (tokens.length >= 4 && navigationDensity >= 0.25) ||
     taskIndexTokens.length >= 3

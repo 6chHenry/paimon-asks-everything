@@ -17,6 +17,7 @@ import {
   sourceGovernanceScore,
 } from "@/lib/source-governance";
 import { TtlCache } from "@/lib/ttl-cache";
+import { isCharacterArcQuestion } from "@/lib/entity-lexicon";
 import {
   decodeHtmlEntities,
   preferHigherQualityWebText,
@@ -53,7 +54,10 @@ export type SearchIntent =
   | "official_media"
   | "general";
 
-export type StorySearchScope = "character_story_quest" | "general_story";
+export type StorySearchScope =
+  | "character_story_quest"
+  | "character_arc"
+  | "general_story";
 
 export interface SearchPlan {
   coreEntities: string[];
@@ -68,6 +72,7 @@ export function inferStorySearchScope(
   intent: SearchIntent,
 ): StorySearchScope | undefined {
   if (intent !== "story") return undefined;
+  if (isCharacterArcQuestion(question)) return "character_arc";
   return /传说任务|傳說任務|角色任务|角色任務|story\s*quest|legend(?:ary)?\s+quest/iu.test(
     question,
   )
@@ -1791,7 +1796,10 @@ function tieredQueries(plan: SearchPlan, question: string, language: Language) {
     ),
   );
   if (storyQuestLookup) first.unshift(storyQuestLookup);
-  const boundedFirst = Array.from(new Set(first)).slice(0, 3);
+  const boundedFirst =
+    plan.storyScope === "character_arc"
+      ? Array.from(new Set(plan.queries)).slice(0, 3)
+      : Array.from(new Set(first)).slice(0, 3);
   const remaining = all.filter((query) => !boundedFirst.includes(query));
   const chineseCommunity =
     language === "zh-CN" && plan.coreEntities[0]

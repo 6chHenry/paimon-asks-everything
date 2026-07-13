@@ -1254,6 +1254,79 @@ describe("whitelisted external search", () => {
     expect(results[0]?.excerpt).toContain("料理对决");
   });
 
+  it("runs the three prepared character-arc provider queries in the first tier", async () => {
+    const providerQueries: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        const providerQuery = url.searchParams.get("srsearch");
+        if (providerQuery) {
+          providerQueries.push(providerQuery);
+          return new Response(
+            JSON.stringify({
+              query: {
+                search: [
+                  {
+                    title: "婕德",
+                    snippet: "婕德角色资料与基础档案。",
+                    pageid: 8101,
+                  },
+                  {
+                    title: "婕德资料",
+                    snippet: "婕德人物页面与分类索引。",
+                    pageid: 8102,
+                  },
+                ],
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (url.searchParams.get("prop") === "extracts") {
+          return new Response(
+            JSON.stringify({
+              query: {
+                pages: {
+                  "8101": { pageid: 8101, extract: "婕德角色资料与基础档案。" },
+                  "8102": { pageid: 8102, extract: "婕德人物页面与分类索引。" },
+                },
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (url.searchParams.get("action") === "parse") {
+          return new Response(JSON.stringify({ parse: { text: { "*": "" } } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const question = "婕德经历了怎样的变化？";
+    await searchWebEvidence(question, "zh-CN", {
+      plan: {
+        coreEntities: ["婕德"],
+        aliases: [],
+        intent: "story",
+        storyScope: "character_arc",
+        queries: [question, "婕德 剧情 经历", "婕德 结局 变化"],
+      },
+    });
+
+    expect(Array.from(new Set(providerQueries))).toEqual([
+      question,
+      "婕德 剧情 经历",
+      "婕德 结局 变化",
+    ]);
+  });
+
   it("blocks Yahoo gameplay-guide fallbacks for story questions", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
