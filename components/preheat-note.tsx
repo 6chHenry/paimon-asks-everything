@@ -1,39 +1,16 @@
 "use client";
 
-import { ArrowRight, Clock3, Feather, ShieldCheck } from "lucide-react";
-import type { PreheatDepth, PreheatTopic } from "@/lib/domain";
+import { ArrowRight, Feather } from "lucide-react";
+import type { Language, PreheatTopic } from "@/lib/domain";
 import { t } from "@/lib/i18n";
-import type { Language } from "@/lib/domain";
-
-const depthCopy: Record<
-  PreheatDepth,
-  { zh: string; en: string; noteZh: string; noteEn: string }
-> = {
-  guided: {
-    zh: "已过剧情回顾",
-    en: "Story recap",
-    noteZh: "确定事件链 + 关键人物关系",
-    noteEn: "Confirmed events + key relationships",
-  },
-  research: {
-    zh: "完整考据",
-    en: "Research view",
-    noteZh: "证据层级 + 暗示与争议边界",
-    noteEn: "Evidence layers + disputed boundaries",
-  },
-};
 
 export function PreheatNote({
   topic,
   language,
-  selectedDepth,
-  onSelectDepth,
   onStart,
 }: {
   topic: PreheatTopic;
   language: Language;
-  selectedDepth: PreheatDepth;
-  onSelectDepth: (depth: PreheatDepth) => void;
   onStart: () => void;
 }) {
   const isZh = language === "zh-CN";
@@ -61,29 +38,6 @@ export function PreheatNote({
         ) : topic.introEn ? (
           <p>{topic.introEn}</p>
         ) : null}
-      </div>
-      <div className="depth-selector" aria-label="Preheat depth">
-        {(Object.keys(depthCopy) as PreheatDepth[]).map((depth) => {
-          const copy = depthCopy[depth];
-          return (
-            <button
-              type="button"
-              key={depth}
-              className={selectedDepth === depth ? "active" : undefined}
-              onClick={() => onSelectDepth(depth)}
-            >
-              <span>
-                {depth === "guided" ? (
-                  <Clock3 size={15} />
-                ) : (
-                  <ShieldCheck size={15} />
-                )}
-                {isZh ? copy.zh : copy.en}
-              </span>
-              <small>{isZh ? copy.noteZh : copy.noteEn}</small>
-            </button>
-          );
-        })}
       </div>
       <footer className="intel-brief-footer">
         <button className="primary-button" type="button" onClick={onStart}>

@@ -2,6 +2,12 @@ import { gnosisKnowledgeEntries } from "@/data/gnosis-knowledge";
 import { relationGraphs, relationNodes } from "@/data/gnosis-relations";
 import { gnosisTimeline } from "@/data/gnosis-timeline";
 import {
+  getPreheatRegionGuide,
+  namedProgress,
+  validatePreheatRegionGuides,
+  type NamedProgress,
+} from "@/data/preheat-region-guides";
+import {
   defaultPreheatTopicId,
   preheatTopics,
 } from "@/data/preheat-topics";
@@ -9,7 +15,6 @@ import type {
   FactStatus,
   KnowledgeEntry,
   Language,
-  PreheatDepth,
   PreheatTopic,
   Progress,
   RelationGraph,
@@ -17,6 +22,8 @@ import type {
   TimelineNode,
 } from "@/lib/domain";
 import type { PreheatQuery } from "@/lib/schemas";
+import { buildStoryPresentation } from "@/lib/preheat-personalization";
+import { normalizeVisibleProfile } from "@/lib/visible-profiles";
 
 const progressRank: Record<Progress, number> = {
   unknown: 0,
@@ -28,24 +35,6 @@ const progressRank: Record<Progress, number> = {
   natlan: 6,
   nodkrai: 7,
   snezhnaya: 8,
-};
-
-const depthLabels: Record<
-  PreheatDepth,
-  { zh: string; en: string; durationZh: string; durationEn: string }
-> = {
-  guided: {
-    zh: "已过剧情回顾",
-    en: "Story recap",
-    durationZh: "确认事件链与关键关系",
-    durationEn: "Confirmed event chain and key ties",
-  },
-  research: {
-    zh: "完整考据",
-    en: "Research view",
-    durationZh: "事件、暗示与争议边界",
-    durationEn: "Events, implications, and disputed boundaries",
-  },
 };
 
 function localizedEntry(conceptId: string, language: Language) {
@@ -74,6 +63,15 @@ function localizeTopic(topic: PreheatTopic, language: Language) {
       language === "zh-CN"
         ? topic.suggestedQuestionsZh
         : topic.suggestedQuestionsEn,
+  };
+}
+
+function localizeTopicHeader(topic: PreheatTopic, language: Language) {
+  const localized = localizeTopic(topic, language);
+  return {
+    id: localized.id,
+    title: localized.title,
+    intro: localized.intro,
   };
 }
 
@@ -182,6 +180,7 @@ function localizeTimelineNode(
   return {
     id: node.id,
     region: node.region,
+    participantIds: node.participantIds,
     title: locked
       ? query.language === "zh-CN"
         ? "该地区主线事件已锁定"
@@ -201,12 +200,10 @@ function localizeTimelineNode(
 }
 
 function buildNarration(
-  topic: PreheatTopic,
-  depth: PreheatDepth,
-  language: Language,
   entries: KnowledgeEntry[],
+  limit: number,
 ) {
-  const visible = entries.slice(0, depth === "guided" ? 8 : 10);
+  const visible = entries.slice(0, limit);
   return {
     lead: "",
     points: visible.map((entry) => entry.summary),
@@ -220,6 +217,8 @@ export function validatePreheatCatalog() {
   const graphIds = new Set(relationGraphs.map((graph) => graph.id));
   const relationNodeIds = new Set(relationNodes.map((node) => node.id));
   const errors: string[] = [];
+
+  errors.push(...validatePreheatRegionGuides());
 
   for (const topic of preheatTopics) {
     for (const conceptId of [
@@ -262,6 +261,16 @@ export function validatePreheatCatalog() {
       }
     }
   }
+
+  for (const region of namedProgress) {
+    const guide = getPreheatRegionGuide(region, "zh-CN");
+    if (guide.timelineNodeId && !timelineIds.has(guide.timelineNodeId)) {
+      errors.push(`region-guide:${region}:${guide.timelineNodeId}`);
+    }
+    if (guide.relationGraphId && !graphIds.has(guide.relationGraphId)) {
+      errors.push(`region-guide:${region}:${guide.relationGraphId}`);
+    }
+  }
   return errors;
 }
 
@@ -289,71 +298,173 @@ export function isValidPreheatTarget(
     .some((graph) => graph.nodeIds.includes(targetId));
 }
 
-export function getPreheatView(query: PreheatQuery) {
-  const allowFutureRegions = query.depth === "research";
+type LocalizedTopicHeader = ReturnType<typeof localizeTopicHeader>;
+type LocalizedTimelineNode = ReturnType<typeof localizeTimelineNode>;
+type LocalizedGraph = ReturnType<typeof localizeGraph>;
+
+interface BasePreheatView {
+  topic: LocalizedTopicHeader;
+  topics: LocalizedTopicHeader[];
+  selectedRegion: Progress;
+  contentNotice: string;
+}
+
+export interface RegionRequiredPreheatView extends BasePreheatView {
+  kind: "region_required";
+}
+
+export interface NewPlayerPreheatView extends BasePreheatView {
+  kind: "new";
+  region: NamedProgress;
+  guide: ReturnType<typeof getPreheatRegionGuide>["newPlayer"];
+}
+
+export interface ReturningPlayerPreheatView extends BasePreheatView {
+  kind: "returning";
+  region: NamedProgress;
+  recap: {
+    points: ReturnType<typeof getPreheatRegionGuide>["returningPlayer"]["recapPoints"];
+    hooks: string[];
+    relationGraph?: LocalizedGraph;
+  };
+}
+
+export interface StoryPlayerPreheatView extends BasePreheatView {
+  kind: "story";
+  region: NamedProgress;
+  topicQuestions: string[];
+  narration: ReturnType<typeof buildNarration>;
+  evidence: KnowledgeEntry[];
+  timeline: LocalizedTimelineNode[];
+  relationGraph: LocalizedGraph;
+  availableRelationGraphs: Record<string, LocalizedGraph>;
+  presentation: ReturnType<typeof buildStoryPresentation>;
+}
+
+export type PreheatView =
+  | RegionRequiredPreheatView
+  | NewPlayerPreheatView
+  | ReturningPlayerPreheatView
+  | StoryPlayerPreheatView;
+
+export function getPreheatView(query: PreheatQuery): PreheatView {
   const topic =
     preheatTopics.find((item) => item.id === query.topicId) ??
     preheatTopics.find((item) => item.id === defaultPreheatTopicId)!;
-  const entries = topic.depthConceptIds[query.depth]
+  const profile = normalizeVisibleProfile(query.profile);
+  const topicHeader = localizeTopicHeader(topic, query.language);
+  const topics = preheatTopics.map((item) =>
+    localizeTopicHeader(item, query.language),
+  );
+  const common = {
+    topic: topicHeader,
+    topics,
+    selectedRegion: query.progress,
+  };
+
+  if (query.progress === "unknown") {
+    return {
+      ...common,
+      kind: "region_required",
+      contentNotice:
+        query.language === "zh-CN"
+          ? "请选择一个地区，再展开对应身份的预热内容。"
+          : "Choose a region to open role-specific preheat content.",
+    };
+  }
+
+  const region = query.progress as NamedProgress;
+  const guide = getPreheatRegionGuide(region, query.language);
+
+  if (profile === "new") {
+    return {
+      ...common,
+      kind: "new",
+      region,
+      guide: guide.newPlayer,
+      contentNotice:
+        query.language === "zh-CN"
+          ? "地区入门：通俗说明阵营与剧情起点，不包含关键结局。"
+          : "Region primer: plain-language factions and story setup without key outcomes.",
+    };
+  }
+
+  if (profile === "returning") {
+    const relationGraph = guide.relationGraphId
+      ? relationGraphs.find((item) => item.id === guide.relationGraphId)
+      : undefined;
+    return {
+      ...common,
+      kind: "returning",
+      region,
+      recap: {
+        points: guide.returningPlayer.recapPoints,
+        hooks: guide.returningPlayer.hooks,
+        relationGraph: relationGraph
+          ? localizeGraph(relationGraph, query.language, query)
+          : undefined,
+      },
+      contentNotice:
+        query.language === "zh-CN"
+          ? "地区回顾：完整回忆所选地区，后续只保留值得继续追问的线索。"
+          : "Region catch-up: the selected story is recapped in full; later threads remain open questions.",
+    };
+  }
+
+  const entries = topic.depthConceptIds.research
     .map((conceptId) => localizedEntry(conceptId, query.language))
     .filter((entry): entry is KnowledgeEntry => Boolean(entry))
-    .filter((entry) => entryVisible(entry, query, { allowFutureRegions }))
-    .filter(
-      (entry) =>
-        query.depth === "research" ||
-        entry.factStatus !== "community_speculation",
+    .filter((entry) =>
+      entryVisible(entry, query, { allowFutureRegions: true }),
     );
   const timeline = topic.timelineNodeIds
     .map((id) => gnosisTimeline.find((node) => node.id === id))
     .filter((node): node is TimelineNode => Boolean(node))
     .map((node) =>
-      localizeTimelineNode(node, query, query.depth === "research", {
-        allowFutureRegions,
+      localizeTimelineNode(node, query, true, {
+        allowFutureRegions: true,
       }),
     );
   const graph = relationGraphs.find(
     (item) => item.id === topic.relationGraphId,
   )!;
+  const localizedGraphs = Object.fromEntries(
+    [graph.id, ...timeline.map((node) => node.relationGraphId)].map((id) => {
+      const target = relationGraphs.find((item) => item.id === id)!;
+      return [
+        id,
+        localizeGraph(target, query.language, query, {
+          allowFutureRegions: true,
+        }),
+      ];
+    }),
+  );
+  const presentation = buildStoryPresentation(
+    timeline,
+    localizedGraphs,
+    guide.timelineNodeId,
+  );
+  const localizedTopic = localizeTopic(topic, query.language);
+  const relationGraph =
+    localizedGraphs[presentation.defaultRelationGraphId ?? ""] ??
+    localizedGraphs[graph.id];
 
   return {
-    topic: localizeTopic(topic, query.language),
-    topics: preheatTopics.map((item) => localizeTopic(item, query.language)),
-    depth: {
-      id: query.depth,
-      label:
-        query.language === "zh-CN"
-          ? depthLabels[query.depth].zh
-          : depthLabels[query.depth].en,
-      description:
-        query.language === "zh-CN"
-          ? depthLabels[query.depth].durationZh
-          : depthLabels[query.depth].durationEn,
-    },
-    narration: buildNarration(topic, query.depth, query.language, entries),
+    ...common,
+    kind: "story",
+    region,
+    topicQuestions: localizedTopic.suggestedQuestions,
+    narration: buildNarration(entries, 12),
     evidence: entries,
     timeline,
-    relationGraph: localizeGraph(graph, query.language, query, {
-      allowFutureRegions,
-    }),
-    availableRelationGraphs: Object.fromEntries(
-      [graph.id, ...timeline.map((node) => node.relationGraphId)].map((id) => {
-        const target = relationGraphs.find((item) => item.id === id)!;
-        return [
-          id,
-          localizeGraph(target, query.language, query, { allowFutureRegions }),
-        ];
-      }),
-    ),
+    relationGraph,
+    availableRelationGraphs: localizedGraphs,
+    presentation,
     contentNotice:
       query.language === "zh-CN"
-        ? query.depth === "guided"
-          ? "已过剧情回顾：按首页选择的主线进度锁定后续地区，只放确定事件。"
-          : "完整考据：完整剧透模式，会展开已实装后续地区、文本暗示与争议边界。"
-        : query.depth === "guided"
-          ? "Story recap: later regions stay locked by the home-page progress setting; confirmed events only."
-          : "Research: full-spoiler mode with released later regions, textual implications, and disputed boundaries.",
+        ? "完整剧情档案：展开全部已实装事件、文本暗示与证据边界。"
+        : "Complete story archive: all released events, textual implications, and evidence boundaries.",
   };
 }
 
-export type PreheatView = ReturnType<typeof getPreheatView>;
 export type PreheatFactStatus = FactStatus;

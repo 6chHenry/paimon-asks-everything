@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { normalizeVisibleProfile } from "@/lib/visible-profiles";
+
+const focusValueSchema = z.enum(["story", "character", "gameplay", "overview"]);
 
 export const chatRequestSchema = z.object({
   question: z.string().trim().min(2).max(800),
@@ -17,7 +20,7 @@ export const chatRequestSchema = z.object({
   ]),
   spoilerPreference: z.enum(["none", "low", "full"]),
   focus: z
-    .array(z.enum(["story", "character", "gameplay", "overview"]))
+    .array(focusValueSchema)
     .min(1)
     .max(4),
   allowQuestionTextStorage: z.boolean().default(false),
@@ -60,11 +63,12 @@ export const questionSuggestionRequestSchema = z
 
 export const preheatQuerySchema = z.object({
   topicId: z.string().trim().min(3).max(100),
-  depth: z.enum(["guided", "research"]),
+  depth: z.enum(["guided", "research"]).default("guided"),
   language: z.enum(["zh-CN", "en"]),
   profile: z
     .enum(["new", "returning", "story", "exploration", "casual"])
-    .default("returning"),
+    .default("returning")
+    .transform(normalizeVisibleProfile),
   progress: z
     .enum([
       "unknown",
@@ -79,6 +83,15 @@ export const preheatQuerySchema = z.object({
     ])
     .default("fontaine"),
   spoilerPreference: z.enum(["none", "low", "full"]).default("low"),
+  focus: z
+    .preprocess(
+      (value) =>
+        typeof value === "string"
+          ? value.split(",").map((item) => item.trim()).filter(Boolean)
+          : value,
+      z.array(focusValueSchema).min(1).max(4),
+    )
+    .default(["story", "overview"]),
 });
 
 export const preheatEventSchema = z

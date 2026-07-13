@@ -18,9 +18,7 @@ import { SnezhnayaGraphPreview } from "@/components/snezhnaya-graph-preview";
 import { preheatTopics } from "@/data/preheat-topics";
 import { clientPath } from "@/lib/client-path";
 import type {
-  Focus,
   Language,
-  PreheatDepth,
   PreheatTopic,
   Profile,
   Progress,
@@ -261,14 +259,10 @@ export function HomeGraphSummary({
 export function HomePreheatBrief({
   topic,
   language,
-  selectedDepth,
-  onSelectDepth,
   onStart,
 }: {
   topic: PreheatTopic;
   language: Language;
-  selectedDepth: PreheatDepth;
-  onSelectDepth: (depth: PreheatDepth) => void;
   onStart: () => void;
 }) {
   return (
@@ -276,8 +270,6 @@ export function HomePreheatBrief({
       <PreheatNote
         topic={topic}
         language={language}
-        selectedDepth={selectedDepth}
-        onSelectDepth={onSelectDepth}
         onStart={onStart}
       />
       <aside className="home-preheat-rule">
@@ -310,25 +302,21 @@ export function TravelerContextDrawer({
   language,
   profile,
   progress,
-  focus,
   allowQuestionTextStorage,
   profileItems,
   progressItems,
   onSelectProfile,
   onSelectProgress,
-  onToggleFocus,
   onToggleStorage,
 }: {
   language: Language;
   profile: Profile;
   progress: Progress;
-  focus: Focus[];
   allowQuestionTextStorage: boolean;
   profileItems: Array<{ value: Profile; label: string; description?: string }>;
   progressItems?: Array<{ value: Progress; label: string }>;
   onSelectProfile: (profile: Profile) => void;
   onSelectProgress?: (progress: Progress) => void;
-  onToggleFocus: (focus: Focus) => void;
   onToggleStorage: (allowed: boolean) => void;
 }) {
   return (
@@ -364,14 +352,14 @@ export function TravelerContextDrawer({
         </div>
       ) : null}
 
-      <details>
+      <details open>
         <summary>
           <span>
             <Settings2 size={16} />
             {t(language, "调整旅行者状态", "Adjust Traveler context")}
           </span>
-          <small>
-            {labels.profile[profile][language]} / {labels.progress[progress][language]}
+          <small className="traveler-context-summary">
+            {labels.progress[progress][language]} · {labels.profile[profile][language]}
           </small>
         </summary>
         <div className="settings-body">
@@ -382,25 +370,8 @@ export function TravelerContextDrawer({
               items={profileItems}
               value={profile}
               onChange={(value) => onSelectProfile(value as Profile)}
-              columns={5}
+              columns={3}
             />
-          </Field>
-          <Field
-            label={t(language, "回答更关注什么？", "What should answers emphasize?")}
-            hint={t(language, "可以多选", "Choose more than one")}
-          >
-            <div className="focus-row">
-              {(Object.keys(labels.focus) as Focus[]).map((item) => (
-                <button
-                  type="button"
-                  key={item}
-                  className={focus.includes(item) ? "pill active" : "pill"}
-                  onClick={() => onToggleFocus(item)}
-                >
-                  {labels.focus[item][language]}
-                </button>
-              ))}
-            </div>
           </Field>
           <label className="switch-label">
             <input
