@@ -84,3 +84,11 @@ Within the global 16-candidate assessment budget, the original-question bucket i
 `looksLikeSiteDescriptionShell` examines only the opening 220 characters. It requires a site-identity noun, a copular/ownership/operation relation, and either an explicit official-site identity or multiple promotional catalog terms. Chinese and English are supported without platform, company, game, or character names in the detector.
 
 This rejects live-shaped and invented promotional site self-descriptions while retaining substantive community analysis and in-world prose about a resident-operated community. The detector joins the shared unusable-text chain, so all evidence and generation consumers inherit the rejection.
+
+## P1 pre-quota relevance refinement
+
+Character-arc balancing must not allocate its 4/6/6 quota from provider insertion order. The balancing API receives the normalized search plan and user question, then runs every query bucket's complete result array through the existing `dedupeAndRank` relevance and governance pipeline before slicing any quota. Candidates whose shared `webTextQualityScore(title + excerpt)` is negative infinity are removed before canonical cross-bucket selection and therefore never consume a raw or mandatory slot.
+
+After this pre-quota processing, the existing invariants remain unchanged: canonical URL alone deduplicates title variants, mandatory occurrences beat raw occurrences, higher shared text quality breaks same-class collisions, the raw bucket contributes at most four, each mandatory bucket contributes up to six, the global limit is sixteen, and only mandatory leftovers fill unused capacity. No query, fetch, enrichment, assessment, or model call is added.
+
+A regression places six shallow or unusable Wiki candidates before a seventh clean web candidate in each mandatory bucket. For both accepted question phrasings, with distinct raw buckets, the clean decisive arc evidence must survive the six-slot quota while negative-infinity candidates consume no slot. Existing exact-three-query and four-stage streamed-answer coverage remains green.
