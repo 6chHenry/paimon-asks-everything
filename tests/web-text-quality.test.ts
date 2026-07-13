@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cleanWebText,
   containsUnrenderedHtmlEntity,
+  decodeHtmlEntities,
   hasRepeatedSiteChrome,
   isNavigationHeavy,
   looksLikeDialogueDump,
@@ -38,11 +39,75 @@ describe("web text quality", () => {
     ).toBe(true);
   });
 
+  it("detects multiline dialogue turns with repeated speakers", () => {
+    expect(
+      looksLikeDialogueDump(
+        "婕德：那个家伙让我不爽\n旅行者：我们先冷静下来\n婕德：现在已经安静了",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not mistake structured prose labels for dialogue turns", () => {
+    expect(
+      looksLikeDialogueDump("前因：她发现了陷害。转折：她选择反抗。结果：她走上自己的道路。"),
+    ).toBe(false);
+  });
+
   it("keeps a clean search snippet instead of a noisy fetched page excerpt", () => {
     const original = "婕德发现芭别尔的陷害后与塔尼特决裂，并决定选择自己的道路。";
     const page =
       "Created with Sketch 首页 新闻 公告 攻略 图鉴 角色 武器 圣遗物 社区 编辑 " +
       "旅行者创作平台-观测枢-原神wiki旅行者创作平台-观测枢-原神wiki";
     expect(preferHigherQualityWebText(original, page)).toBe(original);
+  });
+
+  it("hard-rejects a long candidate containing only repeated site chrome noise", () => {
+    const original = "婕德与塔尼特决裂。";
+    const candidate =
+      "这段页面正文很长但没有提供更可靠的情节上下文。".repeat(40) +
+      "观测枢wiki观测枢wiki";
+    expect(candidate.length).toBeGreaterThan(700);
+    expect(hasRepeatedSiteChrome(candidate)).toBe(true);
+    expect(isNavigationHeavy(candidate)).toBe(false);
+    expect(preferHigherQualityWebText(original, candidate)).toBe(original);
+  });
+
+  it("hard-rejects a long candidate containing only navigation noise", () => {
+    const original = "婕德选择了自己的道路。";
+    const candidate =
+      "这段页面正文很长但没有提供更可靠的情节上下文。".repeat(40) +
+      " 首页 新闻 公告 攻略 图鉴 角色";
+    expect(candidate.length).toBeGreaterThan(700);
+    expect(hasRepeatedSiteChrome(candidate)).toBe(false);
+    expect(isNavigationHeavy(candidate)).toBe(true);
+    expect(preferHigherQualityWebText(original, candidate)).toBe(original);
+  });
+
+  it("double-decodes common typographic entities with a strict pass bound", () => {
+    expect(
+      decodeHtmlEntities(
+        "&amp;mdash;&ensp;&ldquo;约定&rdquo;&ndash;&lsquo;继续&rsquo;&bull;&middot;",
+      ),
+    ).toBe("— “约定”–‘继续’•·");
+
+    const overEncoded = decodeHtmlEntities("&amp;amp;mdash;");
+    expect(overEncoded).toBe("&mdash;");
+    expect(containsUnrenderedHtmlEntity(overEncoded)).toBe(true);
+  });
+
+  it("leaves invalid scalar and display entities unresolved and rejects them", () => {
+    const invalid = "&#0; &#x1F; &#xD800; &#xFDD0; &#xFFFF; &#x110000;";
+    expect(decodeHtmlEntities(invalid)).toBe(invalid);
+    expect(containsUnrenderedHtmlEntity(cleanWebText(invalid))).toBe(true);
+
+    const original = "婕德与塔尼特决裂。";
+    const candidate = "看似详尽的候选正文。".repeat(100) + invalid;
+    expect(preferHigherQualityWebText(original, candidate)).toBe(original);
+  });
+
+  it("hard-rejects unresolved named entities", () => {
+    const original = "婕德离开了塔尼特部族。";
+    const candidate = "看似详尽的候选正文。".repeat(100) + "&unknownentity;";
+    expect(preferHigherQualityWebText(original, candidate)).toBe(original);
   });
 });

@@ -3,6 +3,16 @@ const namedEntities: Record<string, string> = {
   ensp: " ",
   emsp: " ",
   hellip: "…",
+  ndash: "–",
+  mdash: "—",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+  laquo: "«",
+  raquo: "»",
+  bull: "•",
+  middot: "·",
   amp: "&",
   quot: '"',
   apos: "'",
@@ -10,7 +20,24 @@ const namedEntities: Record<string, string> = {
   gt: ">",
 };
 
-export function decodeHtmlEntities(value: string) {
+function isDisplayCodePoint(point: number) {
+  if (!Number.isInteger(point) || point <= 0 || point > 0x10ffff) {
+    return false;
+  }
+  if (point <= 0x1f || (point >= 0x7f && point <= 0x9f)) {
+    return false;
+  }
+  if (point >= 0xd800 && point <= 0xdfff) {
+    return false;
+  }
+  if (point >= 0xfdd0 && point <= 0xfdef) {
+    return false;
+  }
+  const planePoint = point & 0xffff;
+  return planePoint !== 0xfffe && planePoint !== 0xffff;
+}
+
+function decodeHtmlEntitiesOnce(value: string) {
   return value
     .replace(/&([a-z]+);/giu, (entity, name: string) =>
       Object.prototype.hasOwnProperty.call(namedEntities, name.toLowerCase())
@@ -19,20 +46,26 @@ export function decodeHtmlEntities(value: string) {
     )
     .replace(/&#x([0-9a-f]+);/giu, (entity, code: string) => {
       const point = Number.parseInt(code, 16);
-      return Number.isFinite(point) && point <= 0x10ffff
-        ? String.fromCodePoint(point)
-        : entity;
+      return isDisplayCodePoint(point) ? String.fromCodePoint(point) : entity;
     })
     .replace(/&#(\d+);/gu, (entity, code: string) => {
       const point = Number.parseInt(code, 10);
-      return Number.isFinite(point) && point <= 0x10ffff
-        ? String.fromCodePoint(point)
-        : entity;
+      return isDisplayCodePoint(point) ? String.fromCodePoint(point) : entity;
     });
 }
 
+export function decodeHtmlEntities(value: string) {
+  let decoded = value;
+  for (let pass = 0; pass < 2; pass += 1) {
+    const next = decodeHtmlEntitiesOnce(decoded);
+    if (next === decoded) break;
+    decoded = next;
+  }
+  return decoded;
+}
+
 export function containsUnrenderedHtmlEntity(value: string) {
-  return /&(?:[a-z][a-z0-9]+|#x[0-9a-f]+|#\d+);/iu.test(value);
+  return /&(?:[a-z][a-z0-9]*|#x[0-9a-z]+|#[0-9a-z]+);/iu.test(value);
 }
 
 function compactForComparison(value: string) {
@@ -62,8 +95,17 @@ export function isNavigationHeavy(value: string) {
 }
 
 export function looksLikeDialogueDump(value: string) {
-  const labels = value.match(/(?:^|[。！？!?]\s*)([\p{L}\p{N}·]{1,16})\s*[:：]/gu) ?? [];
-  return labels.length >= 3;
+  const labels = Array.from(
+    value.matchAll(/(?:^|[\r\n]+|[。！？!?]\s*)([\p{L}\p{N}·]{1,16})\s*[:：]/gu),
+    (match) => match[1]!.normalize("NFKC").toLowerCase(),
+  );
+  if (labels.length < 3) return false;
+
+  const turnsBySpeaker = new Map<string, number>();
+  for (const label of labels) {
+    turnsBySpeaker.set(label, (turnsBySpeaker.get(label) ?? 0) + 1);
+  }
+  return Array.from(turnsBySpeaker.values()).some((turns) => turns >= 2);
 }
 
 export function cleanWebText(value: string) {
@@ -80,10 +122,15 @@ export function cleanWebText(value: string) {
 
 export function webTextQualityScore(value: string) {
   const clean = cleanWebText(value);
+  if (
+    containsUnrenderedHtmlEntity(clean) ||
+    hasRepeatedSiteChrome(value) ||
+    isNavigationHeavy(value)
+  ) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
   let score = Math.min(clean.length, 700);
-  if (containsUnrenderedHtmlEntity(value)) score -= 180;
-  if (hasRepeatedSiteChrome(value)) score -= 320;
-  if (isNavigationHeavy(value)) score -= 320;
   if (looksLikeDialogueDump(value)) score -= 100;
   return score;
 }
