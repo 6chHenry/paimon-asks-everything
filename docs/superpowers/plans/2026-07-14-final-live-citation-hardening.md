@@ -565,3 +565,53 @@ Run the same three-file command, then the five-file character-arc focused suite.
 - [ ] **Step 5: Complete and report**
 
 Run `npm test`, `npm run typecheck`, `npm run build`, and diff checks; verify PID 34240. Commit the four scoped files and append RED/GREEN counts, final commands, commit hashes, self-review, and concerns to the ignored live-fix report.
+
+### Task 13: Bypass model understanding for complete character-arc rules
+
+**Files:**
+- Modify: `lib/question-understanding.ts`
+- Modify: `tests/question-understanding.test.ts`
+
+- [ ] Add an `it.each` regression for both accepted phrasings with model understanding enabled and a global fetch spy; call `understandQuestion` and assert canonical `婕德`, `story`, exact mandatory queries, and zero fetch calls.
+- [ ] Run `npm test -- tests/question-understanding.test.ts`; expect two failures because alias-empty story rules currently request the model.
+- [ ] Add a complete-character-arc rule predicate and return false in `shouldUseModelQuestionUnderstanding` before the alias-empty story branch.
+- [ ] Re-run the focused file and expect all tests pass.
+
+### Task 14: Pin character-arc reconciliation and sanitize enrichment
+
+**Files:**
+- Modify: `lib/question-understanding.ts`
+- Modify: `tests/question-understanding.test.ts`
+
+- [ ] Add the exact reviewer regression: model entity canonical `婕德经历了`, aliases including `婕德`, `Jeht`, and another predicate-tailed term; model intent `identity`; identity queries. Assert rule canonical `婕德`, intent `story`, mandatory queries, `storyScope=character_arc`, no predicate-tailed alias/query, and retained clean `Jeht` alias.
+- [ ] Verify RED in `tests/question-understanding.test.ts`.
+- [ ] Add a character-arc reconciliation branch that pins rule canonical/entities and intent, accepts only safe aliases from overlapping model entities, rejects arc-predicate-tailed entity terms, accepts model queries only for model `story` intent and entity-anchored arc/story shape, preserves mandatory rule queries, and ignores model claim.
+- [ ] Verify GREEN and preserve the existing clean-English-alias enrichment test.
+
+### Task 15: Require count-shaped metric labels
+
+**Files:**
+- Modify: `lib/web-text-quality.ts`
+- Modify: `tests/web-text-quality.test.ts`
+
+- [ ] Add exact clean narrative `这篇剧情分析分享了角色的成长，读者评论了关键转折，也有人收藏这段故事。`; assert promotional detector false and shared text usable. Keep exact live count-shaped shell rejection.
+- [ ] Verify RED in `tests/web-text-quality.test.ts` because three bare metric words currently meet the threshold.
+- [ ] Replace bare metric patterns with explicit count/amount labels, numeric label-value syntax, or equivalent English count labels/values; keep distinct-category counting and the availability-plus-promotion branch.
+- [ ] Verify GREEN.
+
+### Task 16: Preserve path and query case in citation canonicalization
+
+**Files:**
+- Modify: `lib/external-search.ts`
+- Modify: `tests/external-search.test.ts`
+
+- [ ] Add two otherwise equivalent relevant citations whose URLs differ only by case-sensitive path/video ID and query value; assert both survive balancing/deduplication while host-case variants still dedupe.
+- [ ] Verify RED in `tests/external-search.test.ts` because the whole URL is currently lowercased.
+- [ ] Remove whole-string lowercasing from `canonicalCitationUrl`; normalize scheme and host only, preserve path/query case, and retain fragment/root-slash behavior.
+- [ ] Verify GREEN.
+
+### Task 17: Whole-branch verification and delivery
+
+- [ ] Run focused question-understanding, external-search, web-text-quality, evidence, generation, and chat-stream suites.
+- [ ] Run `npm test`, `npm run typecheck`, `npm run build`, `git diff --check`, and staged diff checks; verify PID 34240.
+- [ ] Commit scoped production/tests and append exact RED/GREEN counts, final commands, commits, self-review, and concerns to the ignored live-fix report.
