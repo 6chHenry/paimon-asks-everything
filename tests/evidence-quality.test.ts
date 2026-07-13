@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanEvidenceText,
+  evidenceForGeneration,
   selectAnswerEvidence,
 } from "@/lib/evidence-quality";
 import type { Citation } from "@/lib/domain";
@@ -151,6 +152,42 @@ describe("evidence quality", () => {
     expect(cleanEvidenceText("婕德：她会孤独吗&hellip;")).toBe(
       "婕德:她会孤独吗…",
     );
+
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "supported-entity",
+          "婕德剧情变化",
+          "婕德选择自己的道路&hellip;",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(evidenceForGeneration(selected[0]!).excerpt).toBe(
+      "婕德选择自己的道路…",
+    );
+  });
+
+  it("rejects unresolved named and numeric entities before generation", () => {
+    const generated = selectAnswerEvidence(
+      [
+        citation(
+          "unsupported-named",
+          "婕德剧情变化",
+          "婕德选择自己的道路&amp;copy;",
+        ),
+        citation(
+          "unsupported-numeric",
+          "婕德&#0;关系",
+          "婕德与塔尼特部族决裂。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    ).map(evidenceForGeneration);
+
+    expect(generated).toEqual([]);
   });
 
   it("rejects duplicated site chrome for a character-arc answer", () => {
@@ -187,5 +224,25 @@ describe("evidence quality", () => {
     );
 
     expect(selected).toEqual([]);
+  });
+
+  it("keeps dialogue-shaped evidence for a relationship answer", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "relationship-dialogue",
+          "富人与博士对话",
+          "博士：肺是我换的。富人：研究由北国银行资助。博士：合作继续。富人：条件不变。",
+        ),
+      ],
+      {
+        question: "富人和博士是什么关系？",
+        intent: "relationship",
+        language: "zh-CN",
+      },
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toBe("富人与博士对话");
   });
 });

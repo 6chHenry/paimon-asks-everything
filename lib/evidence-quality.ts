@@ -7,6 +7,7 @@ import {
 } from "@/lib/external-search";
 import {
   cleanWebText,
+  containsUnrenderedHtmlEntity,
   hasRepeatedSiteChrome,
   isNavigationHeavy,
   looksLikeDialogueDump,
@@ -65,6 +66,7 @@ function looksLikeGameplayQuestion(question: string) {
 
 function isUnusableWebEvidence(citation: Citation, intent: SearchIntent) {
   const text = `${citation.title} ${citation.excerpt}`;
+  if (containsUnrenderedHtmlEntity(cleanWebText(text))) return true;
   if (hasRepeatedSiteChrome(text) || isNavigationHeavy(text)) return true;
   if (intent === "story" && looksLikeDialogueDump(citation.excerpt)) return true;
   return false;
