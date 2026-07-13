@@ -339,3 +339,125 @@ Combine either relation with the existing welcome/read context. Keep the indepen
 - [ ] **Step 4: Run final verification and commit**
 
 Run focused URL/text/evidence/external/generation tests, expanded pipeline tests, `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`. Commit production and tests with `fix: close citation boundary review gaps`, then append counts and self-review to the ignored live-fix report.
+
+---
+
+## Definitive Live Evidence Follow-up
+
+### Task 7: Balance character-arc first-tier query buckets
+
+**Files:**
+- Modify: `lib/external-search.ts`
+- Modify: `tests/external-search.test.ts`
+- Modify: `tests/chat-stream.test.ts`
+- Modify: `tests/generation.test.ts`
+
+**Interfaces:**
+- Produces: a first-tier bucket selector for `character_arc`
+- Consumes: `{ query: string; citations: Citation[] }[]`, original question, and the existing three-query plan
+- Returns: at most 16 citations with unique canonical URLs
+
+- [ ] **Step 1: Write failing deterministic tests**
+
+Mock 14 shallow candidates for the original question and stage-bearing sources for `婕德 剧情 经历` and `婕德 结局 变化`. Include title variants sharing one canonical URL across buckets. For both exact phrasings assert:
+
+```ts
+expect(uniqueQueries).toEqual([question, "婕德 剧情 经历", "婕德 结局 变化"]);
+expect(results.map((item) => new URL(item.url).toString())).toHaveLength(
+  new Set(results.map((item) => new URL(item.url).toString())).size,
+);
+expect(results.some((item) => item.url.includes("arc-start"))).toBe(true);
+expect(results.some((item) => item.url.includes("arc-end"))).toBe(true);
+```
+
+Route and generation regressions must return the four stage-bearing paragraphs and must not return the safe-boundary sentence.
+
+- [ ] **Step 2: Verify RED**
+
+Run: `npm test -- tests/external-search.test.ts tests/generation.test.ts tests/chat-stream.test.ts`
+
+Expected: shallow original results consume the 16-candidate assessment budget, mandatory stage sources disappear, canonical title variants survive, or route/generation falls back.
+
+- [ ] **Step 3: Implement bucket-aware selection**
+
+Change first-tier collection to retain query buckets. Canonicalize URL without title and dedupe each bucket using `webTextQualityScore(title + excerpt)`. Across buckets choose the mandatory-query occurrence before the original occurrence, then higher text quality, then stable bucket/item order.
+
+Select original bucket `slice(0, 4)`, each mandatory bucket `slice(0, 6)`, then fill remaining global capacity from mandatory leftovers only. Pass this at-most-16 canonical-unique set into the existing assessment, enrichment, and ranking path. Other intents/scopes keep the existing flattening behavior.
+
+- [ ] **Step 4: Verify GREEN**
+
+Run the same three-file command. Expected: exact three queries, mandatory subset, canonical uniqueness, and answered four-stage route/generation all pass.
+
+### Task 8: Reject short raw dialogue only for story evidence
+
+**Files:**
+- Modify: `lib/web-text-quality.ts`
+- Modify: `lib/evidence-quality.ts`
+- Modify: `tests/web-text-quality.test.ts`
+- Modify: `tests/evidence-quality.test.ts`
+- Modify: `tests/generation.test.ts`
+
+**Interfaces:**
+- Produces: `looksLikeShortRawDialogue(excerpt: string): boolean`
+- Consumed by: story-only evidence filtering using `citation.excerpt`
+
+- [ ] **Step 1: Write failing tests**
+
+```ts
+expect(looksLikeShortRawDialogue("派蒙:想念婕德和奔奔了... 冻梨:你还别说...")).toBe(true);
+expect(looksLikeShortRawDialogue("派蒙：想念婕德和奔奔了……冻梨：你还别说……")).toBe(true);
+expect(looksLikeShortRawDialogue("她想起那天说：我们还会再见。随后独自离开。")).toBe(false);
+```
+
+Evidence selection rejects both two-turn fixtures for story, allows them for relationship, and allows narrative with one quote. A cold generation fallback containing only the two-turn transcript returns empty external and cited IDs.
+
+- [ ] **Step 2: Verify RED**
+
+Run: `npm test -- tests/web-text-quality.test.ts tests/evidence-quality.test.ts tests/generation.test.ts`
+
+Expected: missing detector and retained story transcript fail.
+
+- [ ] **Step 3: Implement minimal shape detection**
+
+Require a speaker label at the start and count at least two label matches separated by whitespace or sentence/ellipsis punctuation. In `isUnusableWebEvidence`, call it only when `intent === "story"` and pass only `citation.excerpt`; retain the existing full-text long-dialogue guard.
+
+- [ ] **Step 4: Verify GREEN**
+
+Run the same three-file command. Expected: story rejects, relationship/narrative controls pass, generation IDs are empty.
+
+### Task 9: Reject shared site-description shells
+
+**Files:**
+- Modify: `lib/web-text-quality.ts`
+- Modify: `tests/web-text-quality.test.ts`
+- Modify: `tests/evidence-quality.test.ts`
+
+**Interfaces:**
+- Produces: `looksLikeSiteDescriptionShell(value: string): boolean`
+- Consumed by: `isUnusableWebText` and all downstream evidence consumers
+
+- [ ] **Step 1: Write failing exact-shape and clean-control tests**
+
+Reject:
+
+```ts
+"米游社-原神社区是米哈游旗下官方社区，提供游戏资讯、攻略、角色图鉴、活动内容与玩家交流。"
+"星港论坛是由北辰互动运营的官方社区平台，提供新闻、攻略、图鉴与活动内容。"
+"Starlight Hub is an official community operated by Northwind Media, offering news, guides, a catalog, and events."
+```
+
+Allow `社区分析认为，她仍在学习如何为自己做决定。` and `她加入的社区由居民共同运营，后来成为她短暂的归属。`. Evidence selection must remove the shell and retain a clean story citation.
+
+- [ ] **Step 2: Verify RED**
+
+Run: `npm test -- tests/web-text-quality.test.ts tests/evidence-quality.test.ts`.
+
+Expected: shell fixtures remain usable before the shared detector exists.
+
+- [ ] **Step 3: Implement the source-neutral first-220-character detector**
+
+Require all three gates: site identity noun; copular, ownership, or operation relation; and either explicit official-site identity or at least two distinct catalog/promotional terms. Support Chinese and English generic vocabulary only. Add it to `isUnusableWebText` before dialogue handling.
+
+- [ ] **Step 4: Verify, commit, and report**
+
+Run focused evidence/search/generation/route tests, expanded pipeline tests, `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`. Commit implementation and tests with `fix: balance definitive character arc evidence`. Append RED/GREEN counts, final verification, commits, file list, self-review, and concerns to `.superpowers/sdd/character-arc-live-fix-report.md`.
