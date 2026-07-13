@@ -461,3 +461,37 @@ Require all three gates: site identity noun; copular, ownership, or operation re
 - [ ] **Step 4: Verify, commit, and report**
 
 Run focused evidence/search/generation/route tests, expanded pipeline tests, `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`. Commit implementation and tests with `fix: balance definitive character arc evidence`. Append RED/GREEN counts, final verification, commits, file list, self-review, and concerns to `.superpowers/sdd/character-arc-live-fix-report.md`.
+
+### Task 10: Rank and filter complete query buckets before quota allocation
+
+**Files:**
+- Modify: `lib/external-search.ts`
+- Modify: `tests/external-search.test.ts`
+
+**Interfaces:**
+- Consumes: `dedupeAndRank(citations, plan, question)` and `webTextQualityScore(title + excerpt)`
+- Produces: `balanceCharacterArcCandidateBuckets(buckets, plan, question, limit?)`
+
+- [ ] **Step 1: Write the failing pre-quota regression**
+
+For each of `婕德经历了怎样的变化？` and `婕德经历了怎么的变化？`, give the raw bucket a distinct shallow candidate set. Give each mandatory bucket six leading candidates that are irrelevant, site-shell, browser-shell, or transcript noise, followed by a seventh clean candidate with decisive beginning or ending arc evidence. Assert that both clean candidates survive, all selected text has a finite shared text-quality score, raw results remain capped at four, canonical URLs are unique, and the result remains within sixteen.
+
+- [ ] **Step 2: Verify RED**
+
+Run: `npm test -- tests/external-search.test.ts`
+
+Expected: the seventh clean mandatory candidates are absent because provider insertion order consumes each six-slot reservation first.
+
+- [ ] **Step 3: Move existing ranking and unusable filtering before quotas**
+
+Change `balanceCharacterArcCandidateBuckets` to accept `plan` and `question`. For every complete bucket, first remove candidates whose `citationTextQuality` is `Number.NEGATIVE_INFINITY`, then call `dedupeAndRank(candidates, plan, question)`. Perform canonical cross-bucket winner selection and the existing 4/6/6 quota allocation only on those ranked finite candidates. Update `searchWebEvidence` and direct tests to pass the same normalized plan and user question. Do not add calls or alter the three query strings.
+
+- [ ] **Step 4: Verify GREEN and existing route behavior**
+
+Run: `npm test -- tests/external-search.test.ts tests/chat-stream.test.ts tests/generation.test.ts`
+
+Expected: the new regression passes for both phrasings; exact three-query and four cited-stage route/generation tests remain green.
+
+- [ ] **Step 5: Run final verification, commit, and append report**
+
+Run `git diff --check`, the five-file focused suite, `npm test`, `npm run typecheck`, and `npm run build`. Verify PID 34240 remains alive. Commit only `lib/external-search.ts` and `tests/external-search.test.ts`, then append the P1 RED/GREEN evidence and final verification to the ignored live-fix report.
