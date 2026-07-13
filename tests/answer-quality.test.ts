@@ -238,6 +238,7 @@ describe("answer quality", () => {
       ],
       language: "zh-CN",
       question: "富人和博士是什么关系？",
+      intent: "relationship",
       allowedSourceIds: new Set(["external-1"]),
       sourceTextById: new Map([
         [
@@ -248,5 +249,28 @@ describe("answer quality", () => {
     });
 
     expect(failures).not.toContain("web_noise");
+  });
+
+  it("uses resolved story intent to reject a raw transcript for a generic story question", () => {
+    const failures = validateAnswerQuality({
+      paragraphs: [
+        {
+          text: "女士在冲突中走向了最终结局。",
+          citationIds: ["external-1"],
+        },
+      ],
+      language: "zh-CN",
+      question: "女士发生了什么？",
+      intent: "story",
+      allowedSourceIds: new Set(["external-1"]),
+      sourceTextById: new Map([
+        [
+          "external-1",
+          "女士：你们无法阻止我。旅行者：到此为止。派蒙：小心。雷电将军：决斗已经结束。九条裟罗：所有人退后。",
+        ],
+      ]),
+    });
+
+    expect(failures).toContain("web_noise");
   });
 });

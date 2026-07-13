@@ -1,4 +1,5 @@
 import type { AnswerParagraph, Language } from "@/lib/domain";
+import type { SearchIntent } from "@/lib/external-search";
 import {
   detectQuestionEntities,
   isCharacterArcQuestion,
@@ -207,6 +208,7 @@ export function validateAnswerQuality(input: {
   paragraphs: AnswerParagraph[];
   language: Language;
   question: string;
+  intent?: SearchIntent;
   allowedSourceIds: Set<string>;
   sourceAuthorityById?: Map<string, "official" | "non_official">;
   sourceTextById?: Map<string, string>;
@@ -281,8 +283,12 @@ export function validateAnswerQuality(input: {
   }
   if (containsWebNoise(text)) failures.push("web_noise");
   const rejectsDialogueSources =
-    isCharacterArcQuestion(input.question) ||
-    /剧情|劇情|故事|传说任务|傳說任務|story|quest|lore/iu.test(input.question);
+    input.intent === "story" ||
+    (input.intent === undefined &&
+      (isCharacterArcQuestion(input.question) ||
+        /剧情|劇情|故事|传说任务|傳說任務|story|quest|lore/iu.test(
+          input.question,
+        )));
   if (
     input.sourceTextById &&
     input.paragraphs.some((paragraph) =>

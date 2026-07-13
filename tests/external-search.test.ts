@@ -616,13 +616,13 @@ describe("whitelisted external search", () => {
     const candidates: Citation[] = [
       {
         id: "other-subject",
-        title: "娜布·玛莉卡塔",
+        title: "娜布·玛莉卡塔剧情故事",
         url: "https://example.com/other-subject",
         sourceName: "剧情文本索引",
         sourceKind: "trusted_wiki",
         credibility: "trusted_wiki",
         factStatus: "trusted_secondary",
-        excerpt: "赤王曾追忆花神。资料索引还列出婕德，但没有叙述她的经历。",
+        excerpt: "资料索引还列出婕德，但没有叙述她的经历。",
         external: true,
         crossLanguage: false,
       },

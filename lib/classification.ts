@@ -198,8 +198,8 @@ export function isDeepStoryIntent(
     "short answer",
     "no spoilers",
   ].some((term) => normalized.includes(term));
-  if (isCharacterArcQuestion(question)) return true;
   if (shortOnly) return false;
+  if (isCharacterArcQuestion(question)) return true;
   return [
     "讲一讲",
     "讲讲",
