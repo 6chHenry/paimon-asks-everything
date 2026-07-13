@@ -183,6 +183,8 @@ describe("Genshin-style preheat source", () => {
     expect(css).toContain("grid-template-columns: minmax(300px, .62fr) minmax(360px, 1fr)");
     expect(css).toContain(".preheat-settings-panel .traveler-context-drawer details:not([open]) summary");
     expect(css).toContain(".progress-button-grid");
+    expect(css).toContain(".preheat-progress-card .region-button > span");
+    expect(css).toContain("font: 700 22px/1.2 var(--display)");
     expect(css).toContain(".traveler-context-summary");
     expect(page).not.toContain("preheat-intel-masthead");
     expect(page).toContain("preheat-intel-workbench");
