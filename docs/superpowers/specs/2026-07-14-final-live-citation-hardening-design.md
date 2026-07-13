@@ -92,3 +92,11 @@ Character-arc balancing must not allocate its 4/6/6 quota from provider insertio
 After this pre-quota processing, the existing invariants remain unchanged: canonical URL alone deduplicates title variants, mandatory occurrences beat raw occurrences, higher shared text quality breaks same-class collisions, the raw bucket contributes at most four, each mandatory bucket contributes up to six, the global limit is sixteen, and only mandatory leftovers fill unused capacity. No query, fetch, enrichment, assessment, or model call is added.
 
 A regression places six shallow or unusable Wiki candidates before a seventh clean web candidate in each mandatory bucket. For both accepted question phrasings, with distinct raw buckets, the clean decisive arc evidence must survive the six-slot quota while negative-infinity candidates consume no slot. Existing exact-three-query and four-stage streamed-answer coverage remains green.
+
+## P1 mandatory-bucket arc relevance refinement
+
+Finite shallow profile candidates can still occupy all six mandatory slots because ordinary global ranking correctly prefers curated Wiki governance. That global order must remain unchanged. Only inside `character_arc` mandatory buckets, after the existing finite-text filter and `dedupeAndRank` pass, apply a stable pre-quota ordering by character-arc relevance.
+
+The arc score is source-neutral. It rewards non-entity terms from that bucket's mandatory query and generic story-change context: loss or disrupted belonging, joining or leaving a group, manipulation or betrayal, realization or decision, break or separation, growth or change, and self-directed choice. Chinese and English action/turning-point vocabulary are supported. The existing `dedupeAndRank` result supplies the tie order, so governance remains the secondary ordering and ordinary global source ranking is untouched.
+
+For both accepted phrasings, a regression gives a mandatory bucket six finite curated-Wiki shallow profile candidates followed by one finite community/web candidate with decisive loss, betrayal, and self-determination evidence. The decisive candidate must enter the six-slot reservation. Canonical dedupe, 4/6/6 quotas, the total-sixteen cap, exact query strings, and call counts do not change.
