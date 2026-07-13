@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cleanEvidenceText,
   evidenceForGeneration,
+  safeBoundaryAnswer,
   selectAnswerEvidence,
 } from "@/lib/evidence-quality";
 import type { Citation } from "@/lib/domain";
@@ -244,5 +245,11 @@ describe("evidence quality", () => {
 
     expect(selected).toHaveLength(1);
     expect(selected[0]?.title).toBe("富人与博士对话");
+  });
+
+  it("describes a Chinese external-evidence boundary without calling it foreign", () => {
+    expect(safeBoundaryAnswer("zh-CN", "婕德", true)).toBe(
+      "目前找到的资料还不足以稳妥回答“婕德”这个问题。派蒙先不把外部片段硬拼成结论，相关原文保留在下方来源里。",
+    );
   });
 });

@@ -155,8 +155,8 @@ export function safeBoundaryAnswer(
       return "派蒙暂时没找到足够可靠的资料，先不乱下结论。";
     }
     return subject
-      ? `目前找到的资料还不足以稳妥回答“${subject}”这个问题。派蒙先不把外文摘要硬拼成结论，相关原文保留在下方来源里。`
-      : "目前找到的资料还不足以稳妥下结论。派蒙先不把外文摘要硬拼进回答，相关原文保留在下方来源里。";
+      ? `目前找到的资料还不足以稳妥回答“${subject}”这个问题。派蒙先不把外部片段硬拼成结论，相关原文保留在下方来源里。`
+      : "目前找到的资料还不足以稳妥下结论。派蒙先不把外部片段硬拼进回答，相关原文保留在下方来源里。";
   }
   return hasEvidence
     ? "The available evidence is not strong enough for a reliable conclusion yet. The original sources are preserved below."

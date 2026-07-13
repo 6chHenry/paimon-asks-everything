@@ -189,4 +189,19 @@ describe("answer quality", () => {
       "洛恩从挪德卡莱归来,并把雷泽的剑交给法尔伽。",
     );
   });
+
+  it.each([
+    "旅行者创作平台-观测枢-原神wiki旅行者创作平台-观测枢-原神wiki",
+    "婕德后来明白了真相&hellip;",
+    "Created with Sketch 首页 新闻 公告 攻略 图鉴 角色 武器 圣遗物 社区",
+  ])("rejects leaked web noise in generated text: %s", (text) => {
+    const failures = validateAnswerQuality({
+      paragraphs: [{ text, citationIds: [] }],
+      language: "zh-CN",
+      question: "婕德经历了怎样的变化？",
+      allowedSourceIds: new Set(),
+    });
+
+    expect(failures).toContain("web_noise");
+  });
 });

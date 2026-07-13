@@ -1,5 +1,10 @@
 import type { AnswerParagraph, Language } from "@/lib/domain";
 import { detectQuestionEntities } from "@/lib/entity-lexicon";
+import {
+  containsUnrenderedHtmlEntity,
+  hasRepeatedSiteChrome,
+  isNavigationHeavy,
+} from "@/lib/web-text-quality";
 
 export interface ParsedGeneratedAnswer {
   paragraphs: AnswerParagraph[];
@@ -164,8 +169,13 @@ function isOffTopic(value: string, question: string, language: Language) {
 }
 
 function containsWebNoise(value: string) {
-  return /\[(?:\d{1,3}|编辑|edit)\]|\bToggle\b|\bContents?\b|\bNavigation\b|\bChange History\b/iu.test(
-    value,
+  return (
+    /\[(?:\d{1,3}|编辑|edit)\]|\bToggle\b|\bContents?\b|\bNavigation\b|\bChange History\b/iu.test(
+      value,
+    ) ||
+    containsUnrenderedHtmlEntity(value) ||
+    hasRepeatedSiteChrome(value) ||
+    isNavigationHeavy(value)
   );
 }
 
