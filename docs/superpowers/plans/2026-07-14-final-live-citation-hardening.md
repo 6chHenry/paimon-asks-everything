@@ -495,3 +495,37 @@ Expected: the new regression passes for both phrasings; exact three-query and fo
 - [ ] **Step 5: Run final verification, commit, and append report**
 
 Run `git diff --check`, the five-file focused suite, `npm test`, `npm run typecheck`, and `npm run build`. Verify PID 34240 remains alive. Commit only `lib/external-search.ts` and `tests/external-search.test.ts`, then append the P1 RED/GREEN evidence and final verification to the ignored live-fix report.
+
+### Task 11: Prioritize arc context inside mandatory buckets
+
+**Files:**
+- Modify: `lib/external-search.ts`
+- Modify: `tests/external-search.test.ts`
+
+**Interfaces:**
+- Consumes: finite, canonical-unique results already ordered by `dedupeAndRank`
+- Produces: mandatory-bucket-only stable ordering by `characterArcRelevanceScore(citation, bucket.query, plan)`
+
+- [ ] **Step 1: Write the failing finite-profile regression**
+
+For each accepted phrasing, build a distinct raw bucket and a mandatory bucket whose first six candidates are finite curated-Wiki entity-title profile snippets such as `婕德人物资料与基础档案`. Put a finite community/web citation seventh with decisive loss, betrayal, realization, break, and self-determination evidence. Assert that the seventh citation survives the mandatory six-slot quota, while raw cap, canonical uniqueness, and total-sixteen invariants remain unchanged.
+
+- [ ] **Step 2: Verify RED**
+
+Run: `npm test -- tests/external-search.test.ts`
+
+Expected: two failures because curated-Wiki governance ranks all six shallow profiles ahead of the community/web arc citation.
+
+- [ ] **Step 3: Implement mandatory-only stable arc ordering**
+
+Add `characterArcRelevanceScore` using only generic Chinese and English vocabulary. Award matches for non-entity mandatory query terms and story-changing actions or turning points such as loss, belonging, joining/leaving, manipulation, betrayal, realization, decision, break, growth/change, and independent choice. After each bucket's existing `dedupeAndRank`, stable-sort only buckets with index greater than zero by descending arc score; preserve the existing ranked order for ties and preserve the raw bucket unchanged.
+
+- [ ] **Step 4: Verify GREEN and unchanged route behavior**
+
+Run: `npm test -- tests/external-search.test.ts tests/chat-stream.test.ts tests/generation.test.ts`
+
+Expected: both new regressions pass and the exact-query/four-stage route/generation tests remain green.
+
+- [ ] **Step 5: Complete and report**
+
+Run the five-file focused suite, `npm test`, `npm run typecheck`, `npm run build`, and diff checks. Verify PID 34240. Commit only production and regression files, then append RED/GREEN counts, final commands, commit hashes, self-review, and concerns to the ignored live-fix report.
