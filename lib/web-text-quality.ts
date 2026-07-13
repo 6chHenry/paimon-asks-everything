@@ -96,11 +96,14 @@ export function looksLikeBrowserEditShell(value: string) {
     /browser.{0,30}(?:settings?|configuration)|(?:settings?|configuration).{0,30}browser/iu.test(
       text,
     );
-  const collaborativeEditShell =
-    /欢迎|welcome|正在阅读|reading/iu.test(text) &&
-    /协助|帮助|assist|help|编辑|edit/iu.test(text) &&
-    /条目|页面|词条|entry|page/iu.test(text);
-  return (requiresJavascript && browserSettings) || collaborativeEditShell;
+  const collaborativeEditContext = /欢迎|welcome|正在阅读|reading/iu.test(text);
+  const collaborativeEditRelation =
+    /(?:协助|帮助)[\s\S]{0,30}编辑[\s\S]{0,20}(?:条目|页面|词条)/u.test(text) ||
+    /(?:assist|help)[\s\S]{0,40}edit[\s\S]{0,20}(?:entry|page)/iu.test(text);
+  return (
+    (requiresJavascript && browserSettings) ||
+    (collaborativeEditContext && collaborativeEditRelation)
+  );
 }
 
 export function isNavigationHeavy(value: string) {

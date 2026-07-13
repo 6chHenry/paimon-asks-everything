@@ -64,6 +64,24 @@ describe("web text quality", () => {
     expect(isUnusableWebText(cleanExcerpt)).toBe(false);
   });
 
+  it.each([
+    "欢迎阅读本页面的剧情分析，本文将帮助你理解角色的成长。",
+    "Welcome to this page. This article will help readers understand the character arc.",
+  ])("keeps reader-help copy that does not ask anyone to edit: %s", (cleanExcerpt) => {
+    expect(looksLikeBrowserEditShell(cleanExcerpt)).toBe(false);
+    expect(isNavigationHeavy(cleanExcerpt)).toBe(false);
+    expect(isUnusableWebText(cleanExcerpt)).toBe(false);
+    expect(webTextQualityScore(cleanExcerpt)).toBeGreaterThan(0);
+  });
+
+  it.each([
+    "欢迎正在阅读本页面的旅行者协助编辑本条目。",
+    "Welcome, readers. Please help edit this page.",
+  ])("detects an explicit collaborative edit instruction: %s", (editShell) => {
+    expect(looksLikeBrowserEditShell(editShell)).toBe(true);
+    expect(isUnusableWebText(editShell)).toBe(true);
+  });
+
   it("detects an uncontextualized speaker-label dialogue dump", () => {
     expect(
       looksLikeDialogueDump(

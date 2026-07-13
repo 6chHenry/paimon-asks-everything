@@ -15,6 +15,17 @@ describe("search result URL normalization", () => {
   });
 
   it.each([
+    "https://example.com/story?q=a%26b",
+    "https://example.com/story?q=a%3Db",
+  ])("preserves reserved query encoding in Yahoo RU and DDG targets: %s", (target) => {
+    const yahooRu = `https://r.search.yahoo.com/_ylt=test/RU=${encodeURIComponent(target)}/RS=test`;
+    const ddg = `//duckduckgo.com/l/?uddg=${encodeURIComponent(target)}`;
+
+    expect(normalizeSearchResultUrl(yahooRu)).toBe(target);
+    expect(normalizeSearchResultUrl(ddg)).toBe(target);
+  });
+
+  it.each([
     "https://www.yahoo.com/",
     "https://search.yahoo.com/search?p=jeht",
     "https://r.search.yahoo.com/_ylt=test/RU=%E0%A4%A/RS=test",
@@ -40,5 +51,18 @@ describe("search result URL normalization", () => {
     expect(normalizeSearchResultUrl("https://news.yahoo.com/story/123")).toBe(
       "https://news.yahoo.com/story/123",
     );
+  });
+
+  it.each([
+    "https://www.google.com/webhp",
+    "https://www.google.co.uk/advanced_search",
+    "https://www.bing.com/images/search?q=story",
+    "https://cn.bing.com/videos/search?q=story",
+    "https://tw.search.yahoo.com/",
+    "https://news.search.yahoo.com/search?p=story",
+    "https://images.search.yahoo.com/search/images?p=story",
+  ])("rejects an unresolved localized search-engine page: %s", (url) => {
+    expect(normalizeSearchResultUrl(url)).toBeUndefined();
+    expect(isUnresolvedSearchResultUrl(url)).toBe(true);
   });
 });

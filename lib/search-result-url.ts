@@ -1,17 +1,30 @@
 const SEARCH_ENGINE_BASE = "https://duckduckgo.com";
 
+function absoluteHttpUrl(value: string) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? parsed.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function safeDecodeRedirectValue(value: string) {
-  let decoded = value;
+  let candidate = value;
   for (let pass = 0; pass < 2; pass += 1) {
+    const absolute = absoluteHttpUrl(candidate);
+    if (absolute) return absolute;
     try {
-      const next = decodeURIComponent(decoded);
-      if (next === decoded) return decoded;
-      decoded = next;
+      const next = decodeURIComponent(candidate);
+      if (next === candidate) return undefined;
+      candidate = next;
     } catch {
       return undefined;
     }
   }
-  return decoded;
+  return absoluteHttpUrl(candidate);
 }
 
 function parseResultUrl(value: string) {
@@ -33,21 +46,23 @@ function isSearchEnginePage(url: URL) {
     (hostname === "yahoo.com" &&
       (pathname === "/" || /^\/(?:search|images|video)(?:\/|$)/u.test(pathname))) ||
     hostname === "search.yahoo.com" ||
-    hostname === "images.search.yahoo.com" ||
-    hostname === "video.search.yahoo.com" ||
-    hostname === "r.search.yahoo.com"
+    hostname.endsWith(".search.yahoo.com")
   ) {
     return true;
   }
   if (
     /(?:^|\.)google\.[a-z.]+$/iu.test(hostname) &&
-    (pathname === "/" || /^\/(?:search|url)(?:\/|$)/u.test(pathname))
+    (pathname === "/" ||
+      /^\/(?:search|url|webhp|advanced_search)(?:\/|$)/u.test(pathname))
   ) {
     return true;
   }
   if (
     (hostname === "bing.com" || hostname.endsWith(".bing.com")) &&
-    (pathname === "/" || /^\/(?:search|ck\/a)(?:\/|$)/u.test(pathname))
+    (pathname === "/" ||
+      /^\/(?:search|ck\/a|images\/search|videos\/search)(?:\/|$)/u.test(
+        pathname,
+      ))
   ) {
     return true;
   }
