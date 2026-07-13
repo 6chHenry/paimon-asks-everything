@@ -1,81 +1,52 @@
 import { describe, expect, it } from "vitest";
 import { GET } from "@/app/api/preheat/route";
 
+function request(overrides = "") {
+  return new Request(
+    `http://localhost/api/preheat?topicId=seven-gnosis-journeys&depth=guided&language=zh-CN&profile=returning&progress=sumeru&spoilerPreference=low${overrides}`,
+  );
+}
+
 describe("preheat GET route", () => {
-  it("returns a deterministic curated view", async () => {
-    const response = await GET(
-      new Request(
-        "http://localhost/api/preheat?topicId=why-fatui-collect-gnoses&depth=guided&language=en&profile=returning&progress=fontaine&spoilerPreference=low",
-      ),
-    );
-    expect(response.status).toBe(200);
-    const payload = (await response.json()) as {
-      topic: { id: string };
-      timeline: unknown[];
-    };
-    expect(payload.topic.id).toBe("why-fatui-collect-gnoses");
-    expect(payload.timeline.length).toBeGreaterThan(0);
+  it("returns each visible role payload", async () => {
+    for (const profile of ["new", "returning", "story"]) {
+      const response = await GET(request(`&profile=${profile}`));
+      expect(response.status, profile).toBe(200);
+      expect((await response.json()).kind, profile).toBe(profile);
+    }
   });
 
-  it("rejects invalid depth values", async () => {
-    const response = await GET(
-      new Request(
-        "http://localhost/api/preheat?topicId=why-fatui-collect-gnoses&depth=everything&language=en",
-      ),
-    );
-    expect(response.status).toBe(400);
+  it("normalizes legacy profiles to returning", async () => {
+    for (const profile of ["exploration", "casual"]) {
+      const response = await GET(request(`&profile=${profile}`));
+      expect(response.status, profile).toBe(200);
+      expect((await response.json()).kind, profile).toBe("returning");
+    }
   });
 
-  it("accepts Nod-Krai as the latest completed mainline region", async () => {
-    const response = await GET(
-      new Request(
-        "http://localhost/api/preheat?topicId=seven-gnosis-journeys&depth=guided&language=zh-CN&profile=story&progress=nodkrai&spoilerPreference=none",
-      ),
-    );
+  it("returns a region-required payload for an unknown region", async () => {
+    const response = await GET(request("&profile=new&progress=unknown"));
     expect(response.status).toBe(200);
-    const payload = (await response.json()) as {
-      timeline: Array<{ id: string; locked: boolean }>;
-    };
-    expect(
-      payload.timeline.find((node) => node.id === "nodkrai-gnosis"),
-    ).toMatchObject({ locked: false });
+    expect((await response.json()).kind).toBe("region_required");
+  });
+
+  it("accepts old depth and focus parameters without changing the role", async () => {
+    const response = await GET(request("&profile=new&depth=research&focus=character,story"));
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.kind).toBe("new");
+    expect(payload).not.toHaveProperty("timeline");
+  });
+
+  it("rejects invalid depth and focus values", async () => {
+    expect((await GET(request("&depth=everything"))).status).toBe(400);
+    expect((await GET(request("&focus=story,secrets"))).status).toBe(400);
   });
 
   it("does not expose a removed unresolved breakpoint", async () => {
-    const response = await GET(
-      new Request(
-        "http://localhost/api/preheat?topicId=seven-gnosis-journeys&depth=guided&language=zh-CN&profile=story&progress=fontaine&spoilerPreference=low",
-      ),
-    );
+    const response = await GET(request("&profile=story"));
     const payload = (await response.json()) as Record<string, unknown>;
     expect(response.status).toBe(200);
     expect(payload).not.toHaveProperty("breakpoint");
-  });
-
-  it("accepts multiple focus values and returns a presentation contract", async () => {
-    const response = await GET(new Request(
-      "http://localhost/api/preheat?topicId=seven-gnosis-journeys&depth=guided&language=zh-CN&profile=story&progress=sumeru&spoilerPreference=low&focus=character,story",
-    ));
-    const payload = await response.json() as {
-      presentation: { defaultTimelineId?: string; sectionOrder: string[] };
-    };
-    expect(response.status).toBe(200);
-    expect(payload.presentation.defaultTimelineId).toBe("sumeru-gnoses");
-    expect(payload.presentation.sectionOrder).toEqual(["brief", "timeline", "relations"]);
-  });
-
-  it("rejects an invalid focus value", async () => {
-    const response = await GET(new Request(
-      "http://localhost/api/preheat?topicId=seven-gnosis-journeys&depth=guided&language=en&focus=story,secrets",
-    ));
-    expect(response.status).toBe(400);
-  });
-
-  it("uses stable default focuses when focus is omitted", async () => {
-    const response = await GET(new Request(
-      "http://localhost/api/preheat?topicId=seven-gnosis-journeys&depth=guided&language=en",
-    ));
-    expect(response.status).toBe(200);
-    expect((await response.json()).presentation).toBeDefined();
   });
 });

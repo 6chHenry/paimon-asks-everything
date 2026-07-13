@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeVisibleProfile } from "@/lib/visible-profiles";
 
 const focusValueSchema = z.enum(["story", "character", "gameplay", "overview"]);
 
@@ -66,7 +67,8 @@ export const preheatQuerySchema = z.object({
   language: z.enum(["zh-CN", "en"]),
   profile: z
     .enum(["new", "returning", "story", "exploration", "casual"])
-    .default("returning"),
+    .default("returning")
+    .transform(normalizeVisibleProfile),
   progress: z
     .enum([
       "unknown",

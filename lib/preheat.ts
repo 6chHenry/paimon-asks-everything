@@ -2,6 +2,12 @@ import { gnosisKnowledgeEntries } from "@/data/gnosis-knowledge";
 import { relationGraphs, relationNodes } from "@/data/gnosis-relations";
 import { gnosisTimeline } from "@/data/gnosis-timeline";
 import {
+  getPreheatRegionGuide,
+  namedProgress,
+  validatePreheatRegionGuides,
+  type NamedProgress,
+} from "@/data/preheat-region-guides";
+import {
   defaultPreheatTopicId,
   preheatTopics,
 } from "@/data/preheat-topics";
@@ -17,11 +23,8 @@ import type {
   TimelineNode,
 } from "@/lib/domain";
 import type { PreheatQuery } from "@/lib/schemas";
-import {
-  buildPreheatPresentation,
-  rankPreheatEntries,
-  rankSuggestedQuestions,
-} from "@/lib/preheat-personalization";
+import { buildStoryPresentation } from "@/lib/preheat-personalization";
+import { normalizeVisibleProfile } from "@/lib/visible-profiles";
 
 const progressRank: Record<Progress, number> = {
   unknown: 0,
@@ -79,6 +82,15 @@ function localizeTopic(topic: PreheatTopic, language: Language) {
       language === "zh-CN"
         ? topic.suggestedQuestionsZh
         : topic.suggestedQuestionsEn,
+  };
+}
+
+function localizeTopicHeader(topic: PreheatTopic, language: Language) {
+  const localized = localizeTopic(topic, language);
+  return {
+    id: localized.id,
+    title: localized.title,
+    intro: localized.intro,
   };
 }
 
@@ -225,6 +237,8 @@ export function validatePreheatCatalog() {
   const relationNodeIds = new Set(relationNodes.map((node) => node.id));
   const errors: string[] = [];
 
+  errors.push(...validatePreheatRegionGuides());
+
   for (const topic of preheatTopics) {
     for (const conceptId of [
       ...topic.heroConceptIds,
@@ -266,6 +280,16 @@ export function validatePreheatCatalog() {
       }
     }
   }
+
+  for (const region of namedProgress) {
+    const guide = getPreheatRegionGuide(region, "zh-CN");
+    if (guide.timelineNodeId && !timelineIds.has(guide.timelineNodeId)) {
+      errors.push(`region-guide:${region}:${guide.timelineNodeId}`);
+    }
+    if (guide.relationGraphId && !graphIds.has(guide.relationGraphId)) {
+      errors.push(`region-guide:${region}:${guide.relationGraphId}`);
+    }
+  }
   return errors;
 }
 
@@ -293,26 +317,131 @@ export function isValidPreheatTarget(
     .some((graph) => graph.nodeIds.includes(targetId));
 }
 
-export function getPreheatView(query: PreheatQuery) {
-  const allowFutureRegions = query.depth === "research";
+type LocalizedTopicHeader = ReturnType<typeof localizeTopicHeader>;
+type LocalizedTimelineNode = ReturnType<typeof localizeTimelineNode>;
+type LocalizedGraph = ReturnType<typeof localizeGraph>;
+
+interface BasePreheatView {
+  topic: LocalizedTopicHeader;
+  topics: LocalizedTopicHeader[];
+  selectedRegion: Progress;
+  contentNotice: string;
+}
+
+export interface RegionRequiredPreheatView extends BasePreheatView {
+  kind: "region_required";
+}
+
+export interface NewPlayerPreheatView extends BasePreheatView {
+  kind: "new";
+  region: NamedProgress;
+  guide: ReturnType<typeof getPreheatRegionGuide>["newPlayer"];
+}
+
+export interface ReturningPlayerPreheatView extends BasePreheatView {
+  kind: "returning";
+  region: NamedProgress;
+  recap: {
+    points: ReturnType<typeof getPreheatRegionGuide>["returningPlayer"]["recapPoints"];
+    hooks: string[];
+    relationGraph?: LocalizedGraph;
+  };
+}
+
+export interface StoryPlayerPreheatView extends BasePreheatView {
+  kind: "story";
+  region: NamedProgress;
+  topicQuestions: string[];
+  narration: ReturnType<typeof buildNarration>;
+  evidence: KnowledgeEntry[];
+  timeline: LocalizedTimelineNode[];
+  relationGraph: LocalizedGraph;
+  availableRelationGraphs: Record<string, LocalizedGraph>;
+  presentation: ReturnType<typeof buildStoryPresentation>;
+}
+
+export type PreheatView =
+  | RegionRequiredPreheatView
+  | NewPlayerPreheatView
+  | ReturningPlayerPreheatView
+  | StoryPlayerPreheatView;
+
+export function getPreheatView(query: PreheatQuery): PreheatView {
   const topic =
     preheatTopics.find((item) => item.id === query.topicId) ??
     preheatTopics.find((item) => item.id === defaultPreheatTopicId)!;
-  const entries = topic.depthConceptIds[query.depth]
+  const profile = normalizeVisibleProfile(query.profile);
+  const topicHeader = localizeTopicHeader(topic, query.language);
+  const topics = preheatTopics.map((item) =>
+    localizeTopicHeader(item, query.language),
+  );
+  const common = {
+    topic: topicHeader,
+    topics,
+    selectedRegion: query.progress,
+  };
+
+  if (query.progress === "unknown") {
+    return {
+      ...common,
+      kind: "region_required",
+      contentNotice:
+        query.language === "zh-CN"
+          ? "请选择一个地区，再展开对应身份的预热内容。"
+          : "Choose a region to open role-specific preheat content.",
+    };
+  }
+
+  const region = query.progress as NamedProgress;
+  const guide = getPreheatRegionGuide(region, query.language);
+
+  if (profile === "new") {
+    return {
+      ...common,
+      kind: "new",
+      region,
+      guide: guide.newPlayer,
+      contentNotice:
+        query.language === "zh-CN"
+          ? "地区入门：通俗说明阵营与剧情起点，不包含关键结局。"
+          : "Region primer: plain-language factions and story setup without key outcomes.",
+    };
+  }
+
+  if (profile === "returning") {
+    const relationGraph = guide.relationGraphId
+      ? relationGraphs.find((item) => item.id === guide.relationGraphId)
+      : undefined;
+    return {
+      ...common,
+      kind: "returning",
+      region,
+      recap: {
+        points: guide.returningPlayer.recapPoints,
+        hooks: guide.returningPlayer.hooks,
+        relationGraph: relationGraph
+          ? localizeGraph(relationGraph, query.language, query)
+          : undefined,
+      },
+      contentNotice:
+        query.language === "zh-CN"
+          ? "地区回顾：完整回忆所选地区，后续只保留值得继续追问的线索。"
+          : "Region catch-up: the selected story is recapped in full; later threads remain open questions.",
+    };
+  }
+
+  const entries = topic.depthConceptIds.research
     .map((conceptId) => localizedEntry(conceptId, query.language))
     .filter((entry): entry is KnowledgeEntry => Boolean(entry))
-    .filter((entry) => entryVisible(entry, query, { allowFutureRegions }))
-    .filter(
-      (entry) =>
-        query.depth === "research" ||
-        entry.factStatus !== "community_speculation",
+    .filter((entry) =>
+      entryVisible(entry, query, { allowFutureRegions: true }),
     );
   const timeline = topic.timelineNodeIds
     .map((id) => gnosisTimeline.find((node) => node.id === id))
     .filter((node): node is TimelineNode => Boolean(node))
     .map((node) =>
-      localizeTimelineNode(node, query, query.depth === "research", {
-        allowFutureRegions,
+      localizeTimelineNode(node, query, true, {
+        allowFutureRegions: true,
       }),
     );
   const graph = relationGraphs.find(
@@ -323,61 +452,39 @@ export function getPreheatView(query: PreheatQuery) {
       const target = relationGraphs.find((item) => item.id === id)!;
       return [
         id,
-        localizeGraph(target, query.language, query, { allowFutureRegions }),
+        localizeGraph(target, query.language, query, {
+          allowFutureRegions: true,
+        }),
       ];
     }),
   );
-  const presentation = buildPreheatPresentation(query, timeline, localizedGraphs);
-  const rankedEntries = rankPreheatEntries(entries, query);
-  const personalizedTimeline = timeline.map((node) => ({
-    ...node,
-    events: node.events.slice(0, presentation.eventLimit),
-    implications: node.implications.slice(0, presentation.implicationLimit),
-    suggestedQuestions: rankSuggestedQuestions(
-      node.suggestedQuestions,
-      query.focus,
-      query.profile,
-    ).slice(0, presentation.questionLimit),
-  }));
+  const presentation = buildStoryPresentation(
+    region,
+    timeline,
+    localizedGraphs,
+    guide.timelineNodeId,
+  );
   const localizedTopic = localizeTopic(topic, query.language);
+  const relationGraph =
+    localizedGraphs[presentation.defaultRelationGraphId ?? ""] ??
+    localizedGraphs[graph.id];
 
   return {
-    topic: {
-      ...localizedTopic,
-      suggestedQuestions: rankSuggestedQuestions(
-        localizedTopic.suggestedQuestions,
-        query.focus,
-        query.profile,
-      ).slice(0, presentation.questionLimit),
-    },
-    topics: preheatTopics.map((item) => localizeTopic(item, query.language)),
-    depth: {
-      id: query.depth,
-      label:
-        query.language === "zh-CN"
-          ? depthLabels[query.depth].zh
-          : depthLabels[query.depth].en,
-      description:
-        query.language === "zh-CN"
-          ? depthLabels[query.depth].durationZh
-          : depthLabels[query.depth].durationEn,
-    },
-    narration: buildNarration(rankedEntries, presentation.narrationLimit),
-    evidence: rankedEntries,
-    timeline: personalizedTimeline,
-    relationGraph: localizedGraphs[graph.id],
+    ...common,
+    kind: "story",
+    region,
+    topicQuestions: localizedTopic.suggestedQuestions,
+    narration: buildNarration(entries, 12),
+    evidence: entries,
+    timeline,
+    relationGraph,
     availableRelationGraphs: localizedGraphs,
     presentation,
     contentNotice:
       query.language === "zh-CN"
-        ? query.depth === "guided"
-          ? "已过剧情回顾：按首页选择的主线进度锁定后续地区，只放确定事件。"
-          : "完整考据：完整剧透模式，会展开已实装后续地区、文本暗示与争议边界。"
-        : query.depth === "guided"
-          ? "Story recap: later regions stay locked by the home-page progress setting; confirmed events only."
-          : "Research: full-spoiler mode with released later regions, textual implications, and disputed boundaries.",
+        ? "完整剧情档案：展开全部已实装事件、文本暗示与证据边界。"
+        : "Complete story archive: all released events, textual implications, and evidence boundaries.",
   };
 }
 
-export type PreheatView = ReturnType<typeof getPreheatView>;
 export type PreheatFactStatus = FactStatus;
