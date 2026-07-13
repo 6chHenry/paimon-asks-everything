@@ -47,3 +47,22 @@ Invalid input is dropped rather than repaired from surrounding text. Existing fe
 - End-to-end cold generation containing both live failures returns neither external citations nor cited IDs.
 
 Focused tests, full tests, typecheck, build, diff checks, and the existing port-3000 ownership check complete the verification.
+
+## P1 review boundary refinements
+
+Redirect payloads are decoded one layer at a time. After each layer, normalization checks whether the candidate is already an absolute HTTP(S) URL and stops immediately when it is. This preserves encoded reserved query components such as `%26` and `%3D` in a destination like `https://example.com/story?q=a%26b`.
+
+The generic unresolved-engine guard also rejects:
+
+- Google `/webhp` and `/advanced_search`;
+- Bing `/images/search` and `/videos/search`;
+- localized or nested `*.search.yahoo.com` root, result, and redirect pages.
+
+Valid content destinations remain accepted.
+
+Collaborative-edit shell detection requires a bounded explicit edit relation. Chinese text must relate `协助` or `帮助` to `编辑` and then `条目`, `页面`, or `词条`; English text must relate `assist` or `help` to `edit` and then `entry` or `page`. Merely welcoming readers and saying an article helps them understand content is not a shell. These exact controls remain usable:
+
+- `欢迎阅读本页面的剧情分析，本文将帮助你理解角色的成长。`
+- `Welcome to this page. This article will help readers understand the character arc.`
+
+The exact live browser/edit fixture remains rejected. These refinements add no network or model calls.
