@@ -66,3 +66,21 @@ Collaborative-edit shell detection requires a bounded explicit edit relation. Ch
 - `Welcome to this page. This article will help readers understand the character arc.`
 
 The exact live browser/edit fixture remains rejected. These refinements add no network or model calls.
+
+## Definitive live evidence refinements
+
+### Character-arc candidate balancing
+
+The first search tier retains its three query buckets. For `character_arc` only, each bucket is deduplicated by canonical URL without using the title. Cross-bucket duplicates prefer a mandatory-query occurrence; ties use the shared web-text quality score and then stable provider order.
+
+Within the global 16-candidate assessment budget, the original-question bucket is capped at 4 and each mandatory arc query reserves up to 6. Unused mandatory capacity may be filled from remaining mandatory-query candidates; raw original-question results never exceed 4. The selected canonical URLs are unique before the existing assessment/enrichment/ranking stages. No query or network call changes.
+
+### Short raw dialogue
+
+`looksLikeShortRawDialogue(excerpt)` identifies excerpts that begin with a speaker label and contain at least two labelled turns, supporting ASCII and fullwidth colons. Story evidence rejects this shape using the excerpt alone. Relationship evidence continues to allow it, and narrative prose containing a single quoted line remains usable.
+
+### Site-description shell
+
+`looksLikeSiteDescriptionShell` examines only the opening 220 characters. It requires a site-identity noun, a copular/ownership/operation relation, and either an explicit official-site identity or multiple promotional catalog terms. Chinese and English are supported without platform, company, game, or character names in the detector.
+
+This rejects live-shaped and invented promotional site self-descriptions while retaining substantive community analysis and in-world prose about a resident-operated community. The detector joins the shared unusable-text chain, so all evidence and generation consumers inherit the rejection.
