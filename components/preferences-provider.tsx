@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import type { Preferences } from "@/lib/domain";
+import { normalizeVisibleProfile } from "@/lib/visible-profiles";
 
 const defaultPreferences: Preferences = {
   language: "zh-CN",
@@ -44,7 +45,12 @@ export function PreferencesProvider({
     const storedSession = window.sessionStorage.getItem("paimon-session-id");
     if (saved) {
       try {
-        setPreferences({ ...defaultPreferences, ...JSON.parse(saved) });
+        const parsed = JSON.parse(saved) as Partial<Preferences>;
+        setPreferences({
+          ...defaultPreferences,
+          ...parsed,
+          profile: normalizeVisibleProfile(parsed.profile),
+        });
       } catch {
         window.localStorage.removeItem("paimon-preferences");
       }

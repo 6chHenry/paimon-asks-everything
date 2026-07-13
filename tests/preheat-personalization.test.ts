@@ -1,57 +1,69 @@
 import { describe, expect, it } from "vitest";
+import { preheatRegionGuides } from "@/data/preheat-region-guides";
 import {
-  buildPreheatPresentation,
-  rankPreheatEntries,
-  rankSuggestedQuestions,
-} from "@/lib/preheat-personalization";
-import type { KnowledgeEntry } from "@/lib/domain";
+  normalizeVisibleProfile,
+  visibleProfiles,
+} from "@/lib/visible-profiles";
 
-const query = {
-  depth: "guided" as const,
-  profile: "returning" as const,
-  progress: "sumeru" as const,
-  focus: ["story"] as const,
-};
-const timeline = [
-  { id: "mondstadt-gnosis", region: "mondstadt" as const, locked: false, relationGraphId: "mondstadt", participantIds: ["venti"] },
-  { id: "sumeru-gnoses", region: "sumeru" as const, locked: false, relationGraphId: "sumeru", participantIds: ["nahida", "dottore"] },
-  { id: "fontaine-gnosis", region: "fontaine" as const, locked: true, relationGraphId: "fontaine", participantIds: ["arlecchino"] },
-];
-const graphs = { sumeru: { id: "sumeru", nodes: [{ id: "nahida" }, { id: "dottore" }] } };
-const entry = (id: string, contentType: KnowledgeEntry["contentType"], tags: string[]) =>
-  ({ id, conceptId: id, contentType, tags } as KnowledgeEntry);
-
-describe("preheat personalization", () => {
-  it("gives profiles visibly different presentation contracts", () => {
-    const newcomer = buildPreheatPresentation({ ...query, profile: "new" }, timeline, graphs);
-    const story = buildPreheatPresentation({ ...query, profile: "story" }, timeline, graphs);
-    const casual = buildPreheatPresentation({ ...query, profile: "casual" }, timeline, graphs);
-    expect(newcomer.defaultTimelineId).toBe("mondstadt-gnosis");
-    expect(story.narrationLimit).toBeGreaterThan(casual.narrationLimit);
-    expect(story.sectionOrder).not.toEqual(newcomer.sectionOrder);
-    expect(casual.collapsedSections).toEqual(["timeline", "relations"]);
+describe("preheat role personalization", () => {
+  it("exposes only three traveler profiles and migrates legacy values", () => {
+    expect(visibleProfiles).toEqual(["new", "returning", "story"]);
+    expect(normalizeVisibleProfile("exploration")).toBe("returning");
+    expect(normalizeVisibleProfile("casual")).toBe("returning");
+    expect(normalizeVisibleProfile("new")).toBe("new");
+    expect(normalizeVisibleProfile("story")).toBe("story");
+    expect(normalizeVisibleProfile(undefined)).toBe("returning");
   });
 
-  it("never selects a locked timeline node", () => {
-    expect(buildPreheatPresentation(query, timeline, graphs).defaultTimelineId).toBe("sumeru-gnoses");
+  it("provides complete role content for every named region", () => {
+    const regions = [
+      "mondstadt",
+      "liyue",
+      "inazuma",
+      "sumeru",
+      "fontaine",
+      "natlan",
+      "nodkrai",
+      "snezhnaya",
+    ];
+
+    expect(Object.keys(preheatRegionGuides)).toEqual(regions);
+    for (const region of regions) {
+      const guide =
+        preheatRegionGuides[region as keyof typeof preheatRegionGuides];
+      expect(guide.newPlayer.overview["zh-CN"].length, region).toBeGreaterThan(20);
+      expect(guide.newPlayer.factions.length, region).toBeGreaterThanOrEqual(3);
+      expect(guide.newPlayer.storySteps, region).toHaveLength(3);
+      expect(
+        guide.returningPlayer.recapPoints.length,
+        region,
+      ).toBeGreaterThanOrEqual(3);
+      expect(
+        guide.returningPlayer.hooks.length,
+        region,
+      ).toBeGreaterThanOrEqual(2);
+      expect(
+        guide.returningPlayer.hooks.every(
+          (hook) => /[？?]$/.test(hook["zh-CN"]) && /[?]$/.test(hook.en),
+        ),
+        region,
+      ).toBe(true);
+    }
   });
 
-  it("uses character focus to choose a visible participant", () => {
-    const result = buildPreheatPresentation({ ...query, profile: "story", focus: ["character"] }, timeline, graphs);
-    expect(result.defaultRelationGraphId).toBe("sumeru");
-    expect(["nahida", "dottore"]).toContain(result.defaultRelationNodeId);
-  });
-
-  it("ranks multi-focus content independently of click order", () => {
-    const entries = [entry("story", "story", ["gnosis"]), entry("character", "character", ["fatui"]), entry("overview", "version_overview", ["unknown"])];
-    const first = rankPreheatEntries(entries, { ...query, focus: ["character", "story"] });
-    const second = rankPreheatEntries(entries, { ...query, focus: ["story", "character"] });
-    expect(first.map((item) => item.id)).toEqual(second.map((item) => item.id));
-  });
-
-  it("ranks character and overview questions differently", () => {
-    const questions = ["纳西妲为什么与博士谈判？", "须弥节点怎样改变整个事件链？", "这一版本最需要知道什么？"];
-    expect(rankSuggestedQuestions(questions, ["character"], "story")[0]).toContain("纳西妲");
-    expect(rankSuggestedQuestions(questions, ["overview"], "casual")[0]).toContain("版本");
+  it("maps every released Gnosis region to its existing event node", () => {
+    for (const region of [
+      "mondstadt",
+      "liyue",
+      "inazuma",
+      "sumeru",
+      "fontaine",
+      "natlan",
+      "nodkrai",
+    ] as const) {
+      expect(preheatRegionGuides[region].timelineNodeId, region).toBeTruthy();
+      expect(preheatRegionGuides[region].relationGraphId, region).toBeTruthy();
+    }
+    expect(preheatRegionGuides.snezhnaya.timelineNodeId).toBeUndefined();
   });
 });
