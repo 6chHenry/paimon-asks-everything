@@ -161,6 +161,22 @@ export default function PreheatPage() {
     label: labels.profile[value][language],
     description: profileDescriptions[value][isZh ? 0 : 1],
   }));
+  const progressHeading =
+    preferences.profile === "new"
+      ? t(language, "想先了解的地区", "Region to discover")
+      : preferences.profile === "story"
+        ? t(language, "默认聚焦地区", "Default story focus")
+        : t(language, "最新完成主线", "Latest completed main quest");
+  const progressPrompt =
+    preferences.profile === "new"
+      ? t(language, "选择你想先认识的地区", "Choose a region to discover first")
+      : preferences.profile === "story"
+        ? t(language, "选择剧情档案的默认地区", "Choose the story archive's default region")
+        : t(
+            language,
+            "选择你最新完成的地区主线",
+            "Choose the latest region main quest you completed",
+          );
 
   const toggleSection = (section: PreheatSection) =>
     setExpandedSections((current) =>
@@ -198,17 +214,11 @@ export default function PreheatPage() {
         <section className="home-progress-card preheat-progress-card">
           <div>
             <Compass size={20} />
-            <span>{t(language, "最新完成主线", "Latest completed main quest")}</span>
+            <span>{progressHeading}</span>
             <strong>{labels.progress[preferences.progress][language]}</strong>
           </div>
           <div className="preheat-progress-control">
-            <span>
-              {t(
-                language,
-                "选择你最新完成的地区主线",
-                "Choose the latest region main quest you completed",
-              )}
-            </span>
+            <span>{progressPrompt}</span>
             <ProgressButtonGroup
               items={progressItems}
               value={preferences.progress}

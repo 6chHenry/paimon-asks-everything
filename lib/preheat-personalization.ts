@@ -1,5 +1,3 @@
-import type { NamedProgress } from "@/data/preheat-region-guides";
-
 export type PreheatSection = "timeline" | "brief" | "relations";
 
 export interface StoryTimelineItem {
@@ -22,7 +20,6 @@ export interface StoryPreheatPresentation {
 }
 
 export function buildStoryPresentation(
-  region: NamedProgress,
   timeline: StoryTimelineItem[],
   graphs: Record<string, StoryRelationGraph>,
   mappedTimelineId?: string,

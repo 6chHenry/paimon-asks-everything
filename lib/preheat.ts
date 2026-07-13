@@ -15,7 +15,6 @@ import type {
   FactStatus,
   KnowledgeEntry,
   Language,
-  PreheatDepth,
   PreheatTopic,
   Progress,
   RelationGraph,
@@ -36,24 +35,6 @@ const progressRank: Record<Progress, number> = {
   natlan: 6,
   nodkrai: 7,
   snezhnaya: 8,
-};
-
-const depthLabels: Record<
-  PreheatDepth,
-  { zh: string; en: string; durationZh: string; durationEn: string }
-> = {
-  guided: {
-    zh: "已过剧情回顾",
-    en: "Story recap",
-    durationZh: "确认事件链与关键关系",
-    durationEn: "Confirmed event chain and key ties",
-  },
-  research: {
-    zh: "完整考据",
-    en: "Research view",
-    durationZh: "事件、暗示与争议边界",
-    durationEn: "Events, implications, and disputed boundaries",
-  },
 };
 
 function localizedEntry(conceptId: string, language: Language) {
@@ -459,7 +440,6 @@ export function getPreheatView(query: PreheatQuery): PreheatView {
     }),
   );
   const presentation = buildStoryPresentation(
-    region,
     timeline,
     localizedGraphs,
     guide.timelineNodeId,
