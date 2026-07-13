@@ -701,11 +701,10 @@ it("does not echo dirty external excerpts when a character-arc model call fails 
     understanding: ruleUnderstandQuestion("婕德经历了怎么的变化？", "zh-CN"),
   });
 
-  expect(result.answer).toBe(
-    "目前找到的资料还不足以稳妥回答“婕德”这个问题。派蒙先不把外部片段硬拼成结论，相关原文保留在下方来源里。",
-  );
+  expect(result.answer).toBe("派蒙暂时没找到足够可靠的资料，先不乱下结论。");
   expect(result.answer).not.toContain("旅行者创作平台");
   expect(result.answer).not.toContain("&hellip;");
+  expect(result.external).toEqual([]);
   expect(result.answerParagraphs.flatMap((paragraph) => paragraph.citationIds)).toEqual([]);
 });
 ```
@@ -758,7 +757,7 @@ if (input.external.length) {
 }
 ```
 
-Also make `answerWorthyExternalCitation` reject shared site chrome, navigation-heavy text, and unrendered entities so clean identity fallbacks retain their current behavior while dirty non-story snippets are still blocked.
+Also make `answerWorthyExternalCitation` reject shared site chrome, navigation-heavy text, and unrendered entities so clean identity fallbacks retain their current behavior while dirty non-story snippets are still blocked. In the outer generation `catch`, run `bestExternal` through `selectAnswerEvidence` with `bestSearchPlan` before calling `generationFallback` and before assigning the returned `external` field. A dirty-only input therefore becomes an empty evidence list and uses the no-evidence boundary message instead of leaving the polluted citation visible below the answer.
 
 - [ ] **Step 8: Add a successful character-arc generation regression**
 
