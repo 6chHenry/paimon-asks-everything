@@ -86,6 +86,23 @@ export function hasRepeatedSiteChrome(value: string) {
   return false;
 }
 
+export function looksLikeBrowserEditShell(value: string) {
+  const text = value.normalize("NFKC");
+  const requiresJavascript =
+    /(?:requires?|enable|enabled|disabled?).{0,40}javascript|javascript.{0,40}(?:requires?|enable|enabled|disabled?)/iu.test(
+      text,
+    );
+  const browserSettings =
+    /browser.{0,30}(?:settings?|configuration)|(?:settings?|configuration).{0,30}browser/iu.test(
+      text,
+    );
+  const collaborativeEditShell =
+    /欢迎|welcome|正在阅读|reading/iu.test(text) &&
+    /协助|帮助|assist|help|编辑|edit/iu.test(text) &&
+    /条目|页面|词条|entry|page/iu.test(text);
+  return (requiresJavascript && browserSettings) || collaborativeEditShell;
+}
+
 export function isNavigationHeavy(value: string) {
   const text = value.normalize("NFKC");
   const browserOrWikiUi =
@@ -102,6 +119,7 @@ export function isNavigationHeavy(value: string) {
     Math.max(compactLength, 1);
   return (
     /Created with Sketch/iu.test(text) ||
+    looksLikeBrowserEditShell(text) ||
     browserOrWikiUi.test(text) ||
     new Set(tokens.map((token) => token.toLowerCase())).size >= 6 ||
     (tokens.length >= 4 && navigationDensity >= 0.25) ||

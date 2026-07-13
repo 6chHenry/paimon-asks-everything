@@ -5,6 +5,8 @@ import type {
   SourceCredibility,
   SourceKind,
 } from "@/lib/domain";
+import { isCharacterArcQuestion } from "@/lib/entity-lexicon";
+import { normalizeSearchResultUrl } from "@/lib/search-result-url";
 import { emitTrace, type TraceEmitter } from "@/lib/trace";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import {
@@ -17,7 +19,6 @@ import {
   sourceGovernanceScore,
 } from "@/lib/source-governance";
 import { TtlCache } from "@/lib/ttl-cache";
-import { isCharacterArcQuestion } from "@/lib/entity-lexicon";
 import {
   decodeHtmlEntities,
   preferHigherQualityWebText,
@@ -1258,21 +1259,6 @@ function chineseQueriesFromEnglishClues(
   return [...localized, ...generic, ...titleQueries];
 }
 
-function normalizeResultUrl(rawUrl: string) {
-  try {
-    const parsed = new URL(rawUrl, "https://duckduckgo.com");
-    const redirected = parsed.searchParams.get("uddg");
-    if (redirected) return decodeURIComponent(redirected);
-    if (parsed.hostname === "r.search.yahoo.com") {
-      const match = parsed.pathname.match(/\/RU=([^/]+)\//u);
-      if (match?.[1]) return decodeURIComponent(match[1]);
-    }
-    return parsed.toString();
-  } catch {
-    return rawUrl;
-  }
-}
-
 function makeWebCitation({
   id,
   url,
@@ -1285,24 +1271,14 @@ function makeWebCitation({
   excerpt: string;
 }): Citation[] {
   if (!url || !title) return [];
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-    if (
-      hostname === "search.yahoo.com" ||
-      hostname === "images.search.yahoo.com" ||
-      hostname === "video.search.yahoo.com"
-    ) {
-      return [];
-    }
-  } catch {
-    return [];
-  }
-  const classification = classifyWebSource(url);
+  const destination = normalizeSearchResultUrl(url);
+  if (!destination) return [];
+  const classification = classifyWebSource(destination);
   const fallbackExcerpt =
     excerpt ||
     `General web search matched "${title}". Open the page and verify against primary sources.`;
   const assessment = assessSourceRule({
-    url,
+    url: destination,
     title,
     excerpt: fallbackExcerpt,
   });
@@ -1311,7 +1287,7 @@ function makeWebCitation({
     {
       id,
       title,
-      url,
+      url: destination,
       sourceName: classification.sourceName,
       sourceKind: legacy.sourceKind,
       credibility: legacy.credibility,
@@ -1354,11 +1330,63 @@ function looksLikeHtmlResponse(contentType: string | null, body: string) {
   );
 }
 
+function citationWithProvenance(
+  citation: Citation,
+  url: string,
+  excerpt: string,
+  options: { pageHtml?: string; resolvedFinalUrl?: boolean } = {},
+): Citation {
+  const classification = classifyWebSource(url);
+  const platform = platformForUrl(url);
+  const assessment = assessSourceRule({
+    url,
+    title: citation.title,
+    excerpt,
+    pageHtml: options.pageHtml,
+  });
+  const identitySignals = options.pageHtml
+    ? extractPublisherIdentity(url, options.pageHtml).signals
+    : [];
+  const legacy = legacySourceFields(assessment);
+  const sourceName =
+    assessment.platformKind === "official_site"
+      ? url.includes("mihoyo.com")
+        ? "米哈游《原神》官网"
+        : "HoYoverse"
+      : assessment.publisherKind === "genshin_official"
+        ? platform.platform === "bilibili"
+          ? "原神官方 · Bilibili"
+          : platform.platform === "youtube"
+            ? "Genshin Impact · YouTube"
+            : platform.platform === "miyoushe"
+              ? "原神官方 · 米游社"
+              : "Genshin Impact · HoYoLAB"
+        : classification.sourceName;
+  return {
+    ...citation,
+    url,
+    excerpt,
+    sourceName,
+    sourceKind: legacy.sourceKind,
+    credibility: legacy.credibility,
+    factStatus: legacy.factStatus,
+    assessment: {
+      ...assessment,
+      signals: Array.from(
+        new Set([
+          ...assessment.signals,
+          ...identitySignals,
+          ...(options.resolvedFinalUrl ? ["resolved-final-url"] : []),
+        ]),
+      ),
+    },
+  };
+}
+
 async function enrichWebCitationUncached(
   citation: Citation,
   options: { signal?: AbortSignal; question?: string } = {},
 ) {
-  let platform = platformForUrl(citation.url);
   const hostname = (() => {
     try {
       return new URL(citation.url).hostname.replace(/^www\./, "").toLowerCase();
@@ -1378,14 +1406,24 @@ async function enrichWebCitationUncached(
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.7",
       },
     });
-    if (!response.ok) return citation;
+    const finalUrl = normalizeSearchResultUrl(response.url || citation.url);
+    if (!finalUrl) return undefined;
+    const resolvedFinalUrl = finalUrl !== citation.url;
+    if (!response.ok) {
+      return resolvedFinalUrl
+        ? citationWithProvenance(citation, finalUrl, citation.excerpt, {
+            resolvedFinalUrl,
+          })
+        : citation;
+    }
     const html = (await response.text()).slice(0, 800_000);
     if (!looksLikeHtmlResponse(response.headers.get("Content-Type"), html)) {
-      return citation;
+      return resolvedFinalUrl
+        ? citationWithProvenance(citation, finalUrl, citation.excerpt, {
+            resolvedFinalUrl,
+          })
+        : citation;
     }
-    const finalUrl = response.url || citation.url;
-    platform = platformForUrl(finalUrl);
-    const identity = extractPublisherIdentity(finalUrl, html);
     const pageExcerpt = focusedExcerpt(
       htmlToText(html),
       options.question || `${citation.title} ${citation.excerpt}`,
@@ -1400,45 +1438,10 @@ async function enrichWebCitationUncached(
     const excerpt = relationshipSignalsPreserved
       ? preferHigherQualityWebText(citation.excerpt, pageExcerpt)
       : citation.excerpt;
-    const assessment = assessSourceRule({
-      url: finalUrl,
-      title: citation.title,
-      excerpt,
+    return citationWithProvenance(citation, finalUrl, excerpt, {
       pageHtml: html,
+      resolvedFinalUrl,
     });
-    const legacy = legacySourceFields(assessment);
-    return {
-      ...citation,
-      url: finalUrl,
-      excerpt,
-      sourceName:
-        assessment.platformKind === "official_site"
-          ? finalUrl.includes("mihoyo.com")
-            ? "米哈游《原神》官网"
-            : "HoYoverse"
-          : assessment.publisherKind === "genshin_official"
-          ? platform.platform === "bilibili"
-            ? "原神官方 · Bilibili"
-            : platform.platform === "youtube"
-              ? "Genshin Impact · YouTube"
-              : platform.platform === "miyoushe"
-                ? "原神官方 · 米游社"
-                : "Genshin Impact · HoYoLAB"
-          : citation.sourceName,
-      sourceKind: legacy.sourceKind,
-      credibility: legacy.credibility,
-      factStatus: legacy.factStatus,
-      assessment: {
-        ...assessment,
-        signals: Array.from(
-          new Set([
-            ...assessment.signals,
-            ...identity.signals,
-            ...(finalUrl !== citation.url ? ["resolved-final-url"] : []),
-          ]),
-        ),
-      },
-    };
   } catch {
     return citation;
   }
@@ -1459,7 +1462,7 @@ async function enrichWebCitation(
   const cached = pageEnrichmentCache.get(cacheKey);
   if (cached) return { ...cached, id: citation.id };
   const enriched = await enrichWebCitationUncached(citation, options);
-  pageEnrichmentCache.set(cacheKey, enriched);
+  if (enriched) pageEnrichmentCache.set(cacheKey, enriched);
   return enriched;
 }
 
@@ -1624,7 +1627,7 @@ async function searchDuckDuckGoWeb(
     ),
   ];
   return matches.slice(0, 4).flatMap((match, index) => {
-    const rawUrl = normalizeResultUrl(decodeHtml(match[1] ?? ""));
+    const rawUrl = normalizeSearchResultUrl(decodeHtml(match[1] ?? "")) ?? "";
     const title = decodeHtml(match[2] ?? "");
     const excerpt = decodeHtml(match[3] ?? "");
     return makeWebCitation({ id: `web-ddg-${index + 1}`, url: rawUrl, title, excerpt });
@@ -1652,7 +1655,7 @@ async function searchYahooWeb(
     ),
   ];
   return matches.slice(0, 4).flatMap((match, index) => {
-    const url = normalizeResultUrl(decodeHtml(match[1] ?? ""));
+    const url = normalizeSearchResultUrl(decodeHtml(match[1] ?? "")) ?? "";
     const title = decodeHtml(match[2] ?? "");
     const snippetMatch = (match[3] ?? "").match(/<p[^>]*>([\s\S]*?)<\/p>/i);
     const excerpt = decodeHtml(snippetMatch?.[1] ?? "");
@@ -1742,7 +1745,7 @@ export async function searchGeneralWeb(
       ),
   );
   const output = enriched.flatMap((result) =>
-    result.status === "fulfilled" ? [result.value] : [],
+    result.status === "fulfilled" && result.value ? [result.value] : [],
   );
   if (process.env.NODE_ENV !== "test" && output.length > 0) {
     generalSearchCache.set(cacheKey, output);
@@ -1936,7 +1939,7 @@ export async function searchWebEvidence(
       );
   return assessSources(
     enrichedCandidates.flatMap((result) =>
-      result.status === "fulfilled" ? [result.value] : [],
+      result.status === "fulfilled" && result.value ? [result.value] : [],
     ),
     { question, plan, useModel },
   );

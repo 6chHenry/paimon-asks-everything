@@ -258,15 +258,38 @@ describe("evidence quality", () => {
   });
 
   it("rejects live wiki browser and editing instructions", () => {
+    const clean = citation(
+      "clean-arc",
+      "角色剧情整理",
+      "失去父亲后，她一度把新的部族当作归属，认清背叛后决定自己选择未来。",
+    );
     const selected = selectAnswerEvidence(
       [
         citation(
           "live-wiki-ui",
-          "婕德与奔奔",
-          '首页 > 头像 > 婕德与奔奔 如果是第一次来,按"Ctrl+D"...按右上角“WIKI功能→编辑”...',
+          "角色条目",
+          "This site requires JavaScript enabled. Please check your browser settings... 欢迎正在阅读这个条目的旅行者协助 编辑本条目...萌娘百科祝各位旅行者在本站度过愉快的时光!",
         ),
+        clean,
       ],
       { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toEqual([expect.objectContaining({ id: "external-1" })]);
+    expect(selected[0]?.excerpt).toBe(cleanEvidenceText(clean.excerpt));
+  });
+
+  it("rejects unresolved search-result destinations as defense in depth", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "unresolved-yahoo",
+          "聊一聊角色的故事-社区",
+          "失去家人后寻找归属，最后决定独立前行。",
+          "https://www.yahoo.com/",
+        ),
+      ],
+      { question: "这个角色经历了怎样的变化？", intent: "story", language: "zh-CN" },
     );
 
     expect(selected).toEqual([]);

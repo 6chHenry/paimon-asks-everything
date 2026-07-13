@@ -1169,7 +1169,7 @@ describe("grounded generation", () => {
     ).toEqual([]);
   });
 
-  it("drops live wiki UI instructions from a cold character-arc fallback", async () => {
+  it("drops both final-live browser shell and unresolved search URL failures", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";
     delete process.env.https_proxy;
@@ -1185,25 +1185,39 @@ describe("grounded generation", () => {
     );
 
     const question = "婕德经历了怎样的变化？";
-    const dirty: Citation = {
-      id: "live-wiki-ui",
-      title: "婕德与奔奔",
-      url: "https://example.com/live-wiki-ui",
-      sourceName: "原神WIKI_BWIKI",
-      sourceKind: "trusted_wiki",
-      credibility: "trusted_wiki",
-      factStatus: "trusted_secondary",
-      excerpt:
-        '首页 > 头像 > 婕德与奔奔 如果是第一次来,按"Ctrl+D"...按右上角“WIKI功能→编辑”...',
-      external: true,
-      crossLanguage: false,
-    };
+    const dirty: Citation[] = [
+      {
+        id: "live-browser-shell",
+        title: "角色条目",
+        url: "https://example.com/live-browser-shell",
+        sourceName: "Reference Wiki",
+        sourceKind: "trusted_wiki",
+        credibility: "trusted_wiki",
+        factStatus: "trusted_secondary",
+        excerpt:
+          "This site requires JavaScript enabled. Please check your browser settings... 欢迎正在阅读这个条目的旅行者协助 编辑本条目...萌娘百科祝各位旅行者在本站度过愉快的时光!",
+        external: true,
+        crossLanguage: false,
+      },
+      {
+        id: "unresolved-search-result",
+        title: "聊一聊婕德的故事(剧透警告)-原神社区-米游社",
+        url: "https://www.yahoo.com/",
+        sourceName: "yahoo.com",
+        sourceKind: "unknown_web",
+        credibility: "unknown_web",
+        factStatus: "community_analysis",
+        excerpt: "婕德失去亲人后寻找归属，最终选择自己的道路。",
+        external: true,
+        crossLanguage: false,
+      },
+    ];
     const result = await generateGroundedResponse({
       question,
       language: "zh-CN",
       profile: "returning",
       entries: [],
-      external: [dirty],
+      external: dirty,
       understanding: ruleUnderstandQuestion(question, "zh-CN"),
     });
 

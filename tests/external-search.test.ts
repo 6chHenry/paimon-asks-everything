@@ -659,7 +659,7 @@ describe("whitelisted external search", () => {
         if (url.hostname === "www.sogou.com") {
           return new Response(
             `<div class="rb">
-              <h3 class="vr-title"><a href="/link?url=direct-story">富人与博士主线对话</a></h3>
+              <h3 class="vr-title"><a href="https://example.com/direct-story">富人与博士主线对话</a></h3>
               <div class="text-layout">博士曾为富人换肺，富人通过北国银行长期资助博士研究。</div>
             </div>`,
             { status: 200, headers: { "Content-Type": "text/html" } },
@@ -728,6 +728,166 @@ describe("whitelisted external search", () => {
         }),
       ]),
     );
+  });
+
+  it("drops a Yahoo root result even when its title and snippet look like a destination page", async () => {
+    const title = "聊一聊婕德的故事(剧透警告)-原神社区-米游社";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "search.yahoo.com") {
+          return new Response(
+            `<a href="https://www.yahoo.com/"><h3 class="title">${title}</h3></a><div><p>婕德失去亲人后寻找归属，最终选择自己的道路。</p></div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("婕德 剧情 经历", { enrich: false });
+
+    expect(results.some((citation) => citation.title === title)).toBe(false);
+  });
+
+  it("decodes a valid Yahoo RU target and classifies the decoded destination", async () => {
+    const target = "https://www.miyoushe.com/ys/article/35324992";
+    const ru = encodeURIComponent(target);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "search.yahoo.com") {
+          return new Response(
+            `<a href="https://r.search.yahoo.com/_ylt=test/RV=2/RE=1/RO=10/RU=${ru}/RK=2/RS=test"><h3 class="title">聊一聊婕德的故事</h3></a><div><p>婕德失去亲人后寻找归属，最终选择自己的道路。</p></div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("婕德 剧情 经历", { enrich: false });
+    const result = results.find((citation) => citation.url === target);
+
+    expect(result).toMatchObject({
+      url: target,
+      sourceName: "miyoushe.com",
+      sourceKind: "community",
+      credibility: "community",
+    });
+    expect(result?.assessment?.platformKind).toBe("community");
+  });
+
+  it("drops malformed Yahoo and DuckDuckGo redirects during citation creation", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "html.duckduckgo.com") {
+          return new Response(
+            `<a class="result__a" href="//duckduckgo.com/l/?uddg=%E0%A4%A">Malformed DDG result</a><div class="result__snippet">A story-shaped snippet.</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        if (url.hostname === "search.yahoo.com") {
+          return new Response(
+            `<a href="https://r.search.yahoo.com/_ylt=test/RU=%E0%A4%A/RS=test"><h3 class="title">Malformed Yahoo result</h3></a><div><p>A story-shaped snippet.</p></div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("character story", { enrich: false });
+
+    expect(results).toEqual([]);
+  });
+
+  it("recomputes provenance atomically when enrichment changes the destination host", async () => {
+    const finalUrl = "https://www.miyoushe.com/ys/article/35324992";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "html.duckduckgo.com") {
+          return new Response(
+            `<a class="result__a" href="https://origin.example/story">角色故事</a><div class="result__snippet">角色失去亲人后寻找归属，最后选择独立前行。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        if (url.hostname === "origin.example") {
+          const response = new Response(
+            "<main><p>角色失去亲人后寻找归属，认清背叛后选择独立前行。</p></main>",
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+          Object.defineProperty(response, "url", { value: finalUrl });
+          return response;
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("角色 剧情 经历");
+    const result = results.find((citation) => citation.url === finalUrl);
+
+    expect(result).toMatchObject({
+      sourceName: "miyoushe.com",
+      sourceKind: "community",
+      credibility: "community",
+      factStatus: "community_analysis",
+    });
+    expect(result?.assessment?.platformKind).toBe("community");
+    expect(result?.sourceName).not.toBe("origin.example");
+  });
+
+  it.each([
+    "https://www.yahoo.com/",
+    "https://r.search.yahoo.com/_ylt=test/RU=%E0%A4%A/RS=test",
+    "https://duckduckgo.com/l/?uddg=%E0%A4%A",
+  ])("drops a citation when enrichment resolves to an unusable destination: %s", async (finalUrl) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "html.duckduckgo.com") {
+          return new Response(
+            `<a class="result__a" href="https://origin.example/story">角色故事</a><div class="result__snippet">角色失去亲人后寻找归属，最后选择独立前行。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        if (url.hostname === "origin.example") {
+          const response = new Response("<main><p>Search interstitial</p></main>", {
+            status: 200,
+            headers: { "Content-Type": "text/html" },
+          });
+          Object.defineProperty(response, "url", { value: finalUrl });
+          return response;
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("角色 剧情 经历");
+
+    expect(results).toEqual([]);
   });
 
   it("keeps Pantalone-Dottore search terms scoped to that relationship", async () => {

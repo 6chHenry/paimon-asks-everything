@@ -1,5 +1,6 @@
 import type { Citation, Language } from "@/lib/domain";
 import type { SearchIntent } from "@/lib/external-search";
+import { isUnresolvedSearchResultUrl } from "@/lib/search-result-url";
 import {
   isChineseAnswerEvidence,
   isCharacterStoryQuestEvidence,
@@ -77,6 +78,7 @@ export function selectAnswerEvidence(
 ) {
   return citations
     .filter((citation) => {
+      if (isUnresolvedSearchResultUrl(citation.url)) return false;
       if (!cleanEvidenceText(citation.excerpt || citation.title)) return false;
       if (isUnusableWebEvidence(citation, input.intent)) return false;
       if (

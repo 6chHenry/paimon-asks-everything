@@ -5,6 +5,8 @@ import {
   decodeHtmlEntities,
   hasRepeatedSiteChrome,
   isNavigationHeavy,
+  isUnusableWebText,
+  looksLikeBrowserEditShell,
   looksLikeDialogueDump,
   preferHigherQualityWebText,
   webTextQualityScore,
@@ -46,6 +48,20 @@ describe("web text quality", () => {
 
     expect(isNavigationHeavy(liveExcerpt)).toBe(true);
     expect(webTextQualityScore(liveExcerpt)).toBe(Number.NEGATIVE_INFINITY);
+  });
+
+  it("hard-rejects a high-confidence browser and collaborative-edit shell", () => {
+    const liveExcerpt =
+      "This site requires JavaScript enabled. Please check your browser settings... 欢迎正在阅读这个条目的旅行者协助 编辑本条目...萌娘百科祝各位旅行者在本站度过愉快的时光!";
+    const cleanExcerpt =
+      "失去父亲后，她一度把新的部族当作归属，认清背叛后决定自己选择未来。";
+
+    expect(looksLikeBrowserEditShell(liveExcerpt)).toBe(true);
+    expect(isNavigationHeavy(liveExcerpt)).toBe(true);
+    expect(isUnusableWebText(liveExcerpt)).toBe(true);
+    expect(webTextQualityScore(liveExcerpt)).toBe(Number.NEGATIVE_INFINITY);
+    expect(looksLikeBrowserEditShell(cleanExcerpt)).toBe(false);
+    expect(isUnusableWebText(cleanExcerpt)).toBe(false);
   });
 
   it("detects an uncontextualized speaker-label dialogue dump", () => {
