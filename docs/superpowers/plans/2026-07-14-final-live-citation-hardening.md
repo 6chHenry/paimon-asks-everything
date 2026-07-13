@@ -194,3 +194,148 @@ Expected: every command exits 0, 15/15 static pages build, and port 3000 remains
 - [ ] **Step 4: Commit and report**
 
 Stage only the production/tests from Tasks 1-3 and commit with `fix: harden live citation boundaries`. Append RED/GREEN counts, full verification, commit, files, self-review, and concerns to the ignored live-fix report.
+
+---
+
+## P1 Review Follow-up
+
+### Task 4: Preserve reserved query encoding while decoding redirects
+
+**Files:**
+- Modify: `lib/search-result-url.ts`
+- Modify: `tests/search-result-url.test.ts`
+
+**Interfaces:**
+- Refines: `normalizeSearchResultUrl(rawUrl: string): string | undefined`
+- Preserves: already-valid absolute HTTP(S) candidates exactly through URL serialization
+
+- [ ] **Step 1: Write failing Yahoo and DuckDuckGo regressions**
+
+```ts
+const target = "https://example.com/story?q=a%26b";
+expect(normalizeSearchResultUrl(yahooRuFor(target))).toBe(target);
+expect(normalizeSearchResultUrl(ddgRedirectFor(target))).toBe(target);
+```
+
+Include `%3D` in a second target or query value. Assert exact output, not decoded semantic equivalence.
+
+- [ ] **Step 2: Verify RED**
+
+Run: `npm test -- tests/search-result-url.test.ts`
+
+Expected: current two-pass decoding turns `%26` into `&` and fails exact equality.
+
+- [ ] **Step 3: Stop at the first absolute HTTP(S) candidate**
+
+Refactor `safeDecodeRedirectValue` so each loop performs one `decodeURIComponent`, then immediately checks:
+
+```ts
+function absoluteHttpUrl(value: string) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? parsed.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+```
+
+Return the first valid absolute candidate; continue only when the candidate is still a wrapper encoding. Malformed decoding still returns no target.
+
+- [ ] **Step 4: Verify GREEN**
+
+Run the same one-file command. Expected: all URL tests pass.
+
+### Task 5: Complete unresolved search-engine path coverage
+
+**Files:**
+- Modify: `lib/search-result-url.ts`
+- Modify: `tests/search-result-url.test.ts`
+
+**Interfaces:**
+- Refines: internal `isSearchEnginePage(url: URL): boolean`
+
+- [ ] **Step 1: Write exact failing rejection cases**
+
+```ts
+const unresolved = [
+  "https://www.google.com/webhp",
+  "https://www.google.co.uk/advanced_search",
+  "https://www.bing.com/images/search?q=story",
+  "https://cn.bing.com/videos/search?q=story",
+  "https://tw.search.yahoo.com/",
+  "https://images.search.yahoo.com/search/images?p=story",
+];
+for (const url of unresolved) {
+  expect(normalizeSearchResultUrl(url)).toBeUndefined();
+}
+expect(normalizeSearchResultUrl("https://news.yahoo.com/story/123")).toBe(
+  "https://news.yahoo.com/story/123",
+);
+```
+
+- [ ] **Step 2: Verify RED**
+
+Run: `npm test -- tests/search-result-url.test.ts`
+
+Expected: the newly listed engine paths/hosts survive before the guard is expanded.
+
+- [ ] **Step 3: Expand host/path predicates**
+
+Add `/webhp` and `/advanced_search` to Google search paths, `/images/search` and `/videos/search` to Bing search paths, and treat hosts equal to or ending in `.search.yahoo.com` as unresolved search hosts. Keep `news.yahoo.com` and ordinary non-engine targets valid.
+
+- [ ] **Step 4: Verify GREEN**
+
+Run the same one-file command. Expected: exact engine cases reject and content controls pass.
+
+### Task 6: Require an explicit collaborative edit relation
+
+**Files:**
+- Modify: `lib/web-text-quality.ts`
+- Modify: `tests/web-text-quality.test.ts`
+- Verify: `tests/evidence-quality.test.ts`
+
+**Interfaces:**
+- Refines: `looksLikeBrowserEditShell(value: string): boolean`
+
+- [ ] **Step 1: Write exact clean false-positive controls**
+
+```ts
+expect(
+  looksLikeBrowserEditShell(
+    "欢迎阅读本页面的剧情分析，本文将帮助你理解角色的成长。",
+  ),
+).toBe(false);
+expect(
+  looksLikeBrowserEditShell(
+    "Welcome to this page. This article will help readers understand the character arc.",
+  ),
+).toBe(false);
+```
+
+Retain the exact live fixture assertion as true and assert both clean controls remain usable.
+
+- [ ] **Step 2: Verify RED**
+
+Run: `npm test -- tests/web-text-quality.test.ts tests/evidence-quality.test.ts`
+
+Expected: both clean controls are currently classified as edit shells.
+
+- [ ] **Step 3: Implement bounded ordered edit relations**
+
+Use explicit ordered relations rather than independent token presence:
+
+```ts
+const chineseCollaborativeEdit =
+  /(?:协助|帮助)[\s\S]{0,30}编辑[\s\S]{0,20}(?:条目|页面|词条)/u.test(text);
+const englishCollaborativeEdit =
+  /(?:assist|help)[\s\S]{0,40}edit[\s\S]{0,20}(?:entry|page)/iu.test(text);
+```
+
+Combine either relation with the existing welcome/read context. Keep the independent JavaScript/browser-settings pair unchanged.
+
+- [ ] **Step 4: Run final verification and commit**
+
+Run focused URL/text/evidence/external/generation tests, expanded pipeline tests, `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`. Commit production and tests with `fix: close citation boundary review gaps`, then append counts and self-review to the ignored live-fix report.
