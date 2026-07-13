@@ -17,6 +17,10 @@ import {
   sourceGovernanceScore,
 } from "@/lib/source-governance";
 import { TtlCache } from "@/lib/ttl-cache";
+import {
+  decodeHtmlEntities,
+  preferHigherQualityWebText,
+} from "@/lib/web-text-quality";
 
 interface MediaWikiProvider {
   apiUrl: string;
@@ -262,17 +266,7 @@ function normalizeChineseVariants(value: string) {
 }
 
 function decodeHtml(value: string) {
-  return stripHtml(value)
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&apos;/g, "'")
-    .replace(/&#x([0-9a-f]+);/giu, (_match, code) =>
-      String.fromCodePoint(Number.parseInt(code, 16)),
-    )
-    .replace(/&#(\d+);/gu, (_match, code) =>
-      String.fromCodePoint(Number.parseInt(code, 10)),
-    );
+  return decodeHtmlEntities(stripHtml(value));
 }
 
 function htmlToText(value: string) {
@@ -1344,12 +1338,12 @@ async function enrichWebCitationUncached(
       citation.excerpt,
     );
     const pageInteractionSignals = relationshipInteractionSignalCount(pageExcerpt);
-    const excerpt =
-      pageExcerpt &&
-      (originalInteractionSignals === 0 ||
-        pageInteractionSignals >= originalInteractionSignals)
-        ? pageExcerpt
-        : citation.excerpt;
+    const relationshipSignalsPreserved =
+      originalInteractionSignals === 0 ||
+      pageInteractionSignals >= originalInteractionSignals;
+    const excerpt = relationshipSignalsPreserved
+      ? preferHigherQualityWebText(citation.excerpt, pageExcerpt)
+      : citation.excerpt;
     const assessment = assessSourceRule({
       url: finalUrl,
       title: citation.title,

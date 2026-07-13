@@ -5,6 +5,12 @@ import {
   isCharacterStoryQuestEvidence,
   type SearchPlan,
 } from "@/lib/external-search";
+import {
+  cleanWebText,
+  hasRepeatedSiteChrome,
+  isNavigationHeavy,
+  looksLikeDialogueDump,
+} from "@/lib/web-text-quality";
 
 const genericPagePattern =
   /欢迎来到|开放编辑|游戏数据库|图鉴资料|攻略内容|contents?\s+\d|navigation|overview\s+profile\s+storyline\s+voice-overs|dressing room\s+companion\s+gallery|wiki.*database|open(?:ly)? edited|game database/iu;
@@ -12,17 +18,7 @@ const gameplayPattern =
   /\/技能|\/天赋|\/命座|技能|天赋|命座|普通攻击|元素战技|元素爆发|长按|抗打断|倍率|冷却|伤害|skill|talent|constellation|normal attack|elemental skill|elemental burst|cooldown|damage/iu;
 
 export function cleanEvidenceText(value: string) {
-  return value
-    .normalize("NFKC")
-    .replace(/[\u00ad\u200b-\u200f\u202a-\u202e\u2060\ufeff]/gu, "")
-    .replace(/\[(?:\d{1,3}|编辑|edit)\]/giu, "")
-    .replace(/\bToggle\b(?:\s+\w+){0,3}/giu, "")
-    .replace(/\bContents?\b(?:\s+\d+(?:\.\d+)*)*/giu, "")
-    .replace(/\bGallery\b|\bChange History\b|\bReferences\b|\bNavigation\b/giu, "")
-    .replace(/&n(?:s)?bp;|&nbsp;/giu, " ")
-    .replace(/\s+/gu, " ")
-    .replace(/^[。；，、,.!?：:\s]+/u, "")
-    .trim();
+  return cleanWebText(value);
 }
 
 export function compactCleanEvidence(value: string, maxLength = 700) {
@@ -67,6 +63,13 @@ function looksLikeGameplayQuestion(question: string) {
   );
 }
 
+function isUnusableWebEvidence(citation: Citation, intent: SearchIntent) {
+  const text = `${citation.title} ${citation.excerpt}`;
+  if (hasRepeatedSiteChrome(text) || isNavigationHeavy(text)) return true;
+  if (intent === "story" && looksLikeDialogueDump(citation.excerpt)) return true;
+  return false;
+}
+
 export function selectAnswerEvidence(
   citations: Citation[],
   input: {
@@ -79,6 +82,7 @@ export function selectAnswerEvidence(
   return citations
     .filter((citation) => {
       if (!cleanEvidenceText(citation.excerpt || citation.title)) return false;
+      if (isUnusableWebEvidence(citation, input.intent)) return false;
       if (
         input.language === "zh-CN" &&
         !isChineseAnswerEvidence(citation)

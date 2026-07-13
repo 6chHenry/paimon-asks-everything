@@ -146,4 +146,46 @@ describe("evidence quality", () => {
     expect(selected).toHaveLength(1);
     expect(selected[0]?.title).toContain("换肺");
   });
+
+  it("decodes HTML entities before evidence reaches generation", () => {
+    expect(cleanEvidenceText("婕德：她会孤独吗&hellip;")).toBe(
+      "婕德:她会孤独吗…",
+    );
+  });
+
+  it("rejects duplicated site chrome for a character-arc answer", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "chrome",
+          "旅行者创作平台-观测枢-原神wiki",
+          "旅行者创作平台-观测枢-原神wiki旅行者创作平台-观测枢-原神wiki",
+        ),
+        citation(
+          "arc",
+          "因为她的罪恶滔天…",
+          "婕德发现芭别尔的陷害后与塔尼特决裂，并决定选择自己的道路。",
+        ),
+      ],
+      { question: "婕德经历了怎么的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toBe("因为她的罪恶滔天…");
+  });
+
+  it("rejects a standalone dialogue dump for a character-arc answer", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "dialogue",
+          "婕德对话",
+          "婕德：那个家伙让我不爽。婕德：现在安静了。婕德：她会孤独吗？婕德：真可惜。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toEqual([]);
+  });
 });

@@ -638,6 +638,50 @@ describe("whitelisted external search", () => {
     );
   });
 
+  it("does not replace a clean search snippet with noisy fetched page chrome", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "html.duckduckgo.com") {
+          return new Response(
+            `<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fjeht-arc">婕德剧情变化</a>
+             <div class="result__snippet">婕德发现芭别尔的陷害后与塔尼特决裂，并选择自己的道路。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        if (url.hostname === "example.com") {
+          return new Response(
+            `<html><body>Created with Sketch 首页 新闻 公告 攻略 图鉴 角色 武器 圣遗物 社区 编辑
+             旅行者创作平台-观测枢-原神wiki旅行者创作平台-观测枢-原神wiki</body></html>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        if (url.searchParams.get("prop") === "extracts") {
+          return new Response(JSON.stringify({ query: { pages: {} } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("婕德 剧情 变化");
+
+    expect(results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: "https://example.com/jeht-arc",
+          excerpt: "婕德发现芭别尔的陷害后与塔尼特决裂，并选择自己的道路。",
+        }),
+      ]),
+    );
+  });
+
   it("keeps Pantalone-Dottore search terms scoped to that relationship", async () => {
     const searchedQueries: string[] = [];
     vi.stubGlobal(
