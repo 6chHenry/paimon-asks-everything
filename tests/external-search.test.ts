@@ -830,6 +830,110 @@ describe("whitelisted external search", () => {
     },
   );
 
+  it.each([
+    ["婕德经历了怎样的变化？", "finite-standard"],
+    ["婕德经历了怎么的变化？", "finite-typo"],
+  ])(
+    "prioritizes decisive arc context over six finite curated profiles in a mandatory bucket: %s",
+    (question, rawVariant) => {
+      const plan = normalizeSearchPlan(
+        {
+          coreEntities: ["婕德"],
+          aliases: [],
+          intent: "story",
+          storyScope: "character_arc",
+          queries: [question, "婕德 剧情 经历", "婕德 结局 变化"],
+        },
+        question,
+      );
+      const makeCandidate = (
+        id: string,
+        title: string,
+        excerpt: string,
+        kind: "wiki" | "community" = "wiki",
+      ): Citation => ({
+        id,
+        title,
+        url: `https://example.com/${rawVariant}/${id}`,
+        sourceName: kind === "wiki" ? "Curated Wiki" : "Community Analysis",
+        sourceKind: kind === "wiki" ? "trusted_wiki" : "community",
+        credibility: kind === "wiki" ? "trusted_wiki" : "community",
+        factStatus:
+          kind === "wiki" ? "trusted_secondary" : "community_analysis",
+        excerpt,
+        external: true,
+        crossLanguage: false,
+        assessment:
+          kind === "wiki"
+            ? {
+                platformKind: "official_operated_wiki",
+                publisherKind: "verified_aggregator",
+                contentKind: "character_profile",
+                authority: "curated_reference",
+                signals: ["curated-character-profile"],
+                confidence: "high",
+              }
+            : {
+                platformKind: "community",
+                publisherKind: "unknown",
+                contentKind: "lore_analysis",
+                authority: "community_analysis",
+                signals: ["story-analysis"],
+                confidence: "low",
+              },
+      });
+      const raw = Array.from({ length: 14 }, (_, index) =>
+        makeCandidate(
+          `raw-${index}`,
+          `婕德资料 ${rawVariant} ${index}`,
+          `婕德人物资料与基础档案 ${rawVariant} ${index}。`,
+        ),
+      );
+      const shallowProfiles = Array.from({ length: 6 }, (_, index) =>
+        makeCandidate(
+          `profile-${index}`,
+          `婕德人物资料与基础档案 ${index}`,
+          `婕德人物资料与基础档案，收录角色名称、分类与页面索引 ${index}。`,
+        ),
+      );
+      const decisiveArc = makeCandidate(
+        "decisive-arc",
+        "婕德的选择",
+        "失去父亲后，她渴望新的归属；认清操控与背叛后，她与虚假的家庭决裂，决定不再依附他人并由自己选择未来。",
+        "community",
+      );
+      const endingProfiles = Array.from({ length: 6 }, (_, index) =>
+        makeCandidate(
+          `ending-profile-${index}`,
+          `婕德结局资料与基础档案 ${index}`,
+          `婕德结局变化资料索引，收录角色名称、分类与页面条目 ${index}。`,
+        ),
+      );
+
+      const selected = balanceCharacterArcCandidateBuckets(
+        [
+          { query: question, candidates: raw },
+          {
+            query: "婕德 剧情 经历",
+            candidates: [...shallowProfiles, decisiveArc],
+          },
+          { query: "婕德 结局 变化", candidates: endingProfiles },
+        ],
+        plan,
+        question,
+      );
+      const canonicalUrls = selected.map((candidate) =>
+        candidate.url.replace(/#.*$/u, "").toLowerCase(),
+      );
+
+      expect(selected.map((candidate) => candidate.id)).toContain("decisive-arc");
+      expect(selected.filter((candidate) => candidate.id.startsWith("raw-")))
+        .toHaveLength(4);
+      expect(new Set(canonicalUrls).size).toBe(selected.length);
+      expect(selected.length).toBeLessThanOrEqual(16);
+    },
+  );
+
   it("rejects incidental story mentions on pages titled for another subject", () => {
     const plan = normalizeSearchPlan(
       {

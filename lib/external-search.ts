@@ -1047,6 +1047,41 @@ function citationTextQuality(citation: Citation) {
   return webTextQualityScore(`${citation.title} ${citation.excerpt}`);
 }
 
+const characterArcActionPattern =
+  /失去|渴望|寻找|尋找|加入|离开|離開|操控|利用|欺骗|欺騙|背叛|认清|認清|发现|發現|拒绝|拒絕|决裂|決裂|反抗|选择|選擇|决定|決定|独立|獨立|成长|成長|改变|改變|转变|轉變|lose|lost|loss|long(?:ed|ing)?\s+for|search(?:ed|ing)?\s+for|join(?:ed|ing)?|leave|left|manipulat(?:e|ed|ion)|exploit(?:ed|ation)?|deceiv(?:e|ed)|betray(?:al|ed)?|realiz(?:e|ed)|discover(?:ed)?|refus(?:e|ed)|break\s+(?:away|with)|rebel(?:led|lion)?|cho(?:ose|se|sen)|decid(?:e|ed)|independen(?:t|ce)|grow|grew|growth|chang(?:e|ed)|transform(?:ed|ation)?/giu;
+const characterArcTurningPointPattern =
+  /起初|最初|后来|後來|此后|此後|最终|最終|从此|從此|转折|轉折|转机|轉機|不再|开始|開始|after|before|later|eventually|finally|turning\s+point|no\s+longer|began|started/giu;
+
+function characterArcRelevanceScore(
+  citation: Citation,
+  bucketQuery: string,
+  plan: SearchPlan,
+) {
+  const title = normalizedExcerptText(citation.title);
+  const excerpt = normalizedExcerptText(citation.excerpt);
+  const entityTerms = [...plan.coreEntities, ...plan.aliases]
+    .map(normalizedExcerptText)
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  const queryWithoutEntities = entityTerms.reduce(
+    (query, entity) => query.split(entity).join(" "),
+    normalizedExcerptText(bucketQuery),
+  );
+  const mandatoryTerms = queryWithoutEntities
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((term) => term.length >= 2);
+  const queryScore = mandatoryTerms.reduce(
+    (score, term) =>
+      score + (title.includes(term) ? 8 : 0) + (excerpt.includes(term) ? 4 : 0),
+    0,
+  );
+  const text = `${citation.title} ${citation.excerpt}`;
+  const actionScore = (text.match(characterArcActionPattern) ?? []).length * 20;
+  const turningPointScore =
+    (text.match(characterArcTurningPointPattern) ?? []).length * 10;
+  return queryScore + actionScore + turningPointScore;
+}
+
 export interface CharacterArcCandidateBucket {
   query: string;
   candidates: Citation[];
@@ -1058,7 +1093,7 @@ export function balanceCharacterArcCandidateBuckets(
   question: string,
   limit = 16,
 ) {
-  const bucketCandidates = buckets.map((bucket) => {
+  const bucketCandidates = buckets.map((bucket, bucketIndex) => {
     const unique = new Map<string, Citation>();
     for (const citation of bucket.candidates) {
       if (citationTextQuality(citation) === Number.NEGATIVE_INFINITY) continue;
@@ -1074,10 +1109,20 @@ export function balanceCharacterArcCandidateBuckets(
         citation,
       ]),
     );
-    return dedupeAndRank([...unique.values()], plan, question).flatMap(
+    const ranked = dedupeAndRank([...unique.values()], plan, question).flatMap(
       (citation) =>
         candidatesByCanonicalUrl.get(canonicalCitationUrl(citation.url)) ?? [],
     );
+    if (bucketIndex === 0) return ranked;
+    return ranked
+      .map((citation, rankIndex) => ({ citation, rankIndex }))
+      .sort(
+        (a, b) =>
+          characterArcRelevanceScore(b.citation, bucket.query, plan) -
+            characterArcRelevanceScore(a.citation, bucket.query, plan) ||
+          a.rankIndex - b.rankIndex,
+      )
+      .map(({ citation }) => citation);
   });
 
   const winners = new Map<
