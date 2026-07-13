@@ -202,6 +202,15 @@ describe("chat stream route", () => {
             JSON.stringify({
               query: {
                 pages: {
+                  ...Object.fromEntries(
+                    Array.from({ length: 14 }, (_, index) => [
+                      String(7100 + index),
+                      {
+                        pageid: 7100 + index,
+                        extract: `婕德人物资料与基础档案 ${index}。`,
+                      },
+                    ]),
+                  ),
                   "7001": {
                     pageid: 7001,
                     extract:
@@ -244,43 +253,57 @@ describe("chat stream route", () => {
           });
         }
         if (url.searchParams.get("list") === "search") {
+          const providerQuery = url.searchParams.get("srsearch");
+          const searchResults =
+            providerQuery === question
+              ? Array.from({ length: 14 }, (_, index) => ({
+                  title: `婕德人物资料 ${index}`,
+                  snippet: `婕德人物资料与基础档案 ${index}。`,
+                  pageid: 7100 + index,
+                }))
+              : providerQuery === "婕德 剧情 经历"
+                ? [
+                    {
+                      title: "婕德剧情经历：永恒的葱茏之梦",
+                      snippet:
+                        "婕德的剧情经历始于失去亲人后寻找新的归属，并加入塔尼特。",
+                      pageid: 7001,
+                    },
+                    {
+                      title: "婕德与奔奔-旅行者创作平台-观测枢-原神wiki",
+                      snippet:
+                        "Created with Sketch 任务攻略 任务流程 前置任务 后续任务&hellip;",
+                      pageid: 7003,
+                    },
+                    {
+                      title: "婕德对话记录",
+                      snippet: "多人对话逐句记录。",
+                      pageid: 7005,
+                    },
+                  ]
+                : [
+                    {
+                      title: "婕德结局变化：因为她的罪恶滔天…",
+                      snippet:
+                        "婕德的结局变化是认清操控与背叛后同塔尼特决裂，选择自己的道路。",
+                      pageid: 7002,
+                    },
+                    {
+                      title: "娜布·玛莉卡塔",
+                      snippet: "资料索引偶然提到婕德。",
+                      pageid: 7004,
+                    },
+                    {
+                      title: "婕德与奔奔",
+                      snippet:
+                        '首页 > 头像 > 婕德与奔奔 如果是第一次来,按"Ctrl+D"...按右上角“WIKI功能→编辑”...',
+                      pageid: 7006,
+                    },
+                  ];
           return new Response(
             JSON.stringify({
               query: {
-                search: [
-                  {
-                    title: "婕德剧情经历：永恒的葱茏之梦",
-                    snippet: "婕德的剧情经历始于失去亲人后寻找新的归属，并加入塔尼特。",
-                    pageid: 7001,
-                  },
-                  {
-                    title: "婕德结局变化：因为她的罪恶滔天…",
-                    snippet: "婕德的结局变化是认清操控与背叛后同塔尼特决裂，选择自己的道路。",
-                    pageid: 7002,
-                  },
-                  {
-                    title: "婕德与奔奔-旅行者创作平台-观测枢-原神wiki",
-                    snippet:
-                      "Created with Sketch 任务攻略 任务流程 前置任务 后续任务&hellip;",
-                    pageid: 7003,
-                  },
-                  {
-                    title: "娜布·玛莉卡塔",
-                    snippet: "资料索引偶然提到婕德。",
-                    pageid: 7004,
-                  },
-                  {
-                    title: "婕德对话记录",
-                    snippet: "多人对话逐句记录。",
-                    pageid: 7005,
-                  },
-                  {
-                    title: "婕德与奔奔",
-                    snippet:
-                      '首页 > 头像 > 婕德与奔奔 如果是第一次来,按"Ctrl+D"...按右上角“WIKI功能→编辑”...',
-                    pageid: 7006,
-                  },
-                ],
+                search: searchResults,
               },
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },
@@ -355,6 +378,11 @@ describe("chat stream route", () => {
     expect(result.answer).toContain("替代家庭");
     expect(result.answer).toContain("操控与背叛");
     expect(result.answer).toContain("自己选择前路");
+    expect(result.answer).not.toContain("目前找到的资料还不足以稳妥回答");
+    expect(result.answerParagraphs).toHaveLength(4);
+    expect(
+      result.answerParagraphs?.every((paragraph) => paragraph.citationIds.length > 0),
+    ).toBe(true);
     const answerBearingIds = new Set(
       result.answerParagraphs?.flatMap((paragraph) => paragraph.citationIds) ?? [],
     );

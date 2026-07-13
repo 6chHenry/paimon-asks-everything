@@ -162,6 +162,46 @@ export function looksLikeDialogueDump(value: string) {
   );
 }
 
+export function looksLikeShortRawDialogue(value: string) {
+  const text = value.normalize("NFKC");
+  if (!/^\s*[\p{L}\p{N}·]{1,16}\s*[:：]/u.test(text)) return false;
+
+  const labeledTurns = Array.from(
+    text.matchAll(
+      /(?:^|[\s。！？!?….]+)([\p{L}\p{N}·]{1,16})\s*[:：]/gu,
+    ),
+  );
+  return labeledTurns.length >= 2;
+}
+
+export function looksLikeSiteDescriptionShell(value: string) {
+  const intro = value.normalize("NFKC").slice(0, 220);
+  const hasSiteIdentityNoun =
+    /社区|平台|网站|论坛|门户|站点|\bwiki\b|\bcommunity\b|\bplatform\b|\bwebsite\b|\bsite\b|\bforum\b|\bportal\b/iu.test(
+      intro,
+    );
+  const hasIdentityRelation =
+    /(?:是|属于|隶属于|旗下|由[\s\S]{0,30}(?:运营|创办|维护))|\b(?:is|belongs\s+to|owned\s+by|operated\s+by|run\s+by)\b/iu.test(
+      intro,
+    );
+  const hasOfficialSiteIdentity =
+    /官方(?:社区|网站|平台|论坛|门户|站点)|\bofficial[\s-]*(?:community|site|website|platform|forum|portal)\b/iu.test(
+      intro,
+    );
+  const catalogTerms = intro.match(
+    /资讯|新闻|攻略|图鉴|活动|下载|礼包|作品|数据库|\bnews\b|\bguides?\b|\bcatalog\b|\bdatabase\b|\bevents?\b|\bdownloads?\b|\bresources?\b/giu,
+  ) ?? [];
+  const distinctCatalogTerms = new Set(
+    catalogTerms.map((term) => term.normalize("NFKC").toLowerCase()),
+  );
+
+  return (
+    hasSiteIdentityNoun &&
+    hasIdentityRelation &&
+    (hasOfficialSiteIdentity || distinctCatalogTerms.size >= 2)
+  );
+}
+
 export function isUnusableWebText(
   value: string,
   options: { rejectDialogue?: boolean } = {},
@@ -170,6 +210,7 @@ export function isUnusableWebText(
     containsUnrenderedHtmlEntity(cleanWebText(value)) ||
     hasRepeatedSiteChrome(value) ||
     isNavigationHeavy(value) ||
+    looksLikeSiteDescriptionShell(value) ||
     (options.rejectDialogue === true && looksLikeDialogueDump(value))
   );
 }

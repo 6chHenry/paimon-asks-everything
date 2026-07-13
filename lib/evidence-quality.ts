@@ -9,6 +9,7 @@ import {
 import {
   cleanWebText,
   isUnusableWebText,
+  looksLikeShortRawDialogue,
 } from "@/lib/web-text-quality";
 
 const genericPagePattern =
@@ -64,6 +65,9 @@ function looksLikeGameplayQuestion(question: string) {
 
 function isUnusableWebEvidence(citation: Citation, intent: SearchIntent) {
   const text = `${citation.title} ${citation.excerpt}`;
+  if (intent === "story" && looksLikeShortRawDialogue(citation.excerpt)) {
+    return true;
+  }
   return isUnusableWebText(text, { rejectDialogue: intent === "story" });
 }
 

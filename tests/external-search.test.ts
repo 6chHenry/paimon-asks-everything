@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  balanceCharacterArcCandidateBuckets,
   classifyWebSource,
   isCharacterStoryQuestEvidence,
   normalizeSearchPlan,
@@ -602,6 +603,97 @@ describe("whitelisted external search", () => {
       selected.some((citation) => citation.url.includes("BV-direct-dialogue")),
     ).toBe(true);
   });
+
+  it.each([
+    "婕德经历了怎样的变化？",
+    "婕德经历了怎么的变化？",
+  ])(
+    "reserves mandatory character-arc candidates when the raw query is shallow: %s",
+    (question) => {
+      const makeCandidate = (
+        id: string,
+        url: string,
+        title: string,
+        excerpt: string,
+      ): Citation => ({
+        id,
+        title,
+        url,
+        sourceName: "Test",
+        sourceKind: "trusted_wiki",
+        credibility: "trusted_wiki",
+        factStatus: "trusted_secondary",
+        excerpt,
+        external: true,
+        crossLanguage: false,
+      });
+      const raw = Array.from({ length: 14 }, (_, index) =>
+        makeCandidate(
+          `raw-${index}`,
+          index === 0
+            ? "https://example.com/shared-source#raw"
+            : `https://example.com/raw-${index}`,
+          `婕德资料 ${index}`,
+          `婕德人物资料与基础档案 ${index}`,
+        ),
+      );
+      const firstMandatory = Array.from({ length: 6 }, (_, index) =>
+        makeCandidate(
+          `start-${index}`,
+          index === 0
+            ? "https://example.com/shared-source"
+            : `https://example.com/start-${index}`,
+          index === 0 ? "永恒的葱茏之梦" : `婕德经历 ${index}`,
+          `婕德在失去父亲后寻找新的归属，这是她经历变化的起点 ${index}。`,
+        ),
+      );
+      const secondMandatory = Array.from({ length: 6 }, (_, index) =>
+        makeCandidate(
+          `end-${index}`,
+          index === 0
+            ? "https://example.com/start-1"
+            : `https://example.com/end-${index}`,
+          index === 0 ? "因为她的罪恶滔天：完整剧情" : `婕德结局 ${index}`,
+          index === 0
+            ? "婕德认清芭别尔的利用后与虚假的家族决裂，并开始以自己的判断选择道路。"
+            : `婕德认清背叛后决定独立前行，这是她结局中的变化 ${index}。`,
+        ),
+      );
+
+      const selected = balanceCharacterArcCandidateBuckets([
+        { query: question, candidates: raw },
+        { query: "婕德 剧情 经历", candidates: firstMandatory },
+        { query: "婕德 结局 变化", candidates: secondMandatory },
+      ]);
+      const canonicalUrls = selected.map((candidate) =>
+        candidate.url.replace(/#.*$/u, "").toLowerCase(),
+      );
+
+      expect(selected).toHaveLength(15);
+      expect(new Set(canonicalUrls).size).toBe(selected.length);
+      expect(selected.filter((candidate) => candidate.id.startsWith("raw-")))
+        .toHaveLength(4);
+      expect(selected.map((candidate) => candidate.id)).toEqual(
+        expect.arrayContaining([
+          "start-0",
+          "start-2",
+          "start-3",
+          "start-4",
+          "start-5",
+          "end-0",
+          "end-1",
+          "end-2",
+          "end-3",
+          "end-4",
+          "end-5",
+        ]),
+      );
+      expect(selected.find((candidate) => candidate.url.includes("start-1"))?.id)
+        .toBe("end-0");
+      expect(selected.find((candidate) => candidate.url.includes("shared-source"))?.id)
+        .toBe("start-0");
+    },
+  );
 
   it("rejects incidental story mentions on pages titled for another subject", () => {
     const plan = normalizeSearchPlan(

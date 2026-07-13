@@ -1278,6 +1278,49 @@ describe("grounded generation", () => {
     expect(result.external[0]?.sourceName).toBe("剧情文本索引");
   });
 
+  it("returns no external or cited evidence when a cold character-arc fallback has only a short transcript", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("cold_start_timeout");
+    }));
+
+    const question = "婕德经历了怎样的变化？";
+    const result = await generateGroundedResponse({
+      question,
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [
+        {
+          id: "short-transcript",
+          title: "婕德讨论",
+          url: "https://example.com/short-transcript",
+          sourceName: "社区讨论",
+          sourceKind: "community",
+          credibility: "community",
+          factStatus: "community_analysis",
+          excerpt: "派蒙:想念婕德和奔奔了... 冻梨:你还别说，这段剧情确实让人难忘。",
+          external: true,
+          crossLanguage: false,
+        },
+      ],
+      understanding: ruleUnderstandQuestion(question, "zh-CN"),
+    });
+
+    expect(result.answer).toBe("派蒙暂时没找到足够可靠的资料，先不乱下结论。");
+    expect(result.external).toEqual([]);
+    expect(result.citedSourceIds).toEqual([]);
+    expect(
+      result.answerParagraphs?.flatMap((paragraph) => paragraph.citationIds) ?? [],
+    ).toEqual([]);
+  });
+
   it("keeps a coherent cited character-arc answer from clean Chinese evidence", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";
@@ -1299,11 +1342,19 @@ describe("grounded generation", () => {
                     content: JSON.stringify({
                       paragraphs: [
                         {
-                          text: "婕德在失去父亲后渴望归属，因此加入塔尼特并把芭别尔视作家人。",
+                          text: "婕德在失去父亲后渴望归属。",
                           citationIds: ["external-1"],
                         },
                         {
-                          text: "认清芭别尔的陷害后，她与虚假的家族决裂，决定选择自己的道路。",
+                          text: "她因此加入塔尼特，并把芭别尔视作家人。",
+                          citationIds: ["external-1"],
+                        },
+                        {
+                          text: "认清芭别尔的陷害与操控后，她与虚假的家族决裂。",
+                          citationIds: ["external-2"],
+                        },
+                        {
+                          text: "最终她不再依附别人给出的归属，决定选择自己的道路。",
                           citationIds: ["external-2"],
                         },
                       ],
@@ -1374,6 +1425,11 @@ describe("grounded generation", () => {
     expect(result.answer).toContain("失去父亲后渴望归属");
     expect(result.answer).toContain("认清芭别尔的陷害");
     expect(result.answer).toContain("选择自己的道路");
+    expect(result.answer).not.toContain("目前找到的资料还不足以稳妥回答");
+    expect(result.answerParagraphs).toHaveLength(4);
+    expect(
+      result.answerParagraphs?.every((paragraph) => paragraph.citationIds.length > 0),
+    ).toBe(true);
     expect(result.answer).not.toContain("旅行者创作平台");
     expect(result.citedSourceIds).toEqual(
       expect.arrayContaining(["external-1", "external-2"]),

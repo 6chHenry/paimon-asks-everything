@@ -237,6 +237,68 @@ describe("evidence quality", () => {
     expect(selected).toEqual([]);
   });
 
+  it.each([
+    "派蒙:想念婕德和奔奔了... 冻梨:你还别说，这段剧情确实让人难忘。",
+    "派蒙：想念婕德和奔奔了……冻梨：你还别说，这段剧情确实让人难忘。",
+  ])("rejects a short raw dialogue excerpt for story evidence: %s", (excerpt) => {
+    expect(
+      selectAnswerEvidence([citation("short-dialogue", "婕德讨论", excerpt)], {
+        question: "婕德经历了怎样的变化？",
+        intent: "story",
+        language: "zh-CN",
+      }),
+    ).toEqual([]);
+  });
+
+  it.each([
+    "派蒙:想念婕德和奔奔了... 冻梨:你还别说，这段剧情确实让人难忘。",
+    "派蒙：想念婕德和奔奔了……冻梨：你还别说，这段剧情确实让人难忘。",
+  ])("keeps short dialogue-shaped evidence for relationship intent: %s", (excerpt) => {
+    expect(
+      selectAnswerEvidence([citation("short-dialogue", "富人与博士讨论", excerpt)], {
+        question: "富人和博士是什么关系？",
+        intent: "relationship",
+        language: "zh-CN",
+      }),
+    ).toHaveLength(1);
+  });
+
+  it("keeps narrative story evidence with one quoted line", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "narrative",
+          "婕德的选择",
+          "这段剧情展示了婕德逐渐建立自我判断的过程。婕德：这一次我要自己决定。此后她独自踏上旅程。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toHaveLength(1);
+  });
+
+  it("removes a site-description shell while keeping substantive story evidence", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "site-shell",
+          "米游社",
+          "米游社-原神社区是米哈游旗下官方社区，提供游戏资讯、攻略、角色图鉴、活动内容与玩家交流。",
+        ),
+        citation(
+          "story",
+          "婕德的选择",
+          "社区分析认为，婕德认清背叛后开始为自己做决定。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toBe("婕德的选择");
+  });
+
   it("rejects live-shaped task indexes and alternating-speaker transcripts", () => {
     const selected = selectAnswerEvidence(
       [

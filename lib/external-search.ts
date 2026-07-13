@@ -22,6 +22,7 @@ import { TtlCache } from "@/lib/ttl-cache";
 import {
   decodeHtmlEntities,
   preferHigherQualityWebText,
+  webTextQualityScore,
 } from "@/lib/web-text-quality";
 
 interface MediaWikiProvider {
@@ -1031,6 +1032,90 @@ function identityClaimScore(citation: Citation, question: string, plan: SearchPl
     : 90;
 }
 
+function canonicalCitationUrl(value: string) {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.hostname = url.hostname.toLowerCase();
+    return url.toString().replace(/\/$/u, "").toLowerCase();
+  } catch {
+    return value.trim().replace(/#.*$/u, "").replace(/\/$/u, "").toLowerCase();
+  }
+}
+
+function citationTextQuality(citation: Citation) {
+  return webTextQualityScore(`${citation.title} ${citation.excerpt}`);
+}
+
+export interface CharacterArcCandidateBucket {
+  query: string;
+  candidates: Citation[];
+}
+
+export function balanceCharacterArcCandidateBuckets(
+  buckets: CharacterArcCandidateBucket[],
+  limit = 16,
+) {
+  const bucketCandidates = buckets.map((bucket) => {
+    const unique = new Map<string, Citation>();
+    for (const citation of bucket.candidates) {
+      const key = canonicalCitationUrl(citation.url);
+      const current = unique.get(key);
+      if (!current || citationTextQuality(citation) > citationTextQuality(current)) {
+        unique.set(key, citation);
+      }
+    }
+    return [...unique.values()];
+  });
+
+  const winners = new Map<
+    string,
+    { citation: Citation; bucketIndex: number; quality: number }
+  >();
+  bucketCandidates.forEach((candidates, bucketIndex) => {
+    for (const citation of candidates) {
+      const key = canonicalCitationUrl(citation.url);
+      const quality = citationTextQuality(citation);
+      const current = winners.get(key);
+      const mandatory = bucketIndex > 0;
+      const currentMandatory = (current?.bucketIndex ?? 0) > 0;
+      if (
+        !current ||
+        (mandatory && !currentMandatory) ||
+        (mandatory === currentMandatory && quality > current.quality)
+      ) {
+        winners.set(key, { citation, bucketIndex, quality });
+      }
+    }
+  });
+
+  const eligibleBuckets = bucketCandidates.map((candidates, bucketIndex) =>
+    candidates.filter((citation) => {
+      const winner = winners.get(canonicalCitationUrl(citation.url));
+      return winner?.bucketIndex === bucketIndex && winner.citation === citation;
+    }),
+  );
+  const selected: Citation[] = [];
+  const selectedUrls = new Set<string>();
+  const add = (citation: Citation) => {
+    if (selected.length >= limit) return;
+    const key = canonicalCitationUrl(citation.url);
+    if (selectedUrls.has(key)) return;
+    selected.push(citation);
+    selectedUrls.add(key);
+  };
+
+  eligibleBuckets[0]?.slice(0, 4).forEach(add);
+  for (const mandatoryBucket of eligibleBuckets.slice(1)) {
+    mandatoryBucket.slice(0, 6).forEach(add);
+  }
+  for (const mandatoryBucket of eligibleBuckets.slice(1)) {
+    for (const citation of mandatoryBucket.slice(6)) add(citation);
+  }
+
+  return selected.slice(0, limit);
+}
+
 function dedupeAndRank(
   citations: Citation[],
   plan: SearchPlan,
@@ -1038,8 +1123,11 @@ function dedupeAndRank(
 ) {
   const deduped = new Map<string, Citation>();
   for (const citation of citations) {
-    const key = `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`;
-    if (!deduped.has(key)) deduped.set(key, citation);
+    const key = canonicalCitationUrl(citation.url);
+    const current = deduped.get(key);
+    if (!current || citationTextQuality(citation) > citationTextQuality(current)) {
+      deduped.set(key, citation);
+    }
   }
   return [...deduped.values()]
     .filter((citation) => passesEntityGate(citation, plan, question))
@@ -1119,16 +1207,10 @@ export function selectCandidatesForAssessment(
     .filter((citation) => relationshipInteractionScore(citation, plan) > 0)
     .slice(0, 3);
   const reservedKeys = new Set(
-    directInteractions.map(
-      (citation) =>
-        `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`,
-    ),
+    directInteractions.map((citation) => canonicalCitationUrl(citation.url)),
   );
   const remainder = ranked.filter(
-    (citation) =>
-      !reservedKeys.has(
-        `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`,
-      ),
+    (citation) => !reservedKeys.has(canonicalCitationUrl(citation.url)),
   );
   return [...directInteractions, ...remainder].slice(0, limit);
 }
@@ -1918,8 +2000,11 @@ export async function searchWebEvidence(
   ) => {
   const uniqueCandidates = new Map<string, Citation>();
   for (const citation of candidates) {
-    const key = `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`;
-    if (!uniqueCandidates.has(key)) uniqueCandidates.set(key, citation);
+    const key = canonicalCitationUrl(citation.url);
+    const current = uniqueCandidates.get(key);
+    if (!current || citationTextQuality(citation) > citationTextQuality(current)) {
+      uniqueCandidates.set(key, citation);
+    }
   }
   const selectedCandidates = selectCandidatesForAssessment(
     [...uniqueCandidates.values()],
@@ -1972,7 +2057,15 @@ export async function searchWebEvidence(
     }
   }
   const firstResults = await runQueries(tiers.first);
-  const firstCandidates = collectCandidates(firstResults);
+  const firstCandidates =
+    plan.storyScope === "character_arc"
+      ? balanceCharacterArcCandidateBuckets(
+          firstResults.map((result, index) => ({
+            query: tiers.first[index] ?? "",
+            candidates: result.status === "fulfilled" ? result.value : [],
+          })),
+        )
+      : collectCandidates(firstResults);
   const firstAssessed = await assessCandidates(firstCandidates, false, false);
   const firstRanked = dedupeAndRank(firstAssessed, plan, question);
   const localizedTermsFromChineseResults =

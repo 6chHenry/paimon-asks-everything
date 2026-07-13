@@ -8,6 +8,8 @@ import {
   isUnusableWebText,
   looksLikeBrowserEditShell,
   looksLikeDialogueDump,
+  looksLikeShortRawDialogue,
+  looksLikeSiteDescriptionShell,
   preferHigherQualityWebText,
   webTextQualityScore,
 } from "@/lib/web-text-quality";
@@ -104,6 +106,39 @@ describe("web text quality", () => {
         "婕德：我不能再相信她了。旅行者：先把线索理清。派蒙：这里还有一封信。阿萨里格：你们不该看到它。芭别尔：一切都是为了部族。",
       ),
     ).toBe(true);
+  });
+
+  it.each([
+    "派蒙:想念婕德和奔奔了... 冻梨:你还别说，这段剧情确实让人难忘。",
+    "派蒙：想念婕德和奔奔了……冻梨：你还别说，这段剧情确实让人难忘。",
+  ])("detects a short raw dialogue excerpt from its opening turns: %s", (excerpt) => {
+    expect(looksLikeShortRawDialogue(excerpt)).toBe(true);
+  });
+
+  it("keeps narrative prose that contains only one quoted line", () => {
+    expect(
+      looksLikeShortRawDialogue(
+        "这段剧情展示了婕德逐渐建立自我判断的过程。婕德：这一次我要自己决定。此后她独自踏上旅程。",
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    "米游社-原神社区是米哈游旗下官方社区，提供游戏资讯、攻略、角色图鉴、活动内容与玩家交流。",
+    "星港论坛是由北辰互动运营的官方社区平台，提供新闻、攻略、图鉴与活动内容。",
+    "Starlight Hub is an official community operated by Northwind Media, offering news, guides, a catalog, and events.",
+  ])("hard-rejects a source-neutral site-description shell: %s", (shell) => {
+    expect(looksLikeSiteDescriptionShell(shell)).toBe(true);
+    expect(isUnusableWebText(shell)).toBe(true);
+    expect(webTextQualityScore(shell)).toBe(Number.NEGATIVE_INFINITY);
+  });
+
+  it.each([
+    "社区分析认为，她仍在学习如何为自己做决定。",
+    "她加入的社区由居民共同运营，后来成为她短暂的归属。",
+  ])("keeps substantive prose that happens to mention a community: %s", (prose) => {
+    expect(looksLikeSiteDescriptionShell(prose)).toBe(false);
+    expect(isUnusableWebText(prose)).toBe(false);
   });
 
   it("keeps a concise narrative summary that includes one quoted exchange", () => {
