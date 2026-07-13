@@ -100,3 +100,14 @@ Finite shallow profile candidates can still occupy all six mandatory slots becau
 The arc score is source-neutral. It rewards non-entity terms from that bucket's mandatory query and generic story-change context: loss or disrupted belonging, joining or leaving a group, manipulation or betrayal, realization or decision, break or separation, growth or change, and self-directed choice. Chinese and English action/turning-point vocabulary are supported. The existing `dedupeAndRank` result supplies the tie order, so governance remains the secondary ordering and ordinary global source ranking is untouched.
 
 For both accepted phrasings, a regression gives a mandatory bucket six finite curated-Wiki shallow profile candidates followed by one finite community/web candidate with decisive loss, betrayal, and self-determination evidence. The decisive candidate must enter the six-slot reservation. Canonical dedupe, 4/6/6 quotas, the total-sixteen cap, exact query strings, and call counts do not change.
+
+## Delivery P1 promotional/listing shell
+
+`looksLikePromotionalListingShell` adds a source-neutral shared hard boundary for promotional availability copy and engagement-stat listings. It rejects either of two high-confidence shapes:
+
+1. an availability phrase such as `7*24小时` or equivalent continuous-availability wording together with promotional language such as more, popular, continuously updated, or available here;
+2. at least three distinct engagement metric categories in a compact excerpt: views/play count, bullet comments/danmaku, likes, coins/tips, favorites/bookmarks, shares, or comments, with equivalent generic English labels.
+
+The detector contains no platform, publisher, game, character, or source names. A narrative that legitimately mentions one play, view, like, or comment remains usable. The detector joins `isUnusableWebText`, so shared quality scoring returns negative infinity and search selection, answer evidence, cold fallback, returned external citations, and cited IDs all inherit the rejection.
+
+Tests use the exact delivery-live fixture, an invented-platform equivalent, clean single-metric narrative controls, evidence selection containing shell plus clean story, and generation containing the live-shaped shell. Existing query balancing, arc ranking, site/browser/dialogue rules, and call counts remain unchanged.
