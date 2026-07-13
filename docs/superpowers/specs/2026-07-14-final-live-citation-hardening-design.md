@@ -111,3 +111,19 @@ For both accepted phrasings, a regression gives a mandatory bucket six finite cu
 The detector contains no platform, publisher, game, character, or source names. A narrative that legitimately mentions one play, view, like, or comment remains usable. The detector joins `isUnusableWebText`, so shared quality scoring returns negative infinity and search selection, answer evidence, cold fallback, returned external citations, and cited IDs all inherit the rejection.
 
 Tests use the exact delivery-live fixture, an invented-platform equivalent, clean single-metric narrative controls, evidence selection containing shell plus clean story, and generation containing the live-shaped shell. Existing query balancing, arc ranking, site/browser/dialogue rules, and call counts remain unchanged.
+
+## Whole-branch review refinements
+
+### Deterministic character-arc understanding
+
+A character-arc rule is complete when the question matches the deterministic arc predicate, the rule has a resolved entity, its intent is `story`, and its queries contain both canonical mandatory forms: `<entity> 剧情 经历` and `<entity> 结局 变化`. `shouldUseModelQuestionUnderstanding` returns false for this complete shape before the generic alias-empty story branch. Both accepted phrasings therefore make no question-understanding model request.
+
+Reconciliation repeats the same boundary as defense in depth. For a complete character-arc rule, canonical entities and `story` intent are pinned to the rule. A matching model entity may enrich aliases only after removing canonical or alias terms containing arc-predicate tails such as `经历了`, growth/change/ending language, or equivalent English character-development phrases. Clean aliases such as `Jeht` remain accepted. Model queries are considered only when model intent is also `story`; they must remain entity-anchored and story/arc-shaped. Mandatory rule queries always remain first, non-story model intent/queries and model claims are ignored, and derived scope remains `character_arc`.
+
+### Count-shaped promotional metrics
+
+Engagement categories require listing syntax rather than bare narrative vocabulary. A category matches an explicit count/amount label, a label followed by a numeric value, or an English count label/value. Bare verbs or nouns such as sharing an analysis, readers commenting on a turn, or someone saving a story do not count toward the three-category threshold. Availability-plus-promotion rejection is unchanged, and the exact count-shaped live shell remains negative infinity.
+
+### Case-safe citation canonicalization
+
+Citation URL canonicalization normalizes only scheme and host casing while preserving path and query casing. Fragment removal and the existing root trailing-slash equivalence remain. Thus host-case variants dedupe, while case-sensitive video IDs, path segments, and query values remain distinct. No ranking, quota, provider, query, or call behavior changes.
