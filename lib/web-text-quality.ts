@@ -202,6 +202,38 @@ export function looksLikeSiteDescriptionShell(value: string) {
   );
 }
 
+export function looksLikePromotionalListingShell(value: string) {
+  const text = value.normalize("NFKC");
+  const continuousAvailability =
+    /7\s*(?:\*|x|×|\/)\s*24\s*(?:小时|小時|hours?|hrs?)?|\b24\s*\/\s*7\b|\baround[-\s]+the[-\s]+clock\b/iu.test(
+      text,
+    );
+  const promotionalLanguage =
+    /更多|热门|熱門|持续更新|持續更新|尽在|盡在|\bmore\b|\bpopular\b|\bcontinuously\s+updated\b|\bupdated\b|\bavailable\s+here\b|\bdiscover\b/iu.test(
+      text,
+    );
+  if (continuousAvailability && promotionalLanguage) return true;
+
+  const textWithoutBulletCommentLabels = text.replace(
+    /\bbullet\s*comments?\b/giu,
+    " ",
+  );
+  const metricCategories = [
+    /视频播放量|視頻播放量|播放量|观看量|觀看量|浏览量|瀏覽量|\bviews?\b|\bplay\s*count\b/iu,
+    /弹幕量|彈幕量|弹幕|彈幕|\bdanmaku\b|\bbullet\s*comments?\b/iu,
+    /点赞数|點讚數|点赞量|點讚量|点赞|點讚|\blikes?\b/iu,
+    /投硬币枚数|投硬幣枚數|硬币数|硬幣數|投币|投幣|打赏|打賞|小费|小費|\bcoins?\b|\btips?\b|\bdonations?\b/iu,
+    /收藏数|收藏數|收藏量|收藏|\bfavou?rites?\b|\bbookmarks?\b/iu,
+    /分享数|分享數|转发数|轉發數|分享|转发|轉發|\bshares?\b|\breposts?\b/iu,
+    /评论数|評論數|评论量|評論量|评论|評論|留言数|留言數|\bcomments?\b|\breplies?\b/iu,
+  ];
+  return (
+    metricCategories.filter((pattern, index) =>
+      pattern.test(index === metricCategories.length - 1 ? textWithoutBulletCommentLabels : text),
+    ).length >= 3
+  );
+}
+
 export function isUnusableWebText(
   value: string,
   options: { rejectDialogue?: boolean } = {},
@@ -211,6 +243,7 @@ export function isUnusableWebText(
     hasRepeatedSiteChrome(value) ||
     isNavigationHeavy(value) ||
     looksLikeSiteDescriptionShell(value) ||
+    looksLikePromotionalListingShell(value) ||
     (options.rejectDialogue === true && looksLikeDialogueDump(value))
   );
 }

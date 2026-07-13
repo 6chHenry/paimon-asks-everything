@@ -118,7 +118,7 @@ describe("evidence quality", () => {
     const video = citation(
       "video",
       "巴老师看博士富人唠嗑得知富人烟瘾大到需要换肺：博士亲手换的吗",
-      "更多实用攻略教学，热门游戏视频7*24小时持续更新。",
+      "本视频整理主线剧情片段，内容以标题和原片段为索引。",
       "https://www.bilibili.com/video/BV-test/",
     );
     video.sourceKind = "community";
@@ -290,6 +290,27 @@ describe("evidence quality", () => {
           "story",
           "婕德的选择",
           "社区分析认为，婕德认清背叛后开始为自己做决定。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toBe("婕德的选择");
+  });
+
+  it("removes a promotional metric-listing shell while keeping story evidence", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "listing-shell",
+          "沙漠故事视频",
+          "更多原神实用攻略教学,爆笑沙雕集锦,你所不知道的原神游戏知识,热门原神游戏视频7*24小时持续更新,尽在哔哩哔哩bilibili 视频播放量 241、弹幕量 0、点赞数 6、投硬币枚数 0...",
+        ),
+        citation(
+          "clean-story",
+          "婕德的选择",
+          "失去父亲后，婕德寻找新的归属；认清背叛后，她决定独立选择自己的道路。",
         ),
       ],
       { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },

@@ -8,6 +8,7 @@ import {
   isUnusableWebText,
   looksLikeBrowserEditShell,
   looksLikeDialogueDump,
+  looksLikePromotionalListingShell,
   looksLikeShortRawDialogue,
   looksLikeSiteDescriptionShell,
   preferHigherQualityWebText,
@@ -138,6 +139,33 @@ describe("web text quality", () => {
     "她加入的社区由居民共同运营，后来成为她短暂的归属。",
   ])("keeps substantive prose that happens to mention a community: %s", (prose) => {
     expect(looksLikeSiteDescriptionShell(prose)).toBe(false);
+    expect(isUnusableWebText(prose)).toBe(false);
+  });
+
+  it("hard-rejects the exact delivery promotional and metric-listing shell", () => {
+    const shell =
+      "更多原神实用攻略教学,爆笑沙雕集锦,你所不知道的原神游戏知识,热门原神游戏视频7*24小时持续更新,尽在哔哩哔哩bilibili 视频播放量 241、弹幕量 0、点赞数 6、投硬币枚数 0...";
+
+    expect(looksLikePromotionalListingShell(shell)).toBe(true);
+    expect(isUnusableWebText(shell)).toBe(true);
+    expect(webTextQualityScore(shell)).toBe(Number.NEGATIVE_INFINITY);
+  });
+
+  it("hard-rejects an invented English platform listing equivalent", () => {
+    const shell =
+      "Discover more popular creator videos, updated 24/7 and available here. Views 241, bullet comments 0, likes 6, tips 0, favorites 3, shares 1.";
+
+    expect(looksLikePromotionalListingShell(shell)).toBe(true);
+    expect(isUnusableWebText(shell)).toBe(true);
+    expect(webTextQualityScore(shell)).toBe(Number.NEGATIVE_INFINITY);
+  });
+
+  it.each([
+    "这段影像只有一次播放记录，但正文重点是她认清背叛后的选择。",
+    "读者的一次点赞让作者补充了她离开旧归属后的分析。",
+    "The play received one like from a friend, which prompted a deeper story analysis.",
+  ])("keeps narrative prose with one legitimate engagement mention: %s", (prose) => {
+    expect(looksLikePromotionalListingShell(prose)).toBe(false);
     expect(isUnusableWebText(prose)).toBe(false);
   });
 

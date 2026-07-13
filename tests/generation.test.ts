@@ -1321,6 +1321,50 @@ describe("grounded generation", () => {
     ).toEqual([]);
   });
 
+  it("returns no external or cited evidence when a cold character-arc fallback has only a promotional listing shell", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("cold_start_timeout");
+    }));
+
+    const question = "婕德经历了怎样的变化？";
+    const result = await generateGroundedResponse({
+      question,
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [
+        {
+          id: "delivery-listing-shell",
+          title: "沙漠故事视频",
+          url: "https://example.com/delivery-listing-shell",
+          sourceName: "视频资料",
+          sourceKind: "community",
+          credibility: "community",
+          factStatus: "community_analysis",
+          excerpt:
+            "更多原神实用攻略教学,爆笑沙雕集锦,你所不知道的原神游戏知识,热门原神游戏视频7*24小时持续更新,尽在哔哩哔哩bilibili 视频播放量 241、弹幕量 0、点赞数 6、投硬币枚数 0...",
+          external: true,
+          crossLanguage: false,
+        },
+      ],
+      understanding: ruleUnderstandQuestion(question, "zh-CN"),
+    });
+
+    expect(result.answer).toBe("派蒙暂时没找到足够可靠的资料，先不乱下结论。");
+    expect(result.external).toEqual([]);
+    expect(result.citedSourceIds).toEqual([]);
+    expect(
+      result.answerParagraphs?.flatMap((paragraph) => paragraph.citationIds) ?? [],
+    ).toEqual([]);
+  });
+
   it("keeps a coherent cited character-arc answer from clean Chinese evidence", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";
