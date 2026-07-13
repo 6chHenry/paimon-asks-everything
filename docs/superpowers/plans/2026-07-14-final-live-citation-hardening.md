@@ -529,3 +529,39 @@ Expected: both new regressions pass and the exact-query/four-stage route/generat
 - [ ] **Step 5: Complete and report**
 
 Run the five-file focused suite, `npm test`, `npm run typecheck`, `npm run build`, and diff checks. Verify PID 34240. Commit only production and regression files, then append RED/GREEN counts, final commands, commit hashes, self-review, and concerns to the ignored live-fix report.
+
+### Task 12: Reject promotional and engagement-listing shells
+
+**Files:**
+- Modify: `lib/web-text-quality.ts`
+- Modify: `tests/web-text-quality.test.ts`
+- Modify: `tests/evidence-quality.test.ts`
+- Modify: `tests/generation.test.ts`
+
+**Interfaces:**
+- Produces: `looksLikePromotionalListingShell(value: string): boolean`
+- Consumed by: `isUnusableWebText`, `webTextQualityScore`, evidence selection, and generation
+
+- [ ] **Step 1: Write exact failing tests**
+
+Use the exact delivery fixture beginning `更多原神实用攻略教学...热门原神游戏视频7*24小时持续更新...视频播放量 241、弹幕量 0、点赞数 6、投硬币枚数 0`. Add an invented-platform Chinese or English equivalent containing continuous availability plus promotional language and at least three generic engagement labels. Assert detector true, shared unusable true, and score negative infinity.
+
+Add narrative controls containing only one legitimate play, view, like, or comment mention and assert detector false and shared text usable. Evidence selection must remove the exact shell while keeping a clean character-arc citation. A cold generation input containing the live-shaped shell must return no shell external citations, cited IDs, or paragraph citation IDs.
+
+- [ ] **Step 2: Verify RED**
+
+Run: `npm test -- tests/web-text-quality.test.ts tests/evidence-quality.test.ts tests/generation.test.ts`
+
+Expected: missing detector and retained shell failures.
+
+- [ ] **Step 3: Implement the generic conjunction detector**
+
+Normalize the input with NFKC. Detect continuous availability such as `7*24小时` together with at least one promotional term (`更多`, `热门`, `持续更新`, `尽在`, or generic English equivalents). Independently count distinct metric categories for views/play count, bullet comments/danmaku, likes, coins/tips, favorites/bookmarks, shares, and comments; reject at three or more categories. Do not include source, platform, publisher, game, or character names. Add the detector to `isUnusableWebText` before dialogue handling.
+
+- [ ] **Step 4: Verify GREEN and retained safeguards**
+
+Run the same three-file command, then the five-file character-arc focused suite. Expected: shell paths are removed, clean controls remain, and all prior balancing, route, and generation safeguards stay green.
+
+- [ ] **Step 5: Complete and report**
+
+Run `npm test`, `npm run typecheck`, `npm run build`, and diff checks; verify PID 34240. Commit the four scoped files and append RED/GREEN counts, final commands, commit hashes, self-review, and concerns to the ignored live-fix report.
