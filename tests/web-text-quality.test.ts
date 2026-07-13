@@ -83,6 +83,17 @@ describe("web text quality", () => {
     expect(preferHigherQualityWebText(original, candidate)).toBe(original);
   });
 
+  it("hard-rejects a long detected dialogue dump", () => {
+    const original = "婕德最终选择独自上路。";
+    const candidate = (
+      "婕德：那个家伙让我不爽，但我会继续说很长很长的一段台词来填满页面\n" +
+      "旅行者：我们应该先冷静下来，再把所有重复对话逐句记录下来\n"
+    ).repeat(16);
+    expect(candidate.length).toBeGreaterThan(700);
+    expect(looksLikeDialogueDump(candidate)).toBe(true);
+    expect(preferHigherQualityWebText(original, candidate)).toBe(original);
+  });
+
   it("double-decodes common typographic entities with a strict pass bound", () => {
     expect(
       decodeHtmlEntities(
@@ -109,5 +120,22 @@ describe("web text quality", () => {
     const original = "婕德离开了塔尼特部族。";
     const candidate = "看似详尽的候选正文。".repeat(100) + "&unknownentity;";
     expect(preferHigherQualityWebText(original, candidate)).toBe(original);
+  });
+
+  it("strips literal and encoded directional format controls", () => {
+    const directionalControls =
+      "\u061c" +
+      Array.from({ length: 0x10 }, (_, offset) =>
+        String.fromCodePoint(0x2060 + offset),
+      ).join("");
+    const encodedDirectionalControls =
+      "&#x061C;" +
+      Array.from(
+        { length: 0x10 },
+        (_, offset) => `&#x${(0x2060 + offset).toString(16)};`,
+      ).join("");
+
+    expect(cleanWebText(`前${directionalControls}后`)).toBe("前后");
+    expect(cleanWebText(`前${encodedDirectionalControls}后`)).toBe("前后");
   });
 });

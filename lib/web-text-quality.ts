@@ -110,7 +110,7 @@ export function looksLikeDialogueDump(value: string) {
 
 export function cleanWebText(value: string) {
   return decodeHtmlEntities(value.normalize("NFKC"))
-    .replace(/[\u00ad\u200b-\u200f\u202a-\u202e\u2060\ufeff]/gu, "")
+    .replace(/[\u00ad\u061c\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/gu, "")
     .replace(/\[(?:\d{1,3}|编辑|edit)\]/giu, "")
     .replace(/\bToggle\b(?:\s+\w+){0,3}/giu, "")
     .replace(/\bContents?\b(?:\s+\d+(?:\.\d+)*)*/giu, "")
@@ -125,14 +125,13 @@ export function webTextQualityScore(value: string) {
   if (
     containsUnrenderedHtmlEntity(clean) ||
     hasRepeatedSiteChrome(value) ||
-    isNavigationHeavy(value)
+    isNavigationHeavy(value) ||
+    looksLikeDialogueDump(value)
   ) {
     return Number.NEGATIVE_INFINITY;
   }
 
-  let score = Math.min(clean.length, 700);
-  if (looksLikeDialogueDump(value)) score -= 100;
-  return score;
+  return Math.min(clean.length, 700);
 }
 
 export function preferHigherQualityWebText(original: string, candidate: string) {
