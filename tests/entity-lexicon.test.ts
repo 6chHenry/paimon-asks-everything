@@ -62,4 +62,15 @@ describe("entity lexicon", () => {
       },
     ]);
   });
+
+  it.each([
+    "婕德经历了怎么的变化？",
+    "婕德经历了怎样的变化？",
+    "婕德有什么成长？",
+    "婕德是如何转变的？",
+  ])("extracts only the character from a character-arc question: %s", (question) => {
+    expect(detectQuestionEntities(question)).toEqual([
+      { canonical: "婕德", aliases: [], kind: "character" },
+    ]);
+  });
 });

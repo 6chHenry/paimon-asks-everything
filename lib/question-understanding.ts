@@ -1,7 +1,11 @@
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import { classifyQuestion } from "@/lib/classification";
 import type { EventClassification, Language } from "@/lib/domain";
-import { detectQuestionEntities, type QuestionEntity } from "@/lib/entity-lexicon";
+import {
+  detectQuestionEntities,
+  isCharacterArcQuestion,
+  type QuestionEntity,
+} from "@/lib/entity-lexicon";
 import {
   inferStorySearchScope,
   normalizeSearchPlan,
@@ -70,6 +74,7 @@ function uniqueStrings(values: string[], limit: number) {
 
 function inferIntent(question: string, classification: EventClassification): SearchIntent {
   if (/关系|联系|relationship|connection/iu.test(question)) return "relationship";
+  if (isCharacterArcQuestion(question)) return "story";
   if (
     /传说任务|剧情|故事|story|quest|发生了什么|为什么.*(?:死|死亡|牺牲|离开)|死在|被.*杀|结局/iu.test(
       question,
@@ -85,7 +90,11 @@ function inferIntent(question: string, classification: EventClassification): Sea
   return "general";
 }
 
-function queriesForEntities(question: string, entities: QuestionEntity[]) {
+function queriesForEntities(
+  question: string,
+  entities: QuestionEntity[],
+  intent: SearchIntent,
+) {
   if (!entities.length) return [question];
   if (entities.length >= 2) {
     return [
@@ -94,6 +103,16 @@ function queriesForEntities(question: string, entities: QuestionEntity[]) {
     ];
   }
   const entity = entities[0]!;
+  if (intent === "story" && isCharacterArcQuestion(question)) {
+    return uniqueStrings(
+      [
+        question,
+        `${entity.canonical} 剧情 经历`,
+        `${entity.canonical} 结局 变化`,
+      ],
+      4,
+    );
+  }
   return uniqueStrings(
     [
       question.includes(entity.canonical) ? question : `${entity.canonical} ${question}`,
@@ -116,7 +135,7 @@ export function ruleUnderstandQuestion(
     modelEntities: [],
     intent,
     claim: undefined,
-    queries: queriesForEntities(question, entities),
+    queries: queriesForEntities(question, entities, intent),
     classification,
     agreement: entities.length ? "rule_only" : "model_only",
   };
@@ -173,11 +192,18 @@ function mergeAliases(base: QuestionEntity, model: QuestionEntity) {
   };
 }
 
-function anchorQueries(queries: string[], entities: QuestionEntity[], fallback: string) {
+function anchorQueries(
+  queries: string[],
+  entities: QuestionEntity[],
+  fallback: string,
+  intent: SearchIntent,
+) {
   if (!entities.length) return uniqueStrings(queries.length ? queries : [fallback], 4);
   const terms = entities.flatMap((entity) => [entity.canonical, ...entity.aliases]);
   const primary = entities[0]!.canonical;
-  const sourceQueries = queries.length ? queries : queriesForEntities(fallback, entities);
+  const sourceQueries = queries.length
+    ? queries
+    : queriesForEntities(fallback, entities, intent);
   return uniqueStrings(
     sourceQueries.map((query) =>
       terms.some((term) => normalized(query).includes(normalized(term)))
@@ -229,16 +255,20 @@ export function reconcileQuestionUnderstanding(
         : acceptedModelEntities.length
           ? "model_only"
           : "rule_only";
+  const intent =
+    agreement === "conflict" || model.intent === "general"
+      ? rule.intent
+      : model.intent;
   const queries =
     agreement === "conflict"
-      ? queriesForEntities(question, mergedEntities)
-      : anchorQueries(model.queries, mergedEntities, question);
+      ? queriesForEntities(question, mergedEntities, intent)
+      : anchorQueries(model.queries, mergedEntities, question, intent);
 
   return {
     entities: mergedEntities,
     ruleEntities: rule.ruleEntities,
     modelEntities: model.entities,
-    intent: model.intent === "general" ? rule.intent : model.intent,
+    intent,
     claim: model.claim,
     queries,
     classification: rule.classification,

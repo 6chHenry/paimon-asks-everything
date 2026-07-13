@@ -41,6 +41,17 @@ function normalized(value: string) {
   return value.normalize("NFKC").toLowerCase();
 }
 
+function normalizedQuestion(value: string) {
+  return value.normalize("NFKC").replace(/\s+/gu, " ").trim();
+}
+
+const characterArcPattern =
+  /^(.{1,12}?)(?:(?:经历了|发生了)(?:怎样|怎么|什么|哪些|何种)?的?(?:变化|成长|转变)|有(?:什么|哪些|怎样|怎么|何种)?的?(?:变化|成长|转变)|是如何(?:变化|成长|转变)(?:的)?)/u;
+
+export function isCharacterArcQuestion(question: string): boolean {
+  return characterArcPattern.test(normalizedQuestion(question));
+}
+
 const genericTerms = new Set([
   "原神",
   "外星人",
@@ -111,12 +122,9 @@ function pushCandidate(
 function inferQuestionEntities(question: string): QuestionEntity[] {
   const candidates: QuestionEntity[] = [];
   let hasRelationshipCandidates = false;
-  const normalizedQuestion = question
-    .normalize("NFKC")
-    .replace(/\s+/gu, " ")
-    .trim();
+  const normalizedQuestionValue = normalizedQuestion(question);
 
-  const quotedRelationMatch = normalizedQuestion.match(
+  const quotedRelationMatch = normalizedQuestionValue.match(
     /[「"']([^」"']{1,18})[」"'](?:和|与|跟|同)[「"']([^」"']{1,18})[」"'][^。！？.!?]{0,80}(?:关系|联系|区别)/u,
   );
   if (quotedRelationMatch) {
@@ -125,7 +133,7 @@ function inferQuestionEntities(question: string): QuestionEntity[] {
     hasRelationshipCandidates = true;
   }
 
-  const relationMatch = normalizedQuestion.match(
+  const relationMatch = normalizedQuestionValue.match(
     /^(.{2,18}?)(?:和|与|跟|同)(.{2,18}?)(?:之间)?(?:的)?(?:是(?:什么|啥))?(?:关系|联系|区别)/u,
   );
   if (relationMatch) {
@@ -134,10 +142,15 @@ function inferQuestionEntities(question: string): QuestionEntity[] {
     hasRelationshipCandidates = true;
   }
 
-  const predicateMatch = normalizedQuestion.match(
+  const characterArcMatch = normalizedQuestionValue.match(characterArcPattern);
+  if (!hasRelationshipCandidates && characterArcMatch) {
+    pushCandidate(candidates, characterArcMatch[1] ?? "", { allowShort: true });
+  }
+
+  const predicateMatch = normalizedQuestionValue.match(
     /^(.{2,18}?)(?:是(?:不是)?|是不是|是谁|为什么|为何|怎么|如何|传说任务|故事|背景|身份|设定|死在|死亡|讲了什么|讲什么|说了什么)/u,
   );
-  if (!hasRelationshipCandidates && predicateMatch) {
+  if (!hasRelationshipCandidates && !characterArcMatch && predicateMatch) {
     pushCandidate(candidates, predicateMatch[1] ?? "");
   }
 

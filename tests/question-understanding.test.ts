@@ -181,6 +181,20 @@ describe("question understanding", () => {
     );
   });
 
+  it.each([
+    "婕德经历了怎么的变化？",
+    "婕德经历了怎样的变化？",
+  ])("treats a character-arc question as story intent with arc queries: %s", (question) => {
+    const result = ruleUnderstandQuestion(question, "zh-CN");
+
+    expect(result.entities.map((entity) => entity.canonical)).toEqual(["婕德"]);
+    expect(result.intent).toBe("story");
+    expect(result.queries).toEqual(
+      expect.arrayContaining(["婕德 剧情 经历", "婕德 结局 变化"]),
+    );
+    expect(result.queries.every((query) => query.includes("婕德"))).toBe(true);
+  });
+
   it("keeps the English alias and Story Quest query returned for a new character", () => {
     const rule = ruleUnderstandQuestion("法尔伽传说任务故事梗概", "zh-CN");
     const reconciled = reconcileQuestionUnderstanding(
