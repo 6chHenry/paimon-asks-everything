@@ -3,9 +3,9 @@
 import { LockKeyhole, MapPin } from "lucide-react";
 import type { Language, Progress } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
-import type { PreheatView } from "@/lib/preheat";
+import type { StoryPlayerPreheatView } from "@/lib/preheat";
 
-type TimelineItem = PreheatView["timeline"][number];
+type TimelineItem = StoryPlayerPreheatView["timeline"][number];
 
 export function GnosisTimeline({
   items,

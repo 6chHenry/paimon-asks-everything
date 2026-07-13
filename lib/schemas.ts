@@ -63,7 +63,7 @@ export const questionSuggestionRequestSchema = z
 
 export const preheatQuerySchema = z.object({
   topicId: z.string().trim().min(3).max(100),
-  depth: z.enum(["guided", "research"]),
+  depth: z.enum(["guided", "research"]).default("guided"),
   language: z.enum(["zh-CN", "en"]),
   profile: z
     .enum(["new", "returning", "story", "exploration", "casual"])

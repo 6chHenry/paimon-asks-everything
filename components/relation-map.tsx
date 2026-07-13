@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Language } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
-import type { PreheatView } from "@/lib/preheat";
+import type { StoryPlayerPreheatView } from "@/lib/preheat";
 
-type Graph = PreheatView["relationGraph"];
+type Graph = StoryPlayerPreheatView["relationGraph"];
 
 const positions = [
   [50, 12],

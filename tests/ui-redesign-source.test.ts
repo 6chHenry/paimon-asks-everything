@@ -148,18 +148,20 @@ describe("Genshin-style homepage source", () => {
 });
 
 describe("Genshin-style preheat source", () => {
-  it("keeps PreheatNote props stable while reframing it as an intelligence brief", () => {
+  it("keeps PreheatNote concise without a competing depth selector", () => {
     const note = source("components", "preheat-note.tsx");
 
     expect(note).toContain("export function PreheatNote");
     expect(note).toContain("className=\"intel-brief\"");
-    expect(note).toContain("selectedDepth");
-    expect(note).toContain("onSelectDepth");
+    expect(note).not.toContain("selectedDepth");
+    expect(note).not.toContain("onSelectDepth");
+    expect(note).not.toContain("depth-selector");
     expect(note).toContain("onStart");
   });
 
-  it("adds preheat page hooks without removing the existing workbench logic", () => {
+  it("renders three role-specific views without focus or depth controls", () => {
     const page = source("app", "preheat", "page.tsx");
+    const views = source("components", "preheat-role-views.tsx");
 
     expect(page).toContain("preheat-intel-page");
     expect(page).toContain("PreheatNote");
@@ -170,12 +172,21 @@ describe("Genshin-style preheat source", () => {
     expect(page).toContain("setPreferences");
     expect(page).toContain("Latest completed main quest");
     expect(page).toContain("ProgressButtonGroup");
-    expect(page).toContain('preferences.focus.join(",")');
-    expect(page).toContain("next.presentation.defaultTimelineId");
-    expect(page).toContain("data-section-order");
+    expect(page).toContain("visibleProfiles");
+    expect(page).toContain("NewPlayerPreheat");
+    expect(page).toContain("ReturningPlayerPreheat");
+    expect(page).toContain("StoryPlayerPreheat");
+    expect(page).not.toContain("toggleFocus");
+    expect(page).not.toContain('focus: preferences.focus.join(",")');
     expect(page).toContain("preheat-refresh-status");
-    expect(page).toContain("aria-expanded");
     expect(page).not.toContain('<select\n            value={preferences.progress}');
+    expect(views).toContain("地区速览");
+    expect(views).toContain("从这里继续期待");
+    expect(views).toContain("完整事件链");
+    expect(views).toContain("preheat-intel-workbench");
+    expect(views).toContain("GnosisTimeline");
+    expect(views).toContain("RelationMap");
+    expect(page).toContain("record(\"timeline_node_opened\"");
     const progressButtons = source("components", "progress-button-group.tsx");
     expect(progressButtons).toContain("aria-pressed");
     expect(progressButtons).toContain("progress-button-grid");
@@ -187,10 +198,6 @@ describe("Genshin-style preheat source", () => {
     expect(css).toContain("font: 700 22px/1.2 var(--display)");
     expect(css).toContain(".traveler-context-summary");
     expect(page).not.toContain("preheat-intel-masthead");
-    expect(page).toContain("preheat-intel-workbench");
-    expect(page).toContain("GnosisTimeline");
-    expect(page).toContain("RelationMap");
-    expect(page).toContain("record(\"timeline_node_opened\"");
   });
 });
 
