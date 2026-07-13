@@ -19,7 +19,7 @@ const gameplayPattern =
   /\/技能|\/天赋|\/命座|技能|天赋|命座|普通攻击|元素战技|元素爆发|长按|抗打断|倍率|冷却|伤害|skill|talent|constellation|normal attack|elemental skill|elemental burst|cooldown|damage/iu;
 
 export function cleanEvidenceText(value: string) {
-  return cleanWebText(value);
+  return cleanWebText(value.replace(/…/gu, "&hellip;"));
 }
 
 export function compactCleanEvidence(value: string, maxLength = 700) {
@@ -122,6 +122,8 @@ export function selectAnswerEvidence(
     })
     .map((citation, index) => ({
       ...citation,
+      title: cleanEvidenceText(citation.title),
+      excerpt: cleanEvidenceText(citation.excerpt),
       id: citation.external ? `external-${index + 1}` : citation.id,
     }));
 }

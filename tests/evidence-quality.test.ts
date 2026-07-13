@@ -153,12 +153,15 @@ describe("evidence quality", () => {
     expect(cleanEvidenceText("婕德：她会孤独吗&hellip;")).toBe(
       "婕德:她会孤独吗…",
     );
+    expect(cleanEvidenceText(cleanEvidenceText("婕德&hellip;"))).toBe(
+      "婕德…",
+    );
 
     const selected = selectAnswerEvidence(
       [
         citation(
           "supported-entity",
-          "婕德剧情变化",
+          "婕德剧情变化&hellip;",
           "婕德选择自己的道路&hellip;",
         ),
       ],
@@ -166,6 +169,13 @@ describe("evidence quality", () => {
     );
 
     expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toBe("婕德剧情变化…");
+    expect(selected[0]?.excerpt).toBe("婕德选择自己的道路…");
+    expect(`${selected[0]?.title} ${selected[0]?.excerpt}`).not.toContain(
+      "&hellip;",
+    );
+    expect(selected[0]?.url).toBe("https://example.com/supported-entity");
+    expect(selected[0]?.sourceName).toBe("Test");
     expect(evidenceForGeneration(selected[0]!).excerpt).toBe(
       "婕德选择自己的道路…",
     );

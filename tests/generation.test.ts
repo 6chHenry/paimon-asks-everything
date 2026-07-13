@@ -1169,6 +1169,55 @@ describe("grounded generation", () => {
     ).toEqual([]);
   });
 
+  it("sanitizes a supported external citation before returning it from a cold character-arc fallback", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("cold_start_timeout");
+    }));
+
+    const supportedRawEntity: Citation = {
+      id: "raw-entity",
+      title: "婕德&hellip;",
+      url: "https://example.com/jeht-arc",
+      sourceName: "剧情文本索引",
+      sourceKind: "game_text",
+      credibility: "official",
+      factStatus: "official_explicit",
+      excerpt: "婕德失去父亲后渴望归属，后来认清芭别尔的陷害&hellip;",
+      external: true,
+      crossLanguage: false,
+    };
+
+    const question = "婕德经历了怎样的变化？";
+    const result = await generateGroundedResponse({
+      question,
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [supportedRawEntity],
+      understanding: ruleUnderstandQuestion(question, "zh-CN"),
+    });
+
+    expect(result.answer).toBe(
+      "目前找到的资料还不足以稳妥回答“婕德”这个问题。派蒙先不把外部片段硬拼成结论，相关原文保留在下方来源里。",
+    );
+    expect(result.answer).not.toContain("&hellip;");
+    expect(result.external).toHaveLength(1);
+    expect(result.external[0]?.title).toBe("婕德…");
+    expect(result.external[0]?.excerpt).toContain("陷害…");
+    expect(
+      result.external.map((citation) => `${citation.title} ${citation.excerpt}`).join(" "),
+    ).not.toContain("&hellip;");
+    expect(result.external[0]?.url).toBe("https://example.com/jeht-arc");
+    expect(result.external[0]?.sourceName).toBe("剧情文本索引");
+  });
+
   it("keeps a coherent cited character-arc answer from clean Chinese evidence", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";
