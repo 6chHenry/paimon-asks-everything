@@ -132,6 +132,23 @@ describe("controlled retrieval", () => {
     ).toBe(true);
   });
 
+  it("keeps the Tsaritsa-Harbinger organization fact under low spoilers", () => {
+    const result = retrieveControlled({
+      question: "冰之女皇与愚人众执行官之间是什么关系？",
+      language: "zh-CN",
+      progress: "mondstadt",
+      spoilerPreference: "low",
+      focus: ["story", "character"],
+    });
+
+    expect(result.entries[0]?.conceptId).toBe(
+      "tsaritsa-harbingers-command",
+    );
+    expect(result.entries[0]?.spoilerLevel).toBeLessThanOrEqual(1);
+    expect(result.entries[0]?.summary).toContain("领导");
+    expect(result.entries[0]?.summary).toContain("执行官");
+  });
+
   it("retrieves the released Nod-Krai fate of the Pyro Gnosis", () => {
     const result = retrieveControlled({
       question: "月之七最后火神之心去了哪里？",

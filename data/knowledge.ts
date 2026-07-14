@@ -1,4 +1,5 @@
 import type { KnowledgeEntry, Language } from "@/lib/domain";
+import { factionKnowledgeEntries } from "@/data/faction-knowledge";
 import { gnosisKnowledgeEntries } from "@/data/gnosis-knowledge";
 
 const officialCharacterUrl =
@@ -427,5 +428,6 @@ const sandroneKnowledgeEntries: KnowledgeEntry[] = pairs.flatMap((pair) =>
 
 export const knowledgeEntries: KnowledgeEntry[] = [
   ...sandroneKnowledgeEntries,
+  ...factionKnowledgeEntries,
   ...gnosisKnowledgeEntries,
 ];

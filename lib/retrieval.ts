@@ -268,8 +268,19 @@ export function retrieveControlled({
     .filter((entry) => entry.spoilerLevel <= maxSpoiler)
     .filter(
       (entry, index, all) =>
-        all.findIndex((candidate) => candidate.conceptId === entry.conceptId) ===
-        index,
+        !(
+          entry.language !== language &&
+          all.some(
+            (candidate) =>
+              candidate.conceptId === entry.conceptId &&
+              candidate.language === language,
+          )
+        ) &&
+        all.findIndex(
+          (candidate) =>
+            candidate.conceptId === entry.conceptId &&
+            (candidate.language === language || entry.language !== language),
+        ) === index,
     )
     .slice(0, maxResults);
 
