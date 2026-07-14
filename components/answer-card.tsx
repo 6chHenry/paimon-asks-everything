@@ -38,6 +38,18 @@ export function AnswerCard({
 }) {
   const [feedback, setFeedback] = useState<boolean | null>(null);
   const validCitationIds = new Set(result.citations.map((citation) => citation.id));
+  const verificationLabel =
+    result.verificationStatus === "verified"
+      ? t(language, "线索已核验", "Evidence verified")
+      : result.verificationStatus === "partially_verified"
+        ? t(language, "部分线索已核验", "Partially verified")
+        : result.verificationStatus === "model_knowledge"
+          ? t(
+              language,
+              "模型已有知识·未实时核验",
+              "Model knowledge · not live-verified",
+            )
+          : undefined;
 
   function renderInline(text: string, citationIds: string[] = []) {
     const inline = parseAnswerCitationMarkers(text).map(
@@ -155,9 +167,16 @@ export function AnswerCard({
     <article className={`answer-card status-${result.status}`}>
       <div className="answer-kicker">
         <span><Sparkles size={15} />{t(language, "派蒙找到啦！", "Paimon found it!")}</span>
-        <span className={`confidence ${result.confidence}`}>
-          {t(language, `置信度：${result.confidence === "high" ? "高" : result.confidence === "medium" ? "中" : "低"}`, `Confidence: ${result.confidence}`)}
-        </span>
+        <div className="answer-meta">
+          {verificationLabel ? (
+            <span className={`verification-status ${result.verificationStatus}`}>
+              {verificationLabel}
+            </span>
+          ) : null}
+          <span className={`confidence ${result.confidence}`}>
+            {t(language, `置信度：${result.confidence === "high" ? "高" : result.confidence === "medium" ? "中" : "低"}`, `Confidence: ${result.confidence}`)}
+          </span>
+        </div>
       </div>
       <div className="answer-text">
         {result.answerParagraphs?.length

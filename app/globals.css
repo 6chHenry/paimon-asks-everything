@@ -1583,6 +1583,10 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 .answer-card { padding: 34px; }
 .answer-kicker { display: flex; justify-content: space-between; gap: 15px; align-items: center; margin-bottom: 25px; }
 .answer-kicker > span:first-child { display: flex; align-items: center; gap: 7px; color: var(--coral); font-size: 10px; letter-spacing: .16em; font-weight: 800; text-transform: uppercase; }
+.answer-meta { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.verification-status { padding: 5px 9px; border-radius: 999px; font-size: 9px; border: 1px solid rgba(79,120,107,.35); color: var(--green); }
+.verification-status.partially_verified { border-color: rgba(176,133,43,.4); color: #8b681f; }
+.verification-status.model_knowledge { border-style: dashed; border-color: var(--line); color: var(--muted); }
 .confidence { padding: 5px 9px; border-radius: 999px; font-size: 9px; border: 1px solid var(--line); text-transform: uppercase; }
 .confidence.high { color: var(--green); border-color: rgba(79,120,107,.35); }
 .confidence.low { color: var(--coral); }
@@ -3112,6 +3116,8 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   .story-strip { width: calc(100% - 28px); }
   .page-heading h1, .ask-intro h1 { font-size: 40px; }
   .answer-card { padding: 23px 18px; }
+  .answer-kicker { align-items: flex-start; flex-direction: column; }
+  .answer-meta { justify-content: flex-start; }
   .answer-text { font-size: 18px; padding-left: 16px; }
   .clue-ledger-heading { flex-direction: column; gap: 6px; }
   .clue-ledger-heading small { max-width: none; text-align: left; }

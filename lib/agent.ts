@@ -20,6 +20,7 @@ import type { ChatRequest } from "@/lib/schemas";
 import { createSpoilerToken } from "@/lib/spoiler-token";
 import { recommendStoryResources } from "@/lib/story-resources";
 import { emitTrace, type TraceEmitter } from "@/lib/trace";
+import { determineVerificationStatus } from "@/lib/verification";
 
 const prohibitedTerms = [
   "外挂",
@@ -276,6 +277,11 @@ export async function runAgent(
     status: "answered",
     answer: generated.answer,
     answerParagraphs: generated.answerParagraphs,
+    verificationStatus: determineVerificationStatus({
+      status: "answered",
+      answerParagraphs: generated.answerParagraphs,
+      citations,
+    }),
     language,
     answerMode: deepStory
       ? "deep_story"

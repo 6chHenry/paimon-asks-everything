@@ -41,7 +41,33 @@ describe("agent workflow", () => {
     expect(result.status).toBe("answered");
     expect(result.answerMode).toBe("minimal_catch_up");
     expect(result.citations.length).toBeGreaterThan(0);
+    expect(result.verificationStatus).toBe("verified");
     expect(result.eventRecorded).toBe(true);
+  });
+
+  it("answers the Tsaritsa-Harbinger relationship from one verified local fact", async () => {
+    const fetchMock = vi.mocked(fetch);
+    const result = await runAgent(
+      {
+        ...base,
+        focus: ["story", "character"],
+        question: "冰之女皇与愚人众执行官之间是什么关系？",
+      },
+      { recordEvent: false },
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.status).toBe("answered");
+    expect(result.verificationStatus).toBe("verified");
+    expect(result.confidence).toBe("high");
+    expect(result.citations).toHaveLength(1);
+    expect(result.citations[0]).toMatchObject({
+      id: "source-1",
+      external: false,
+      sourceKind: "trusted_wiki",
+    });
+    expect(result.answer).toContain("最高领导者");
+    expect(result.answer).toContain("个人动机并不完全相同");
   });
 
   it("reconfirms high-risk identity spoilers", async () => {
@@ -54,6 +80,7 @@ describe("agent workflow", () => {
     expect(result.status).toBe("spoiler_confirmation_required");
     expect(result.confirmationToken).toBeTruthy();
     expect(result.spoilerAction).toBe("confirmation_required");
+    expect(result.verificationStatus).toBeUndefined();
   });
 
   it("reconfirms high-risk spoiler intent even when no level 3 evidence is retrieved", async () => {
@@ -382,6 +409,7 @@ describe("agent workflow", () => {
     });
     expect(result.status).toBe("refused");
     expect(result.answerMode).toBe("safe_refusal");
+    expect(result.verificationStatus).toBeUndefined();
   });
 
   it("marks broad lore requests as deep story answers", async () => {
