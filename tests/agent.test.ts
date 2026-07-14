@@ -76,7 +76,7 @@ describe("agent workflow", () => {
     });
     expect(result.status).toBe("answered");
     expect(result.answerMode).toBe("minimal_catch_up");
-    expect(result.citations.length).toBeGreaterThan(0);
+    expect(result.citations).toHaveLength(1);
     expect(result.citations.every((citation) => !citation.external)).toBe(true);
     expect(result.verificationStatus).toBe("verified");
     expect(result.answer).not.toMatch(
@@ -102,7 +102,7 @@ describe("agent workflow", () => {
     expect(result.status).toBe("answered");
     expect(result.answerMode).toBe("layered_hint");
     expect(result.verificationStatus).toBe("verified");
-    expect(result.citations.length).toBeGreaterThan(0);
+    expect(result.citations).toHaveLength(1);
     expect(result.citations.every((citation) => !citation.external)).toBe(true);
     expect(result.answer).toMatch(/观察|颜色|运动规律|能量|顺序/u);
     expect(result.answer).not.toMatch(

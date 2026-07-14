@@ -70,11 +70,19 @@ function toCitations(
 }
 
 function toClaims(entries: KnowledgeEntry[], citations: Citation[]): Claim[] {
-  return entries.slice(0, 3).map((entry, index) => ({
-    text: entry.summary,
-    citationIds: citations[index] ? [citations[index].id] : [],
-    factStatus: entry.factStatus,
-  }));
+  const finalCitationIds = new Set(citations.map((citation) => citation.id));
+  return entries.flatMap((entry, index) => {
+    const citationId = `source-${index + 1}`;
+    return finalCitationIds.has(citationId)
+      ? [
+          {
+            text: entry.summary,
+            citationIds: [citationId],
+            factStatus: entry.factStatus,
+          },
+        ]
+      : [];
+  }).slice(0, 3);
 }
 
 function inferConfidence(input: {
@@ -246,7 +254,11 @@ export async function runAgent(
     understanding: questionUnderstanding,
     signal: options.signal,
   });
-  const controlledCitations = toCitations(entries);
+  const citedSourceIds = new Set(generated.citedSourceIds);
+  const controlledCitations = toCitations(entries).filter(
+    (citation) =>
+      citedSourceIds.size === 0 || citedSourceIds.has(citation.id),
+  );
   const citations = [...controlledCitations, ...generated.external];
 
   if (!entries.length && !generated.external.length) {

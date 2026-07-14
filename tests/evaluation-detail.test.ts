@@ -27,7 +27,7 @@ describe("evaluation detail", () => {
     const item = result.results[0];
 
     expect(item.answer).toBeTruthy();
-    expect(item.citations.length).toBeGreaterThan(0);
+    expect(item.citations).toHaveLength(1);
     expect(item.verificationStatus).toBe("verified");
     expect(item.confidence).toBe("high");
     expect(item.answerMode).toBe("minimal_catch_up");
@@ -46,6 +46,7 @@ describe("evaluation detail", () => {
     expect(item.status).toBe("answered");
     expect(item.verificationStatus).toBe("verified");
     expect(item.answerMode).toBe("layered_hint");
+    expect(item.citations).toHaveLength(1);
     expect(item.answer).toMatch(/观察|颜色|运动规律|能量|顺序/u);
     expect(item.checks).toMatchObject({
       verification: true,
