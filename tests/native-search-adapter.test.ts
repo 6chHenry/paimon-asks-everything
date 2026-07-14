@@ -35,7 +35,8 @@ describe("native search adapter", () => {
     });
   });
 
-  it("uses native search as the default generation path", async () => {
+  it("uses the request-level Anthropic route for native search", async () => {
+    process.env.LLM_API_STYLE = "openai";
     process.env.LLM_API_KEY = "test-key";
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({
       content: [
@@ -54,6 +55,7 @@ describe("native search adapter", () => {
     const question = "冰之女皇与愚人众执行官之间是什么关系？";
     const result = await generateGroundedResponse({
       question,
+      apiStyle: "anthropic",
       language: "zh-CN",
       profile: "story",
       entries: [],

@@ -243,8 +243,10 @@ export async function runAgent(
   }
 
   const entries = retrieval.entries;
+  const apiStyle = request.apiStyle ?? "anthropic";
   const generated = await generateGroundedResponse({
     question: request.question,
+    apiStyle,
     language,
     profile: request.profile,
     entries,

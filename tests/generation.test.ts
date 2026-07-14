@@ -319,7 +319,8 @@ describe("grounded generation", () => {
     expect(answer).not.toContain("阿兰");
   });
 
-  it("runs a DeepSeek search tool loop and returns cited web evidence", async () => {
+  it("uses the request-level OpenAI route for the designed search flow", async () => {
+    process.env.LLM_API_STYLE = "anthropic";
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";
     process.env.LLM_MODEL = "deepseek-v4-flash";
@@ -406,6 +407,7 @@ describe("grounded generation", () => {
 
     const result = await generateGroundedResponse({
       question: "桑多涅和阿兰的关系",
+      apiStyle: "openai",
       language: "zh-CN",
       profile: "story",
       entries: [entry],

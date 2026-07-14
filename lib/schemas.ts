@@ -5,6 +5,7 @@ const focusValueSchema = z.enum(["story", "character", "gameplay", "overview"]);
 
 export const chatRequestSchema = z.object({
   question: z.string().trim().min(2).max(800),
+  apiStyle: z.enum(["openai", "anthropic"]).default("anthropic"),
   language: z.enum(["zh-CN", "en"]),
   profile: z.enum(["new", "returning", "story", "exploration", "casual"]),
   progress: z.enum([
@@ -115,7 +116,10 @@ export const preheatEventSchema = z
   })
   .strict();
 
-export type ChatRequest = z.infer<typeof chatRequestSchema>;
+type ParsedChatRequest = z.output<typeof chatRequestSchema>;
+export type ChatRequest = Omit<ParsedChatRequest, "apiStyle"> & {
+  apiStyle?: ParsedChatRequest["apiStyle"];
+};
 export type PreheatQuery = z.infer<typeof preheatQuerySchema>;
 export type QuestionSuggestionRequest = z.infer<
   typeof questionSuggestionRequestSchema

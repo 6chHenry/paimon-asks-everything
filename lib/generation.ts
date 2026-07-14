@@ -39,7 +39,10 @@ import {
 } from "@/lib/entity-lexicon";
 import { t } from "@/lib/i18n";
 import { assessLocalEvidenceSufficiency } from "@/lib/local-evidence";
-import { resolveLlmApiStyle } from "@/lib/llm-api-style";
+import {
+  resolveLlmApiStyle,
+  type LlmApiStyle,
+} from "@/lib/llm-api-style";
 import {
   generateNativeGroundedResponse,
   type GenerationDiagnostics,
@@ -984,6 +987,7 @@ function generationFallback(input: {
 
 export async function generateGroundedResponse(input: {
   question: string;
+  apiStyle?: LlmApiStyle;
   language: Language;
   profile: Profile;
   entries: KnowledgeEntry[];
@@ -1078,7 +1082,7 @@ export async function generateGroundedResponse(input: {
     };
   }
 
-  const apiStyle = resolveLlmApiStyle();
+  const apiStyle = resolveLlmApiStyle(input.apiStyle);
   if (apiStyle === "anthropic") {
     const native = await generateNativeGroundedResponse({
       question: input.question,
