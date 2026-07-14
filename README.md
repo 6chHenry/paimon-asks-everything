@@ -145,6 +145,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 - **API 风格**：`LLM_API_STYLE` 未配置时默认为 `anthropic`，调用 `/anthropic/v1/messages` 与 `web_search_20250305`；显式设为 `openai` 时直接使用现有 `/chat/completions` + 自建搜索链路。
 - **平滑回退**：原生搜索遇到超时、HTTP/JSON 错误、无最终正文、无相关来源或不完整截断时，每个请求最多回退一次；用户不会看到底层接口错误。
 - **原生来源**：结构化搜索结果先做 URL 规范化、去重、实体相关性和来源治理，再进入现有资料卡；无法可靠映射的 `【n】` 不会伪造为行内引用。
+- **选择性阅读与观看**：主回答先返回，再优先复用本次原生搜索来源；可用资源不足时仅追加一次 Anthropic 原生搜索，不再同时启动多组自建搜索。
 - **Wiki 搜索**：英文 Fandom、中文 Fandom、BWIKI、HoYoWiki、观测枢 —— 通过 MediaWiki API 获取页面摘要与全文解析。
 - **通用网页搜索**：DuckDuckGo HTML + Yahoo Search，自动抓取结果页正文并提取相关段落。
 - **来源分级**：
