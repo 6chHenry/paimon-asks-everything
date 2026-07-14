@@ -192,6 +192,11 @@ export interface AnswerParagraph {
   citationIds: string[];
 }
 
+export type VerificationStatus =
+  | "verified"
+  | "partially_verified"
+  | "model_knowledge";
+
 export interface EventClassification {
   questionCategory: QuestionCategory;
   confusionTopic: string;
@@ -205,6 +210,7 @@ export interface ChatResult {
     | "insufficient_evidence";
   answer: string;
   answerParagraphs?: AnswerParagraph[];
+  verificationStatus?: VerificationStatus;
   language: Language;
   answerMode:
     | "minimal_catch_up"

@@ -3,6 +3,8 @@ import {
   generateGroundedAnswer,
   generateGroundedResponse,
 } from "@/lib/generation";
+import { factionKnowledgeEntries } from "@/data/faction-knowledge";
+import { knowledgeEntries } from "@/data/knowledge";
 import type { Citation, KnowledgeEntry } from "@/lib/domain";
 import { ruleUnderstandQuestion } from "@/lib/question-understanding";
 
@@ -1365,6 +1367,82 @@ describe("grounded generation", () => {
     ).toEqual([]);
   });
 
+  it("does not synthesize a verified character arc from community-only stage coverage", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    let apiCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "api.example.test") {
+          apiCalls += 1;
+          return new Response(
+            JSON.stringify({ choices: [{ message: { content: "not json" } }] }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (url.pathname.includes("api.php")) {
+          return new Response(JSON.stringify({ query: { search: [], pages: {} } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const question = "婕德经历了怎么的变化？";
+    const external: Citation[] = [
+      {
+        id: "community-start",
+        title: "婕德成长讨论",
+        url: "https://example.com/community-start",
+        sourceName: "社区讨论",
+        sourceKind: "community",
+        credibility: "community",
+        factStatus: "community_analysis",
+        excerpt: "婕德最初依赖父亲；父亲离世后，她被塔尼特接纳。",
+        external: true,
+        crossLanguage: false,
+      },
+      {
+        id: "community-end",
+        title: "婕德后续讨论",
+        url: "https://example.com/community-end",
+        sourceName: "社区讨论",
+        sourceKind: "community",
+        credibility: "community",
+        factStatus: "community_analysis",
+        excerpt: "她认清芭别尔的背叛后与部族决裂，最终选择自己的道路。",
+        external: true,
+        crossLanguage: false,
+      },
+    ];
+
+    const result = await generateGroundedResponse({
+      question,
+      language: "zh-CN",
+      profile: "story",
+      entries: [],
+      external,
+      deepStory: true,
+      understanding: ruleUnderstandQuestion(question, "zh-CN"),
+    });
+
+    expect(apiCalls).toBe(0);
+    expect(result.answer).toContain("资料还不足以稳妥回答");
+    expect(result.citedSourceIds).toEqual([]);
+    expect(result.external).toHaveLength(2);
+  });
+
   it("keeps a coherent cited character-arc answer from clean Chinese evidence", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";
@@ -1478,5 +1556,61 @@ describe("grounded generation", () => {
     expect(result.citedSourceIds).toEqual(
       expect.arrayContaining(["external-1", "external-2"]),
     );
+  });
+
+  it.each([
+    {
+      name: "Tsaritsa atomic relationship",
+      question: "冰之女皇与愚人众执行官之间是什么关系？",
+      category: "character" as const,
+      entries: factionKnowledgeEntries.filter(
+        (candidate) => candidate.language === "zh-CN",
+      ),
+    },
+    {
+      name: "Fontaine catch-up",
+      question: "我停在枫丹，现在还能看懂目标版本吗？",
+      category: "version_overview" as const,
+      entries: knowledgeEntries.filter(
+        (candidate) =>
+          candidate.conceptId === "fontaine-bridge" &&
+          candidate.language === "zh-CN",
+      ),
+    },
+    {
+      name: "generic layered puzzle hint",
+      question: "这个机械机关我卡住了，先给一点提示。",
+      category: "gameplay" as const,
+      entries: knowledgeEntries.filter(
+        (candidate) =>
+          candidate.conceptId === "mechanical-puzzle" &&
+          candidate.language === "zh-CN",
+      ),
+    },
+  ])("answers $name locally without calling an API", async (testCase) => {
+    process.env.LLM_API_KEY = "test-key";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    const fetchMock = vi.fn(() => {
+      throw new Error("Local evidence must not call the network");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateGroundedResponse({
+      question: testCase.question,
+      language: "zh-CN",
+      profile: "returning",
+      category: testCase.category,
+      entries: testCase.entries,
+      external: [],
+      understanding: ruleUnderstandQuestion(testCase.question, "zh-CN"),
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.external).toEqual([]);
+    expect(result.answer).not.toMatch(/还没找到可靠资料|不乱下结论/u);
+    expect(result.citedSourceIds.length).toBeGreaterThan(0);
   });
 });

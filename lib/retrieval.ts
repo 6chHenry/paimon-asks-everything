@@ -118,6 +118,15 @@ function expandedTerms(question: string) {
 }
 
 function isSpecificTerm(term: string) {
+  if (
+    /[\u3400-\u9fff]/u.test(term) &&
+    [...genericIntentTerms].some(
+      (generic) =>
+        /[\u3400-\u9fff]/u.test(generic) && term.includes(generic),
+    )
+  ) {
+    return false;
+  }
   return term.length >= 2 && !genericIntentTerms.has(term);
 }
 
@@ -256,7 +265,12 @@ export function retrieveControlled({
       return { ...entry, score, crossLanguage: entry.language !== language };
     })
     .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => {
+      if (a.conceptId === b.conceptId && a.language !== b.language) {
+        return a.language === language ? -1 : 1;
+      }
+      return b.score - a.score;
+    });
 
   for (const entry of scored) {
     if (entry.spoilerLevel === 3 && !allowHighRisk) {

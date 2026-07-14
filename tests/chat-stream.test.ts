@@ -67,6 +67,37 @@ describe("chat stream route", () => {
     );
   });
 
+  it("emits verification only with the completed answer event", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: "冰之女皇与愚人众执行官之间是什么关系？",
+          language: "zh-CN",
+          profile: "story",
+          progress: "fontaine",
+          spoilerPreference: "low",
+          focus: ["story", "character"],
+          allowQuestionTextStorage: false,
+          sessionId: "stream-verification-session",
+        }),
+      }),
+    );
+    const body = await response.text();
+    const traces = eventPayloads(body, "trace");
+    const answer = eventPayloads(body, "answer")[0] as {
+      status?: string;
+      verificationStatus?: string;
+    };
+
+    expect(traces.every((trace) => !("verificationStatus" in trace))).toBe(true);
+    expect(answer).toMatchObject({
+      status: "answered",
+      verificationStatus: "verified",
+    });
+  });
+
   it("keeps streaming trace events after spoiler confirmation", async () => {
     const requestBody = {
       question: "法尔伽传说任务故事梗概",

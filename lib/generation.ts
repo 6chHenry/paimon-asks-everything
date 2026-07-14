@@ -5,6 +5,7 @@ import type {
   KnowledgeEntry,
   Language,
   Profile,
+  QuestionCategory,
 } from "@/lib/domain";
 import {
   answerText,
@@ -22,6 +23,7 @@ import {
 import {
   compactCleanEvidence,
   evidenceForGeneration,
+  hasReliableCharacterArcCoverage,
   safeBoundaryAnswer,
   selectAnswerEvidence,
 } from "@/lib/evidence-quality";
@@ -36,6 +38,7 @@ import {
   type QuestionEntity,
 } from "@/lib/entity-lexicon";
 import { t } from "@/lib/i18n";
+import { assessLocalEvidenceSufficiency } from "@/lib/local-evidence";
 import {
   searchPlanFromUnderstanding,
   type QuestionUnderstanding,
@@ -979,9 +982,11 @@ export async function generateGroundedResponse(input: {
   profile: Profile;
   entries: KnowledgeEntry[];
   external: Citation[];
+  category?: QuestionCategory;
   deepStory?: boolean;
   emitTrace?: TraceEmitter;
   understanding?: QuestionUnderstanding;
+  signal?: AbortSignal;
 }): Promise<GroundedGenerationResult> {
   const storySynopsis =
     Boolean(input.deepStory) &&
@@ -1001,11 +1006,47 @@ export async function generateGroundedResponse(input: {
     status: "running",
     message: "正在整理回答",
   });
+  const localDecision = assessLocalEvidenceSufficiency({
+    question: input.question,
+    category: input.category ?? "story",
+    entries: input.entries,
+    plan: fallbackSearchPlan,
+  });
+  if (localDecision.sufficient) {
+    const selectedIds = new Set(localDecision.entryIds);
+    const answerParagraphs = input.entries.flatMap((entry, index) =>
+      selectedIds.has(entry.id)
+        ? [
+            {
+              text: entry.content,
+              citationIds: [`source-${index + 1}`],
+            },
+          ]
+        : [],
+    );
+    const answer = answerText(answerParagraphs);
+    await emitTrace(input.emitTrace, {
+      stage: "generate",
+      status: "complete",
+      message: "本地线索已经足够",
+      detail: localDecision.reason,
+    });
+    return {
+      answer,
+      answerParagraphs,
+      external: [],
+      citedSourceIds: answerParagraphs.flatMap(
+        (paragraph) => paragraph.citationIds,
+      ),
+      searchPlan: fallbackSearchPlan,
+    };
+  }
   const apiKey = process.env.LLM_API_KEY;
   if (!apiKey) {
     const searched = await searchWebEvidence(input.question, input.language, {
       emitTrace: input.emitTrace,
       plan: fallbackSearchPlan,
+      signal: input.signal,
     }).catch(() => input.external);
     const rawExternal = searched.length ? searched : input.external;
     const external = selectAnswerEvidence(rawExternal, {
@@ -1077,6 +1118,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       searchedExternal = await searchWebEvidence(input.question, input.language, {
         emitTrace: input.emitTrace,
         plan: searchPlan,
+        signal: input.signal,
       });
       searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal, searchPlan), {
         question: input.question,
@@ -1180,6 +1222,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       searchedExternal = await searchWebEvidence(input.question, args.language, {
         emitTrace: input.emitTrace,
         plan: searchPlan,
+        signal: input.signal,
       });
       searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal, searchPlan), {
         question: input.question,
@@ -1204,6 +1247,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
         searchedExternal = await searchWebEvidence(input.question, input.language, {
           emitTrace: input.emitTrace,
           plan: fallbackSearchPlan,
+          signal: input.signal,
         });
       }
     }
@@ -1221,6 +1265,24 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
     bestExternal = external;
     bestSearchPlan = searchPlan;
     const evidenceFallback = generationFallback({ ...input, external });
+    if (
+      searchPlan.storyScope === "character_arc" &&
+      !hasReliableCharacterArcCoverage(external)
+    ) {
+      await emitTrace(input.emitTrace, {
+        stage: "generate",
+        status: "complete",
+        message: "成长线证据阶段不完整，改用保守回答",
+      });
+      return {
+        ...evidenceFallback,
+        external,
+        citedSourceIds: evidenceFallback.answerParagraphs.flatMap(
+          (paragraph) => paragraph.citationIds,
+        ),
+        searchPlan,
+      };
+    }
     const evidence = buildEvidence({ entries: input.entries, external });
     const allowedSourceIds = new Set(evidence.map((item) => item.id));
     const sourceAuthorityById = new Map(

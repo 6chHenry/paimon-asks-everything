@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cleanEvidenceText,
   evidenceForGeneration,
+  hasReliableCharacterArcCoverage,
   safeBoundaryAnswer,
   selectAnswerEvidence,
 } from "@/lib/evidence-quality";
@@ -28,6 +29,27 @@ function citation(
 }
 
 describe("evidence quality", () => {
+  it("requires reliable evidence across all four character-arc stages", () => {
+    const start = citation(
+      "start",
+      "婕德故事起点",
+      "婕德最初依赖父亲；父亲离世后，她被塔尼特接纳。",
+    );
+    const turn = citation(
+      "turn",
+      "婕德的选择",
+      "她认清芭别尔的背叛后与部族决裂，最终决定选择自己的道路。",
+    );
+    expect(hasReliableCharacterArcCoverage([start, turn])).toBe(true);
+
+    const communityStart = { ...start, sourceKind: "community" as const, credibility: "community" as const };
+    const communityTurn = { ...turn, sourceKind: "community" as const, credibility: "community" as const };
+    expect(
+      hasReliableCharacterArcCoverage([communityStart, communityTurn]),
+    ).toBe(false);
+    expect(hasReliableCharacterArcCoverage([start])).toBe(false);
+  });
+
   it("removes web footnotes, controls, and invisible characters from generation text", () => {
     expect(
       cleanEvidenceText(

@@ -4,6 +4,7 @@ import {
   isDeepStoryIntent,
   isHighRiskSpoilerQuestion,
 } from "@/lib/classification";
+import { answerText } from "@/lib/answer-quality";
 import type {
   ChatResult,
   Citation,
@@ -14,12 +15,17 @@ import type {
 import { recordEvent } from "@/lib/event-store";
 import { buildHints, generateGroundedResponse } from "@/lib/generation";
 import { t } from "@/lib/i18n";
+import {
+  canUseModelKnowledgeFallback,
+  generateModelKnowledgeAnswer,
+} from "@/lib/model-knowledge";
 import { understandQuestion } from "@/lib/question-understanding";
 import { retrieveControlled } from "@/lib/retrieval";
 import type { ChatRequest } from "@/lib/schemas";
 import { createSpoilerToken } from "@/lib/spoiler-token";
 import { recommendStoryResources } from "@/lib/story-resources";
 import { emitTrace, type TraceEmitter } from "@/lib/trace";
+import { determineVerificationStatus } from "@/lib/verification";
 
 const prohibitedTerms = [
   "外挂",
@@ -64,11 +70,19 @@ function toCitations(
 }
 
 function toClaims(entries: KnowledgeEntry[], citations: Citation[]): Claim[] {
-  return entries.slice(0, 3).map((entry, index) => ({
-    text: entry.summary,
-    citationIds: citations[index] ? [citations[index].id] : [],
-    factStatus: entry.factStatus,
-  }));
+  const finalCitationIds = new Set(citations.map((citation) => citation.id));
+  return entries.flatMap((entry, index) => {
+    const citationId = `source-${index + 1}`;
+    return finalCitationIds.has(citationId)
+      ? [
+          {
+            text: entry.summary,
+            citationIds: [citationId],
+            factStatus: entry.factStatus,
+          },
+        ]
+      : [];
+  }).slice(0, 3);
 }
 
 function inferConfidence(input: {
@@ -234,14 +248,53 @@ export async function runAgent(
     profile: request.profile,
     entries,
     external: [],
+    category: eventClassification.questionCategory,
     deepStory,
     emitTrace: options.emitTrace,
     understanding: questionUnderstanding,
+    signal: options.signal,
   });
-  const controlledCitations = toCitations(entries);
+  const citedSourceIds = new Set(generated.citedSourceIds);
+  const controlledCitations = toCitations(entries).filter(
+    (citation) =>
+      citedSourceIds.size === 0 || citedSourceIds.has(citation.id),
+  );
   const citations = [...controlledCitations, ...generated.external];
 
   if (!entries.length && !generated.external.length) {
+    const mayUseModelKnowledge =
+      !options.signal?.aborted &&
+      canUseModelKnowledgeFallback({
+        question: request.question,
+        category: eventClassification.questionCategory,
+        intent: generated.searchPlan.intent,
+        storyScope: generated.searchPlan.storyScope,
+        confirmedHighRisk: Boolean(options.confirmedHighRisk),
+      });
+    const modelKnowledge = mayUseModelKnowledge
+      ? await generateModelKnowledgeAnswer({
+          question: request.question,
+          language,
+          signal: options.signal,
+        })
+      : null;
+    if (modelKnowledge) {
+      return finish({
+        status: "answered",
+        answer: answerText(modelKnowledge.paragraphs),
+        answerParagraphs: modelKnowledge.paragraphs,
+        verificationStatus: "model_knowledge",
+        language,
+        answerMode: "limited_answer",
+        claims: [],
+        citations: [],
+        spoilerAction: "filtered",
+        usedExternalSources: false,
+        confidence: "low",
+        eventClassification,
+        eventRecorded: false,
+      });
+    }
     return finish({
       status: "insufficient_evidence",
       answer: t(
@@ -274,6 +327,11 @@ export async function runAgent(
     status: "answered",
     answer: generated.answer,
     answerParagraphs: generated.answerParagraphs,
+    verificationStatus: determineVerificationStatus({
+      status: "answered",
+      answerParagraphs: generated.answerParagraphs,
+      citations,
+    }),
     language,
     answerMode: deepStory
       ? "deep_story"

@@ -282,6 +282,20 @@ describe("Paimon evidence experience source", () => {
       ".clue-ledger-heading small { max-width: none; text-align: left; }",
     );
   });
+
+  it("renders verification status without changing the clue heading layout", () => {
+    const answerCard = source("components", "answer-card.tsx");
+    const styles = source("app", "globals.css");
+
+    expect(answerCard).toContain("线索已核验");
+    expect(answerCard).toContain("部分线索已核验");
+    expect(answerCard).toContain("模型已有知识·未实时核验");
+    expect(answerCard).toContain("verification-status");
+    expect(styles).toContain(".verification-status.model_knowledge");
+    expect(styles).toContain(
+      ".claim-list > div:not(.clue-ledger-heading) { display: grid;",
+    );
+  });
 });
 
 describe("Paimon discoveries source", () => {
