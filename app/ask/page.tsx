@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
 import { usePreferences } from "@/components/preferences-provider";
+import { SearchModeToggle } from "@/components/search-mode-toggle";
 import { TraceTimeline } from "@/components/trace-timeline";
 import { questionSuggestionTopics } from "@/data/question-suggestion-topics";
 import { getCustomTopicCandidates } from "@/data/custom-topic-candidates";
@@ -23,6 +24,7 @@ import type {
   QuestionSuggestionResult,
 } from "@/lib/domain";
 import { labels, t } from "@/lib/i18n";
+import type { LlmApiStyle } from "@/lib/llm-api-style";
 import type { TraceEvent } from "@/lib/trace";
 
 function fallbackForTopic(topicId: string, language: "zh-CN" | "en") {
@@ -41,6 +43,7 @@ export default function AskPage() {
   const language = preferences.language;
   const [question, setQuestion] = useState("");
   const [lastQuestion, setLastQuestion] = useState("");
+  const [apiStyle, setApiStyle] = useState<LlmApiStyle>("openai");
   const [result, setResult] = useState<ChatResult | null>(null);
   const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
   const [traceCollapsed, setTraceCollapsed] = useState(false);
@@ -158,6 +161,7 @@ export default function AskPage() {
   async function submitStreamingRequest(
     text: string,
     controller: AbortController,
+    requestApiStyle: LlmApiStyle,
     confirmationToken?: string,
   ) {
     const response = await fetch(clientPath("/api/chat/stream"), {
@@ -166,6 +170,7 @@ export default function AskPage() {
       body: JSON.stringify({
         question: text,
         ...preferences,
+        apiStyle: requestApiStyle,
         sessionId,
         ...(confirmationToken ? { confirmationToken } : {}),
       }),
@@ -237,6 +242,7 @@ export default function AskPage() {
     if (!text.trim()) return;
     activeRequestRef.current?.abort();
     const controller = new AbortController();
+    const requestApiStyle = apiStyle;
     activeRequestRef.current = controller;
     setLoading(true);
     setResourcesLoading(false);
@@ -252,7 +258,12 @@ export default function AskPage() {
       setTraceCollapsed(false);
     }
     try {
-      await submitStreamingRequest(text, controller, confirmationToken);
+      await submitStreamingRequest(
+        text,
+        controller,
+        requestApiStyle,
+        confirmationToken,
+      );
       setQuestion("");
     } catch (requestError) {
       if (
@@ -372,6 +383,12 @@ export default function AskPage() {
           ) : null}
 
           <form className="composer" onSubmit={handleSubmit}>
+            <SearchModeToggle
+              value={apiStyle}
+              onChange={setApiStyle}
+              disabled={loading}
+              language={language}
+            />
             <textarea
               value={question}
               onChange={(event) => setQuestion(event.target.value)}

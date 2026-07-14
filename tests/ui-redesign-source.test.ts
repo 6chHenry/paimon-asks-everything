@@ -73,6 +73,42 @@ describe("Genshin-style shell source", () => {
     expect(css).toContain("order: 5");
     expect(css).toContain("transition-duration: .01ms !important");
   });
+
+  it("keeps the about story as a secondary bilingual easter-egg page", () => {
+    const about = source("app", "about", "page.tsx");
+    const shell = source("components", "app-shell.tsx");
+    const css = source("app", "globals.css");
+    const primaryNavigation = shell.slice(
+      shell.indexOf("const navigation"),
+      shell.indexOf("];", shell.indexOf("const navigation")) + 2,
+    );
+    const aboutCss = css.slice(
+      css.indexOf(".about-page"),
+      css.indexOf(".eyebrow {", css.indexOf(".about-page")),
+    );
+
+    expect(about).toContain('"use client"');
+    expect(about).toContain("usePreferences");
+    expect(about).toContain("为什么需要它");
+    expect(about).toContain("Why it needs to exist");
+    expect(about).toContain("让玩家更容易进入故事，而不是替玩家经历故事");
+    expect(shell).toContain('href={clientPath("/about")}');
+    expect(shell).toContain("game-nav-about");
+    expect(primaryNavigation).not.toContain("/about");
+    expect(shell.indexOf("game-nav-about")).toBeGreaterThan(
+      shell.indexOf("game-nav-tools"),
+    );
+    expect(shell.indexOf("game-nav-about")).toBeLessThan(
+      shell.indexOf("game-nav-language-label"),
+    );
+    expect(css).toContain(".about-page");
+    expect(css).toContain(".game-nav-about");
+    expect(css).toContain(".about-story-grid");
+    expect(aboutCss).toContain('"Noto Sans SC"');
+    expect(aboutCss).toContain("grid-template-columns: repeat(2");
+    expect(aboutCss).not.toContain("var(--display)");
+    expect(aboutCss).not.toContain("font-size: 96px");
+  });
 });
 
 describe("Genshin-style homepage source", () => {

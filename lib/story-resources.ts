@@ -183,6 +183,7 @@ export async function recommendStoryResources(
     searchPlan?: Partial<SearchPlan>;
     citations?: Citation[];
     minimumBeforeLiveSearch?: number;
+    nativeSupplementarySearch?: (queries: string[]) => Promise<Citation[]>;
     signal?: AbortSignal;
   } = {},
 ) {
@@ -208,15 +209,17 @@ export async function recommendStoryResources(
     options.liveSearch &&
     curated.length + reused.length < minimumBeforeLiveSearch
   ) {
-    const results = await Promise.allSettled(
-      readingQueries(question, language, searchPlan).map((query) =>
-        searchGeneralWeb(query, { signal: options.signal }),
-      ),
-    );
-    live = results
-      .flatMap((result) =>
-        result.status === "fulfilled" ? result.value : [],
-      )
+    const queries = readingQueries(question, language, searchPlan);
+    const liveCitations = options.nativeSupplementarySearch
+      ? await options.nativeSupplementarySearch(queries).catch(() => [])
+      : (await Promise.allSettled(
+          queries.map((query) =>
+            searchGeneralWeb(query, { signal: options.signal }),
+          ),
+        )).flatMap((result) =>
+          result.status === "fulfilled" ? result.value : [],
+        );
+    live = liveCitations
       .filter(
         (citation) =>
           !searchPlan.coreEntities.length ||
