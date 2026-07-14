@@ -15,7 +15,7 @@
 | 首页 | 至冬 7.0 更新倒计时、官方影像、新角色立绘预览、至冬关系图 |
 | 版本预热 | 直接选择地区，并按新玩家、回归玩家、剧情党三种身份呈现无剧透入门、地区回顾与引子，或完整剧情、证据和关系图 |
 | 至冬关系图 | 至冬角色、组织与概念的交互式图探索，支持节点详情、关系分析、文本线索溯源 |
-| 问派蒙 | 基于受控语料 + 白名单 Wiki 搜索的证据约束问答，支持来源引用与双语检索 |
+| 问派蒙 | 基于受控语料 + DeepSeek 原生 Web Search 的证据约束问答，支持真实来源引用、双语检索与自建搜索回退 |
 | 发行洞察 | 面向中国制作组的中文发行简报：AI 综合分析 → 玩家需求切片 → 制作动作清单 → 证据工作台 |
 | 技术评测 | 固定问题集的确定性检查与人工复核 |
 
@@ -44,6 +44,7 @@ npm start
 复制 `.env.example` 为 `.env.local`：
 
 ```env
+LLM_API_STYLE=anthropic
 LLM_BASE_URL=https://api.deepseek.com
 LLM_API_KEY=
 LLM_MODEL=deepseek-v4-flash
@@ -66,8 +67,8 @@ SUPABASE_SERVICE_ROLE_KEY=
   → 策划主题编排
   → 双语受控词法检索（同语言优先 + 别名扩展）
   → 剧透门控（Level 3 身份反转需二次确认）
-  → 外部白名单 Wiki 搜索（Fandom / BWIKI / HoYoWiki / 观测枢）
-  → 通用网页搜索（DuckDuckGo / Yahoo）
+  → 默认 DeepSeek Anthropic Messages + 原生 web_search_20250305
+  → 原生搜索失败时一次性回退白名单 Wiki / 通用网页搜索
   → 来源整理（official / trusted_wiki / community / unknown_web）
   → 证据约束回答生成 + 结构化引用
   → 最小化匿名事件写入
@@ -80,7 +81,10 @@ SUPABASE_SERVICE_ROLE_KEY=
 |------|------|
 | `lib/retrieval.ts` | 别名扩展、同语言优先、词法排序与剧透过滤 |
 | `lib/agent.ts` | 单 Agent 工作流：安全拒答 → 搜索编排 → 生成 |
-| `lib/generation.ts` | OpenAI-compatible Chat Completions、tool calling 搜索循环、结构化回答解析与 citation 校验 |
+| `lib/generation.ts` | API 风格分派、OpenAI-compatible 备用链路、结构化回答解析与 citation 校验 |
+| `lib/deepseek-anthropic.ts` | Anthropic Messages 请求、UTF-8、超时与一次 `pause_turn` 续传 |
+| `lib/native-web-search.ts` | 原生搜索响应块解析、正文选择、搜索结果去重与死编号清理 |
+| `lib/native-search-adapter.ts` | 原生正文和来源到统一问答结果的适配、来源治理与一次回退判定 |
 | `lib/external-search.ts` | 多 Wiki provider 搜索、通用网页搜索、来源评估与引用排序 |
 | `lib/source-governance.ts` | 来源可信度分级、发布者身份识别、平台分类 |
 | `lib/preheat.ts` | 版本预热编排：根据身份与地区返回无剧透入门、地区回顾或完整剧情视图 |
@@ -138,11 +142,14 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 ## 搜索与证据策略
 
+- **API 风格**：`LLM_API_STYLE` 未配置时默认为 `anthropic`，调用 `/anthropic/v1/messages` 与 `web_search_20250305`；显式设为 `openai` 时直接使用现有 `/chat/completions` + 自建搜索链路。
+- **平滑回退**：原生搜索遇到超时、HTTP/JSON 错误、无最终正文、无相关来源或不完整截断时，每个请求最多回退一次；用户不会看到底层接口错误。
+- **原生来源**：结构化搜索结果先做 URL 规范化、去重、实体相关性和来源治理，再进入现有资料卡；无法可靠映射的 `【n】` 不会伪造为行内引用。
 - **Wiki 搜索**：英文 Fandom、中文 Fandom、BWIKI、HoYoWiki、观测枢 —— 通过 MediaWiki API 获取页面摘要与全文解析。
 - **通用网页搜索**：DuckDuckGo HTML + Yahoo Search，自动抓取结果页正文并提取相关段落。
 - **来源分级**：
   - `official` — 米哈游 / HoYoverse 官方渠道
-  - `trusted_wiki` — 白名单 Wiki（作为社区索引，不标为官方）
+  - `trusted_wiki` — 百度百科、萌娘百科、Fandom、BWIKI、HoYoWiki、观测枢等可信二手资料（不标为米哈游第一方官方）
   - `community` — 贴吧、知乎、NGA 等社区平台
   - `unknown_web` — 其他网页
 - **身份声明搜索**：对身份/来历类问题自动扩展搜索词（传说任务文本、星海、世界边界等），优先匹配剧情原文。
