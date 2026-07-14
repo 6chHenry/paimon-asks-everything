@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   generateGroundedAnswer,
   generateGroundedResponse,
@@ -87,6 +87,10 @@ const raidenCitation: Citation = {
 };
 
 describe("grounded generation", () => {
+  beforeEach(() => {
+    process.env.LLM_API_STYLE = "openai";
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     process.env = { ...originalEnv };

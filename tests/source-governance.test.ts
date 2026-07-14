@@ -3,6 +3,7 @@ import type { Citation } from "@/lib/domain";
 import {
   assessSourceRule,
   extractPublisherIdentity,
+  legacySourceFields,
   reconcileContentKind,
   sourceAllowedForQuestion,
 } from "@/lib/source-governance";
@@ -27,6 +28,19 @@ function citation(
 }
 
 describe("source governance", () => {
+  it.each([
+    "https://baike.baidu.com/item/冰之女皇",
+    "https://zh.moegirl.org.cn/冰之女皇",
+    "https://genshin-impact.fandom.com/wiki/Tsaritsa",
+    "https://wiki.biligame.com/ys/冰之女皇",
+  ])("treats %s as a trusted reference wiki", (url) => {
+    const assessment = assessSourceRule({ url, title: "资料页", excerpt: "角色资料" });
+    expect(legacySourceFields(assessment)).toMatchObject({
+      sourceKind: "trusted_wiki",
+      credibility: "trusted_wiki",
+    });
+  });
+
   it("treats official-operated wikis as curated references rather than official prose", () => {
     for (const url of [
       "https://baike.mihoyo.com/ys/obc/content/1/detail",

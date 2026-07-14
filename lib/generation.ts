@@ -39,6 +39,11 @@ import {
 } from "@/lib/entity-lexicon";
 import { t } from "@/lib/i18n";
 import { assessLocalEvidenceSufficiency } from "@/lib/local-evidence";
+import { resolveLlmApiStyle } from "@/lib/llm-api-style";
+import {
+  generateNativeGroundedResponse,
+  type GenerationDiagnostics,
+} from "@/lib/native-search-adapter";
 import {
   searchPlanFromUnderstanding,
   type QuestionUnderstanding,
@@ -584,6 +589,7 @@ export interface GroundedGenerationResult {
   external: Citation[];
   citedSourceIds: string[];
   searchPlan: SearchPlan;
+  diagnostics?: GenerationDiagnostics;
 }
 
 type ChatMessage = {
@@ -1070,6 +1076,38 @@ export async function generateGroundedResponse(input: {
       ),
       searchPlan: fallbackSearchPlan,
     };
+  }
+
+  const apiStyle = resolveLlmApiStyle();
+  if (apiStyle === "anthropic") {
+    const native = await generateNativeGroundedResponse({
+      question: input.question,
+      language: input.language,
+      profile: input.profile,
+      entries: input.entries,
+      category: input.category,
+      deepStory: input.deepStory,
+      searchPlan: fallbackSearchPlan,
+      apiKey,
+      baseUrl: process.env.LLM_BASE_URL || "https://api.deepseek.com",
+      model: process.env.LLM_MODEL || "deepseek-v4-flash",
+      signal: input.signal,
+    });
+    if (native.ok) {
+      await emitTrace(input.emitTrace, {
+        stage: "generate",
+        status: "complete",
+        message: "原生搜索回答整理完成",
+        detail: `${native.diagnostics.selectedCitationCount ?? 0} 条来源 · ${native.diagnostics.nativeSearchRequests ?? 0} 次搜索`,
+      });
+      return native.result;
+    }
+    await emitTrace(input.emitTrace, {
+      stage: "generate",
+      status: "running",
+      message: "原生搜索暂不可用，切换备用检索",
+      detail: `anthropic -> custom_web · ${native.reason}`,
+    });
   }
 
   const baseURL = process.env.LLM_BASE_URL || "https://api.deepseek.com";
