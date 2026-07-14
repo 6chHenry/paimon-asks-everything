@@ -288,6 +288,91 @@ describe("whitelisted external search", () => {
     expect(results[0]?.sourceName).toContain("Wiki");
   });
 
+  it("stops before general web when clean direct identity evidence is sufficient", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (
+        url.hostname === "genshin-impact.fandom.com" ||
+        url.hostname === "wiki.biligame.com"
+      ) {
+        if (url.searchParams.get("prop") === "extracts") {
+          return new Response(
+            JSON.stringify({
+              query: {
+                pages: {
+                  "3003": {
+                    pageid: 3003,
+                    title: "桑多涅",
+                    extract:
+                      "桑多涅是愚人众执行官之一，代号木偶，公开资料将她与机械研究和自动机关联系起来。",
+                  },
+                },
+              },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            query: {
+              search: [
+                {
+                  title: "桑多涅",
+                  snippet:
+                    "桑多涅是愚人众执行官之一，称号木偶，与机械研究有关。",
+                  pageid: 3003,
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response("", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence("桑多涅是谁？", "zh-CN", {
+      plan: {
+        coreEntities: ["桑多涅"],
+        aliases: ["Sandrone", "木偶"],
+        intent: "identity",
+        queries: ["桑多涅 身份"],
+      },
+    });
+    const calledHosts = fetchMock.mock.calls.map(
+      (call) => new URL(String(call[0])).hostname,
+    );
+
+    expect(results.length).toBeGreaterThan(0);
+    expect(calledHosts).not.toContain("html.duckduckgo.com");
+    expect(calledHosts).not.toContain("search.yahoo.com");
+    expect(calledHosts).not.toContain("www.sogou.com");
+  });
+
+  it("does not start search backends for an already cancelled request", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await searchWebEvidence("Who is Liben?", "en", {
+      signal: controller.signal,
+      plan: {
+        coreEntities: ["Liben"],
+        aliases: [],
+        intent: "identity",
+        queries: ["Liben identity"],
+      },
+    });
+
+    expect(results).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("keeps arbitrary identity searches locked to the model-selected entity", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
@@ -2365,5 +2450,10 @@ describe("whitelisted external search", () => {
     expect(traceEvents.some((event) => event.detail?.includes("Duel Before"))).toBe(
       true,
     );
+    expect(
+      traceEvents.some((event) =>
+        event.detail?.includes("reference-providers:"),
+      ),
+    ).toBe(true);
   });
 });

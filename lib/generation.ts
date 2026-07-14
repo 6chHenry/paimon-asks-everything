@@ -985,6 +985,7 @@ export async function generateGroundedResponse(input: {
   deepStory?: boolean;
   emitTrace?: TraceEmitter;
   understanding?: QuestionUnderstanding;
+  signal?: AbortSignal;
 }): Promise<GroundedGenerationResult> {
   const storySynopsis =
     Boolean(input.deepStory) &&
@@ -1044,6 +1045,7 @@ export async function generateGroundedResponse(input: {
     const searched = await searchWebEvidence(input.question, input.language, {
       emitTrace: input.emitTrace,
       plan: fallbackSearchPlan,
+      signal: input.signal,
     }).catch(() => input.external);
     const rawExternal = searched.length ? searched : input.external;
     const external = selectAnswerEvidence(rawExternal, {
@@ -1115,6 +1117,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       searchedExternal = await searchWebEvidence(input.question, input.language, {
         emitTrace: input.emitTrace,
         plan: searchPlan,
+        signal: input.signal,
       });
       searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal, searchPlan), {
         question: input.question,
@@ -1218,6 +1221,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       searchedExternal = await searchWebEvidence(input.question, args.language, {
         emitTrace: input.emitTrace,
         plan: searchPlan,
+        signal: input.signal,
       });
       searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal, searchPlan), {
         question: input.question,
@@ -1242,6 +1246,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
         searchedExternal = await searchWebEvidence(input.question, input.language, {
           emitTrace: input.emitTrace,
           plan: fallbackSearchPlan,
+          signal: input.signal,
         });
       }
     }

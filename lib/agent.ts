@@ -238,6 +238,7 @@ export async function runAgent(
     deepStory,
     emitTrace: options.emitTrace,
     understanding: questionUnderstanding,
+    signal: options.signal,
   });
   const controlledCitations = toCitations(entries);
   const citations = [...controlledCitations, ...generated.external];

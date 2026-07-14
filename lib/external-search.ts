@@ -7,6 +7,7 @@ import type {
 } from "@/lib/domain";
 import { isCharacterArcQuestion } from "@/lib/entity-lexicon";
 import { normalizeSearchResultUrl } from "@/lib/search-result-url";
+import { runStagedSearch, type SearchBackend } from "@/lib/search-router";
 import { emitTrace, type TraceEmitter } from "@/lib/trace";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import {
@@ -21,6 +22,7 @@ import {
 import { TtlCache } from "@/lib/ttl-cache";
 import {
   decodeHtmlEntities,
+  isUnusableWebText,
   preferHigherQualityWebText,
   webTextQualityScore,
 } from "@/lib/web-text-quality";
@@ -1860,14 +1862,32 @@ export async function searchGeneralWeb(
     const cached = generalSearchCache.get(cacheKey);
     if (cached) return cached;
   }
-  const results = await Promise.allSettled([
-    searchDuckDuckGoWeb(query, options.signal),
-    searchYahooWeb(query, options.signal),
-    searchSogouWeb(query, options.signal),
-  ]);
-  const citations = results.flatMap((result) =>
-    result.status === "fulfilled" ? result.value : [],
+  const routed = await runStagedSearch(
+    [
+      {
+        id: "duckduckgo",
+        tier: "general_web",
+        search: ({ signal }) => searchDuckDuckGoWeb(query, signal),
+      },
+      {
+        id: "yahoo",
+        tier: "general_web",
+        search: ({ signal }) => searchYahooWeb(query, signal),
+      },
+      {
+        id: "sogou",
+        tier: "general_web",
+        search: ({ signal }) => searchSogouWeb(query, signal),
+      },
+    ],
+    {
+      question: query,
+      language: containsCjk(query) ? "zh-CN" : "en",
+      signal: options.signal,
+      isSufficient: () => false,
+    },
   );
+  const citations = routed.citations;
   if (options.enrich === false) {
     if (process.env.NODE_ENV !== "test" && citations.length > 0) {
       generalSearchCache.set(cacheKey, citations);
@@ -1995,7 +2015,11 @@ function tieredQueries(plan: SearchPlan, question: string, language: Language) {
 export async function searchWebEvidence(
   question: string,
   language: Language,
-  options: { emitTrace?: TraceEmitter; plan?: Partial<SearchPlan> } = {},
+  options: {
+    emitTrace?: TraceEmitter;
+    plan?: Partial<SearchPlan>;
+    signal?: AbortSignal;
+  } = {},
 ): Promise<Citation[]> {
   const normalizedPlan = normalizeSearchPlan(options.plan, question);
   const plan =
@@ -2010,47 +2034,6 @@ export async function searchWebEvidence(
   });
   const tiers = tieredQueries(plan, question, language);
   const planEntities = [...plan.coreEntities, ...plan.aliases];
-  const runQueries = async (queries: string[]) =>
-    Promise.allSettled(
-      queries.map(async (query) => {
-      await emitTrace(options.emitTrace, {
-        stage: "search",
-        status: "running",
-        message: "正在查看网页和 Wiki",
-        detail: query,
-      });
-      const siteRestricted = /^site:/iu.test(query);
-      const queryRetainsEntity =
-        !tiers.entityLookup ||
-        query === tiers.entityLookup ||
-        planEntities.some((entity) => includesEntity(query, entity));
-      const wikiEligible =
-        !siteRestricted &&
-        queryRetainsEntity &&
-        (query === tiers.entityLookup ||
-          plan.intent === "identity" ||
-          plan.intent === "current_status" ||
-          plan.intent === "relationship" ||
-          plan.intent === "story" ||
-          plan.intent === "general");
-      const [wikiResults, webResults] = await Promise.allSettled([
-        !wikiEligible
-          ? Promise.resolve([] as Citation[])
-          : searchProviders(query, language, plan),
-        searchGeneralWeb(query, { enrich: false }),
-      ]);
-      return [
-        ...(wikiResults.status === "fulfilled" ? wikiResults.value : []),
-        ...(webResults.status === "fulfilled" ? webResults.value : []),
-      ];
-      }),
-    );
-  const collectCandidates = (
-    queryResults: Awaited<ReturnType<typeof runQueries>>,
-  ) =>
-    queryResults.flatMap((result) =>
-      result.status === "fulfilled" ? result.value : [],
-    );
   const assessCandidates = async (
     candidates: Citation[],
     useModel: boolean,
@@ -2087,6 +2070,115 @@ export async function searchWebEvidence(
     { question, plan, useModel },
   );
   };
+  const runQueries = async (queries: string[]) => {
+    const buckets = new Map<number, Citation[]>();
+    const appendToBucket = (index: number, items: Citation[]) => {
+      buckets.set(index, [...(buckets.get(index) ?? []), ...items]);
+      return items;
+    };
+    const backends: SearchBackend[] = queries.flatMap((query, index) => [
+      {
+        id: `reference-providers:${index}`,
+        tier: "direct_reference" as const,
+        search: async () => {
+          await emitTrace(options.emitTrace, {
+            stage: "search",
+            status: "running",
+            message: "正在查看网页和 Wiki",
+            detail: query,
+          });
+          const siteRestricted = /^site:/iu.test(query);
+          const queryRetainsEntity =
+            !tiers.entityLookup ||
+            query === tiers.entityLookup ||
+            planEntities.some((entity) => includesEntity(query, entity));
+          const wikiEligible =
+            !siteRestricted &&
+            queryRetainsEntity &&
+            (query === tiers.entityLookup ||
+              plan.intent === "identity" ||
+              plan.intent === "current_status" ||
+              plan.intent === "relationship" ||
+              plan.intent === "story" ||
+              plan.intent === "general");
+          const items = wikiEligible
+            ? await searchProviders(query, language, plan)
+            : [];
+          return appendToBucket(index, items);
+        },
+      },
+      {
+        id: `general-web:${index}`,
+        tier: "general_web" as const,
+        search: async ({ signal }) => {
+          const items = await searchGeneralWeb(query, {
+            enrich: false,
+            signal,
+          });
+          return appendToBucket(index, items);
+        },
+      },
+    ]);
+    const routed = await runStagedSearch(backends, {
+      question,
+      language,
+      signal: options.signal,
+      isSufficient: async (citations) => {
+        if (plan.intent !== "identity" && plan.intent !== "current_status") {
+          return false;
+        }
+        const accepted = await assessCandidates(citations, false, false);
+        const relevant = dedupeAndRank(accepted, plan, question).filter(
+          (citation) => {
+            const text = `${citation.title} ${citation.excerpt}`;
+            return (
+              !isUnusableWebText(text) &&
+              planEntities.some((entity) => includesEntity(text, entity))
+            );
+          },
+        );
+        if (plan.intent === "current_status") {
+          return relevant.some((citation) =>
+            /已实装|尚未实装|已经上线|当前版本|发布日期|released|available|current\s+version|release\s+date/iu.test(
+              `${citation.title} ${citation.excerpt}`,
+            ),
+          );
+        }
+        const claimPattern = identityClaimQueryPattern(question);
+        return claimPattern
+          ? relevant.some((citation) =>
+              claimPattern.test(`${citation.title} ${citation.excerpt}`),
+            )
+          : relevant.length > 0;
+      },
+    });
+    await emitTrace(options.emitTrace, {
+      stage: "search",
+      status: "running",
+      message: "搜索后端检查完成",
+      detail: routed.attempts
+        .map(
+          (attempt) =>
+            `${attempt.backendId}=${attempt.status}${
+              attempt.resultCount ? `(${attempt.resultCount})` : ""
+            }`,
+        )
+        .join("; "),
+    });
+    return queries.map(
+      (_, index) =>
+        ({
+          status: "fulfilled",
+          value: buckets.get(index) ?? [],
+        }) as PromiseFulfilledResult<Citation[]>,
+    );
+  };
+  const collectCandidates = (
+    queryResults: Awaited<ReturnType<typeof runQueries>>,
+  ) =>
+    queryResults.flatMap((result) =>
+      result.status === "fulfilled" ? result.value : [],
+    );
   const fastChineseStoryQuestCandidates =
     language === "zh-CN"
       ? await searchChineseStoryQuestWikiFast(plan, question)
