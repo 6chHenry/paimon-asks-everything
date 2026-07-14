@@ -187,3 +187,50 @@ export async function generateNativeGroundedResponse(input: {
     return { ok: false, reason, diagnostics: { ...diagnostics, fallbackReason: reason } };
   }
 }
+
+export async function searchNativeReadingResources(input: {
+  question: string;
+  language: Language;
+  searchPlan: SearchPlan;
+  queries: string[];
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  signal?: AbortSignal;
+}) {
+  const queries = Array.from(
+    new Set(input.queries.map((query) => query.trim()).filter(Boolean)),
+  ).slice(0, 3);
+  if (!queries.length) return [];
+  try {
+    const response = await requestDeepSeekAnthropic({
+      baseUrl: input.baseUrl,
+      apiKey: input.apiKey,
+      model: input.model,
+      system:
+        "Find useful optional Genshin Impact reading or viewing resources. Prefer official pages and videos, quest transcripts, then mature story guides. Use web search once. Do not include leaks or invent URLs.",
+      messages: [
+        {
+          role: "user",
+          content: JSON.stringify({
+            language: input.language,
+            question: input.question,
+            queries,
+            instruction:
+              "Search these alternatives in one tool invocation and return only a short acknowledgement after searching.",
+          }),
+        },
+      ],
+      maxTokens: 300,
+      signal: input.signal,
+    });
+    const parsed = parseNativeWebSearchResponse(response);
+    return adaptNativeSearchResults(parsed.results, {
+      question: input.question,
+      language: input.language,
+      plan: input.searchPlan,
+    });
+  } catch {
+    return [];
+  }
+}

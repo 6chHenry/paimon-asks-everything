@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { adaptNativeSearchResults } from "@/lib/native-search-adapter";
+import {
+  adaptNativeSearchResults,
+  searchNativeReadingResources,
+} from "@/lib/native-search-adapter";
 import { normalizeSearchPlan } from "@/lib/external-search";
 import { generateGroundedResponse } from "@/lib/generation";
 
@@ -61,5 +64,41 @@ describe("native search adapter", () => {
     expect(result.answer).toContain("最高统领");
     expect(result.external[0]).toMatchObject({ sourceName: "百度百科", credibility: "trusted_wiki" });
     expect(result.diagnostics?.searchProvider).toBe("deepseek_native");
+  });
+
+  it("performs one bounded native search for supplementary resources", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(JSON.stringify({
+        content: [
+          { type: "web_search_tool_result", content: [{
+            type: "web_search_result",
+            title: "丝柯克角色介绍",
+            url: "https://genshin.hoyoverse.com/zh/news/detail/skirk",
+            snippet: "丝柯克角色公开资料。",
+          }] },
+          { type: "text", text: "已找到可选资料。" },
+        ],
+        stop_reason: "end_turn",
+      }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const question = "丝柯克是谁？";
+    const searchPlan = normalizeSearchPlan({
+      coreEntities: ["丝柯克"], aliases: ["Skirk"], intent: "identity", queries: ["丝柯克 身份"],
+    }, question);
+    const citations = await searchNativeReadingResources({
+      question,
+      language: "zh-CN",
+      searchPlan,
+      queries: ["丝柯克 角色介绍", "丝柯克 角色演示"],
+      apiKey: "test-key",
+      baseUrl: "https://api.deepseek.com",
+      model: "deepseek-v4-flash",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.tools).toEqual([expect.objectContaining({ max_uses: 1 })]);
+    expect(citations).toHaveLength(1);
+    expect(citations[0].sourceKind).toBe("official");
   });
 });

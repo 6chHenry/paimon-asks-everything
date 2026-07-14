@@ -19,6 +19,7 @@ import {
   canUseModelKnowledgeFallback,
   generateModelKnowledgeAnswer,
 } from "@/lib/model-knowledge";
+import { searchNativeReadingResources } from "@/lib/native-search-adapter";
 import { understandQuestion } from "@/lib/question-understanding";
 import { retrieveControlled } from "@/lib/retrieval";
 import type { ChatRequest } from "@/lib/schemas";
@@ -375,6 +376,23 @@ export async function runAgent(
             recommendationIntent === "official_media",
           searchPlan: generated.searchPlan,
           citations: generated.external,
+          nativeSupplementarySearch:
+            generated.diagnostics?.apiStyle === "anthropic" &&
+            process.env.LLM_API_KEY
+              ? (queries) =>
+                  searchNativeReadingResources({
+                    question: request.question,
+                    language,
+                    searchPlan: generated.searchPlan,
+                    queries,
+                    apiKey: process.env.LLM_API_KEY as string,
+                    baseUrl:
+                      process.env.LLM_BASE_URL || "https://api.deepseek.com",
+                    model:
+                      process.env.LLM_MODEL || "deepseek-v4-flash",
+                    signal: options.signal,
+                  })
+              : undefined,
           signal: options.signal,
         }).catch(() => [])
       : [];
