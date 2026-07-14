@@ -1586,6 +1586,9 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 .confidence { padding: 5px 9px; border-radius: 999px; font-size: 9px; border: 1px solid var(--line); text-transform: uppercase; }
 .confidence.high { color: var(--green); border-color: rgba(79,120,107,.35); }
 .confidence.low { color: var(--coral); }
+.verification-note { margin: -10px 0 22px; padding: 9px 12px; border: 1px solid rgba(186,145,77,.28); background: rgba(244,236,217,.42); color: var(--ink-soft); font-size: 10px; line-height: 1.6; }
+.verification-note.model_knowledge { border-left: 3px solid var(--gold); }
+.verification-note.partially_verified { border-left: 3px solid var(--blue); }
 .answer-text { font-family: var(--display); font-size: 21px; line-height: 1.7; border-left: 2px solid var(--gold); padding-left: 24px; }
 .answer-text p { margin: 0 0 16px; }
 .answer-text h3 { margin: 28px 0 12px; font: 600 22px/1.35 var(--display); color: var(--navy); }

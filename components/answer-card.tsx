@@ -159,6 +159,24 @@ export function AnswerCard({
           {t(language, `置信度：${result.confidence === "high" ? "高" : result.confidence === "medium" ? "中" : "低"}`, `Confidence: ${result.confidence}`)}
         </span>
       </div>
+      {result.verificationStatus !== "verified" ? (
+        <p
+          className={`verification-note ${result.verificationStatus}`}
+          role="status"
+        >
+          {result.verificationStatus === "model_knowledge"
+            ? t(
+                language,
+                "这次没能完成来源核验，以下为派蒙依据已有知识整理的暂定回答。",
+                "Source verification was unavailable, so this is a provisional answer from Paimon's existing knowledge.",
+              )
+            : t(
+                language,
+                "现有线索只核实了部分内容，未确认之处会保留边界。",
+                "The available clues verify only part of this answer; uncertain points remain qualified.",
+              )}
+        </p>
+      ) : null}
       <div className="answer-text">
         {result.answerParagraphs?.length
           ? result.answerParagraphs.map((paragraph, index) =>

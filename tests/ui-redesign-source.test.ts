@@ -267,6 +267,9 @@ describe("Paimon evidence experience source", () => {
     expect(answerCard).toContain("派蒙查到的线索");
     expect(answerCard).toContain("playerFactBoundary");
     expect(answerCard).toContain("clue-ledger");
+    expect(answerCard).toContain("这次没能完成来源核验");
+    expect(answerCard).toContain("Source verification was unavailable");
+    expect(answerCard).toContain("verification-note");
     expect(traceTimeline).toContain("考据记录");
     expect(traceTimeline).toContain("open={!collapsed}");
   });

@@ -669,6 +669,7 @@ describe("Snezhnaya graph UI helpers", () => {
       spoilerAction: "none",
       usedExternalSources: true,
       confidence: "medium",
+      verificationStatus: "verified",
       eventClassification: {
         questionCategory: "story",
         confusionTopic: "relationship",

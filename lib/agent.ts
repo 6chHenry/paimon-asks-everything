@@ -19,6 +19,10 @@ import { retrieveControlled } from "@/lib/retrieval";
 import type { ChatRequest } from "@/lib/schemas";
 import { createSpoilerToken } from "@/lib/spoiler-token";
 import { recommendStoryResources } from "@/lib/story-resources";
+import {
+  canUseModelKnowledgeFallback,
+  generateModelKnowledgeAnswer,
+} from "@/lib/model-knowledge";
 import { emitTrace, type TraceEmitter } from "@/lib/trace";
 
 const prohibitedTerms = [
@@ -91,6 +95,30 @@ function inferConfidence(input: {
   return "low";
 }
 
+function inferVerificationStatus(input: {
+  entries: KnowledgeEntry[];
+  citations: Citation[];
+  citedSourceIds: string[];
+}): ChatResult["verificationStatus"] {
+  if (input.entries.length) return "verified";
+  const citedIds = new Set(input.citedSourceIds);
+  const cited = input.citations.filter((citation) =>
+    citedIds.size ? citedIds.has(citation.id) : citation.external,
+  );
+  if (
+    cited.some(
+      (citation) =>
+        citation.credibility === "official" ||
+        citation.credibility === "trusted_wiki" ||
+        citation.assessment?.authority === "official" ||
+        citation.assessment?.authority === "curated_reference",
+    )
+  ) {
+    return "verified";
+  }
+  return "partially_verified";
+}
+
 async function persistResult(
   request: ChatRequest,
   result: ChatResult,
@@ -155,6 +183,7 @@ export async function runAgent(
       spoilerAction: "none",
       usedExternalSources: false,
       confidence: "high",
+      verificationStatus: "verified",
       eventClassification: preliminaryClassification,
       eventRecorded: false,
     });
@@ -212,6 +241,7 @@ export async function runAgent(
       spoilerAction: "confirmation_required",
       usedExternalSources: false,
       confidence: "high",
+      verificationStatus: "verified",
       eventClassification,
       eventRecorded: false,
       confirmationToken: createSpoilerToken(request.question),
@@ -242,6 +272,49 @@ export async function runAgent(
   const citations = [...controlledCitations, ...generated.external];
 
   if (!entries.length && !generated.external.length) {
+    if (
+      canUseModelKnowledgeFallback({
+        question: request.question,
+        category: eventClassification.questionCategory,
+        confirmedHighRisk: Boolean(options.confirmedHighRisk),
+      })
+    ) {
+      const modelKnowledge = await generateModelKnowledgeAnswer({
+        question: request.question,
+        language,
+        signal: options.signal,
+      });
+      if (modelKnowledge) {
+        await emitTrace(options.emitTrace, {
+          stage: "generate",
+          status: "complete",
+          message: "暂时用已有知识整理回答",
+          detail: "来源核验未完成",
+        });
+        return finish({
+          status: "answered",
+          answer: modelKnowledge.paragraphs
+            .map((paragraph) => paragraph.text)
+            .join("\n\n"),
+          answerParagraphs: modelKnowledge.paragraphs,
+          language,
+          answerMode:
+            request.profile === "returning"
+              ? "minimal_catch_up"
+              : "evidence_answer",
+          claims: [],
+          citations: [],
+          spoilerAction: retrieval.blockedHighRisk.length
+            ? "filtered"
+            : "none",
+          usedExternalSources: false,
+          confidence: "low",
+          verificationStatus: "model_knowledge",
+          eventClassification,
+          eventRecorded: false,
+        });
+      }
+    }
     return finish({
       status: "insufficient_evidence",
       answer: t(
@@ -256,6 +329,7 @@ export async function runAgent(
       spoilerAction: "filtered",
       usedExternalSources: true,
       confidence: "low",
+      verificationStatus: "partially_verified",
       eventClassification,
       eventRecorded: false,
     });
@@ -293,6 +367,11 @@ export async function runAgent(
     confidence: inferConfidence({
       entries,
       topScore: retrieval.topScore,
+      citations,
+      citedSourceIds: generated.citedSourceIds,
+    }),
+    verificationStatus: inferVerificationStatus({
+      entries,
       citations,
       citedSourceIds: generated.citedSourceIds,
     }),

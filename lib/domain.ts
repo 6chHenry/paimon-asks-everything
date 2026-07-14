@@ -192,6 +192,11 @@ export interface AnswerParagraph {
   citationIds: string[];
 }
 
+export type VerificationStatus =
+  | "verified"
+  | "partially_verified"
+  | "model_knowledge";
+
 export interface EventClassification {
   questionCategory: QuestionCategory;
   confusionTopic: string;
@@ -218,6 +223,7 @@ export interface ChatResult {
   spoilerAction: "none" | "filtered" | "confirmation_required" | "confirmed";
   usedExternalSources: boolean;
   confidence: "high" | "medium" | "low";
+  verificationStatus: VerificationStatus;
   eventClassification: EventClassification;
   eventRecorded: boolean;
   eventId?: string;

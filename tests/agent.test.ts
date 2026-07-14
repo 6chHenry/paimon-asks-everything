@@ -146,6 +146,71 @@ describe("agent workflow", () => {
     );
   });
 
+  it("uses a labeled model-knowledge answer when every evidence route is empty", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    process.env.LLM_MODEL = "deepseek-v4-flash";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "api.example.test") {
+          return new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      paragraphs: [
+                        {
+                          text: "雷电将军是雷电影制造的人偶，代替她治理稻妻；雷电影本人则是追求永恒的雷神。",
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (
+          url.hostname === "html.duckduckgo.com" ||
+          url.hostname === "search.yahoo.com" ||
+          url.hostname === "www.sogou.com"
+        ) {
+          return new Response("", {
+            status: 200,
+            headers: { "Content-Type": "text/html" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ query: { search: [], pages: {} } }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }),
+    );
+
+    const result = await runAgent(
+      {
+        ...base,
+        focus: ["story", "character"],
+        question: "雷电将军和雷电影是什么关系？",
+      },
+      { recordEvent: false },
+    );
+
+    expect(result.status).toBe("answered");
+    expect(result.verificationStatus).toBe("model_knowledge");
+    expect(result.confidence).toBe("low");
+    expect(result.citations).toEqual([]);
+    expect(result.answer).toContain("雷电");
+  });
+
   it("answers an English question in English even when UI preference is Chinese", async () => {
     const result = await runAgent(
       {
