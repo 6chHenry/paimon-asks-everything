@@ -18,6 +18,19 @@ describe("controlled retrieval", () => {
     expect(result.topScore).toBeGreaterThan(3);
   });
 
+  it("retrieves generic layered puzzle guidance without inventing a named mechanism", () => {
+    const result = retrieveControlled({
+      question: "这个机械机关我卡住了，先给一点提示。",
+      language: "zh-CN",
+      progress: "fontaine",
+      spoilerPreference: "none",
+      focus: ["gameplay"],
+    });
+
+    expect(result.entries[0]?.conceptId).toBe("mechanical-puzzle");
+    expect(result.entries[0]?.language).toBe("zh-CN");
+  });
+
   it("blocks level 3 evidence before explicit confirmation", () => {
     const result = retrieveControlled({
       question: "Tell me Sandrone's true identity and the twist",

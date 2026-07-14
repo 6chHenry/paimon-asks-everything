@@ -4,6 +4,7 @@ import type {
   Profile,
   Progress,
   SpoilerPreference,
+  VerificationStatus,
 } from "@/lib/domain";
 
 export interface EvaluationCase {
@@ -21,6 +22,9 @@ export interface EvaluationCase {
     external?: boolean;
     citation?: boolean;
     category?: string;
+    verificationStatus?: VerificationStatus;
+    mustIncludeAny?: string[];
+    forbiddenAnswerTerms?: string[];
   };
 }
 
@@ -34,7 +38,21 @@ export const evaluationCases: EvaluationCase[] = [
     progress: "fontaine",
     spoilerPreference: "low",
     focus: ["story", "overview"],
-    expected: { status: "answered", controlled: true, citation: true },
+    expected: {
+      status: "answered",
+      controlled: true,
+      external: false,
+      citation: true,
+      verificationStatus: "verified",
+      mustIncludeAny: ["机械生命", "枫丹科学院", "水仙十字", "人格", "记忆与机器"],
+      forbiddenAnswerTerms: [
+        "枫丹植物原型大考据",
+        "枫丹美食原型与其背后的故事",
+        "雷穆斯话音落下",
+        "跳转到内容 主菜单",
+        "编辑入门",
+      ],
+    },
   },
   {
     id: "en-catch-up",
@@ -100,7 +118,24 @@ export const evaluationCases: EvaluationCase[] = [
     progress: "fontaine",
     spoilerPreference: "none",
     focus: ["gameplay"],
-    expected: { status: "answered", controlled: true, category: "gameplay" },
+    expected: {
+      status: "answered",
+      controlled: true,
+      external: false,
+      citation: true,
+      category: "gameplay",
+      verificationStatus: "verified",
+      mustIncludeAny: ["观察", "颜色", "运动规律", "能量", "顺序"],
+      forbiddenAnswerTerms: [
+        "供能超载而失能",
+        "应急能源进行低限度的战斗行动",
+        "进入「荡除模式」",
+        "液流动量",
+        "攻坚特化型机关",
+        "压制特化型机关",
+        "秘源机兵·统御械",
+      ],
+    },
   },
   {
     id: "layered-hint-en",

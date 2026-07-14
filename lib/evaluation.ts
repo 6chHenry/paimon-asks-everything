@@ -46,6 +46,17 @@ export async function runEvaluation(caseId?: string) {
         !testCase.expected.category ||
         result.eventClassification.questionCategory ===
           testCase.expected.category,
+      verification:
+        !testCase.expected.verificationStatus ||
+        result.verificationStatus === testCase.expected.verificationStatus,
+      mustInclude:
+        !testCase.expected.mustIncludeAny?.length ||
+        testCase.expected.mustIncludeAny.some((term) =>
+          result.answer.includes(term),
+        ),
+      forbiddenAnswer: !(testCase.expected.forbiddenAnswerTerms ?? []).some(
+        (term) => result.answer.toLowerCase().includes(term.toLowerCase()),
+      ),
       sourceClassified: result.citations.every(
         (citation) =>
           !citation.external || allowedExternalSourceKinds.has(citation.sourceKind),
@@ -71,6 +82,9 @@ export async function runEvaluation(caseId?: string) {
         .map(([key]) => key),
       status: result.status,
       answer: result.answer,
+      verificationStatus: result.verificationStatus,
+      confidence: result.confidence,
+      answerMode: result.answerMode,
       citations: result.citations.map((citation) => ({
         id: citation.id,
         title: citation.title,

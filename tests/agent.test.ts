@@ -77,8 +77,37 @@ describe("agent workflow", () => {
     expect(result.status).toBe("answered");
     expect(result.answerMode).toBe("minimal_catch_up");
     expect(result.citations.length).toBeGreaterThan(0);
+    expect(result.citations.every((citation) => !citation.external)).toBe(true);
     expect(result.verificationStatus).toBe("verified");
+    expect(result.answer).not.toMatch(
+      /枫丹植物原型大考据|枫丹美食原型与其背后的故事|雷穆斯话音落下|跳转到内容 主菜单|编辑入门/u,
+    );
     expect(result.eventRecorded).toBe(true);
+  });
+
+  it("answers a generic mechanical puzzle with verified layered local guidance", async () => {
+    const fetchMock = vi.mocked(fetch);
+    const result = await runAgent(
+      {
+        ...base,
+        profile: "exploration",
+        spoilerPreference: "none",
+        focus: ["gameplay"],
+        question: "这个机械机关我卡住了，先给一点提示。",
+      },
+      { recordEvent: false },
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.status).toBe("answered");
+    expect(result.answerMode).toBe("layered_hint");
+    expect(result.verificationStatus).toBe("verified");
+    expect(result.citations.length).toBeGreaterThan(0);
+    expect(result.citations.every((citation) => !citation.external)).toBe(true);
+    expect(result.answer).toMatch(/观察|颜色|运动规律|能量|顺序/u);
+    expect(result.answer).not.toMatch(
+      /供能超载而失能|应急能源进行低限度的战斗行动|进入「荡除模式」|液流动量|攻坚特化型机关|压制特化型机关|秘源机兵·统御械/u,
+    );
   });
 
   it("answers the Tsaritsa-Harbinger relationship from one verified local fact", async () => {
