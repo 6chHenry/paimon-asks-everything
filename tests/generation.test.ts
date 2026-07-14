@@ -1367,6 +1367,82 @@ describe("grounded generation", () => {
     ).toEqual([]);
   });
 
+  it("does not synthesize a verified character arc from community-only stage coverage", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    let apiCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "api.example.test") {
+          apiCalls += 1;
+          return new Response(
+            JSON.stringify({ choices: [{ message: { content: "not json" } }] }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (url.pathname.includes("api.php")) {
+          return new Response(JSON.stringify({ query: { search: [], pages: {} } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const question = "婕德经历了怎么的变化？";
+    const external: Citation[] = [
+      {
+        id: "community-start",
+        title: "婕德成长讨论",
+        url: "https://example.com/community-start",
+        sourceName: "社区讨论",
+        sourceKind: "community",
+        credibility: "community",
+        factStatus: "community_analysis",
+        excerpt: "婕德最初依赖父亲；父亲离世后，她被塔尼特接纳。",
+        external: true,
+        crossLanguage: false,
+      },
+      {
+        id: "community-end",
+        title: "婕德后续讨论",
+        url: "https://example.com/community-end",
+        sourceName: "社区讨论",
+        sourceKind: "community",
+        credibility: "community",
+        factStatus: "community_analysis",
+        excerpt: "她认清芭别尔的背叛后与部族决裂，最终选择自己的道路。",
+        external: true,
+        crossLanguage: false,
+      },
+    ];
+
+    const result = await generateGroundedResponse({
+      question,
+      language: "zh-CN",
+      profile: "story",
+      entries: [],
+      external,
+      deepStory: true,
+      understanding: ruleUnderstandQuestion(question, "zh-CN"),
+    });
+
+    expect(apiCalls).toBe(0);
+    expect(result.answer).toContain("资料还不足以稳妥回答");
+    expect(result.citedSourceIds).toEqual([]);
+    expect(result.external).toHaveLength(2);
+  });
+
   it("keeps a coherent cited character-arc answer from clean Chinese evidence", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";

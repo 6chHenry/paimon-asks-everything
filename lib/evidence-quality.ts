@@ -49,6 +49,34 @@ export function isGameplayEvidence(citation: Citation) {
   );
 }
 
+function isReliableNarrativeEvidence(citation: Citation) {
+  return (
+    !citation.external ||
+    citation.sourceKind === "official" ||
+    citation.sourceKind === "game_text" ||
+    citation.sourceKind === "trusted_wiki" ||
+    citation.credibility === "official" ||
+    citation.credibility === "trusted_wiki" ||
+    citation.assessment?.authority === "official" ||
+    citation.assessment?.authority === "curated_reference"
+  );
+}
+
+export function hasReliableCharacterArcCoverage(citations: Citation[]) {
+  const reliable = citations.filter(isReliableNarrativeEvidence);
+  if (reliable.length < 2) return false;
+  const text = reliable
+    .map((citation) => `${citation.title} ${citation.excerpt}`)
+    .join(" ");
+  const stages = [
+    /最初|起初|原本|曾经|依赖|父亲|母亲|initially|at first|originally|depended?/iu,
+    /失去|加入|接纳|遭遇|经历|离世|lost|joined|accepted|experienced/iu,
+    /背叛|欺骗|陷害|认清|醒悟|决裂|反抗|betray|deceiv|realized|broke away|turned against/iu,
+    /最终|后来|决定|选择|独自|名字|道路|未来|finally|eventually|decided|chose|own path|future/iu,
+  ];
+  return stages.every((pattern) => pattern.test(text));
+}
+
 function decodeURIComponentSafe(value: string) {
   try {
     return decodeURIComponent(value);

@@ -23,6 +23,7 @@ import {
 import {
   compactCleanEvidence,
   evidenceForGeneration,
+  hasReliableCharacterArcCoverage,
   safeBoundaryAnswer,
   selectAnswerEvidence,
 } from "@/lib/evidence-quality";
@@ -1264,6 +1265,24 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
     bestExternal = external;
     bestSearchPlan = searchPlan;
     const evidenceFallback = generationFallback({ ...input, external });
+    if (
+      searchPlan.storyScope === "character_arc" &&
+      !hasReliableCharacterArcCoverage(external)
+    ) {
+      await emitTrace(input.emitTrace, {
+        stage: "generate",
+        status: "complete",
+        message: "成长线证据阶段不完整，改用保守回答",
+      });
+      return {
+        ...evidenceFallback,
+        external,
+        citedSourceIds: evidenceFallback.answerParagraphs.flatMap(
+          (paragraph) => paragraph.citationIds,
+        ),
+        searchPlan,
+      };
+    }
     const evidence = buildEvidence({ entries: input.entries, external });
     const allowedSourceIds = new Set(evidence.map((item) => item.id));
     const sourceAuthorityById = new Map(
