@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  BookOpenText,
   Flame,
   MessageCircleMore,
   PanelLeftClose,
@@ -148,6 +149,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="game-nav-list" aria-label="Main navigation">{renderNavigation()}</nav>
         <div className="game-nav-tools" aria-label={isZh ? "偏好设置" : "Preferences"}>
+          <a
+            className={`game-nav-about${activePath === "/about" ? " active" : ""}`}
+            href={clientPath("/about")}
+            aria-current={activePath === "/about" ? "page" : undefined}
+            title={isZh ? "关于" : "About"}
+          >
+            <BookOpenText size={14} aria-hidden="true" />
+            <span>{isZh ? "关于" : "About"}</span>
+          </a>
           <span className="game-nav-language-label">{isZh ? "语言" : "Language"}</span>
           <button
             className="language-toggle"
