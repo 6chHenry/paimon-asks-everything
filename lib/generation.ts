@@ -27,7 +27,7 @@ import {
 } from "@/lib/evidence-quality";
 import {
   normalizeSearchPlan,
-  searchWebEvidence,
+  searchWebEvidenceWithDiagnostics,
   type SearchPlan,
 } from "@/lib/external-search";
 import { detectQuestionEntities, type QuestionEntity } from "@/lib/entity-lexicon";
@@ -37,6 +37,7 @@ import {
   type QuestionUnderstanding,
 } from "@/lib/question-understanding";
 import { emitTrace, type TraceEmitter } from "@/lib/trace";
+import type { SearchAttempt } from "@/lib/search-router";
 
 let proxyAgent: ProxyAgent | undefined;
 
@@ -564,6 +565,7 @@ export interface GroundedGenerationResult {
   external: Citation[];
   citedSourceIds: string[];
   searchPlan: SearchPlan;
+  searchAttempts: SearchAttempt[];
 }
 
 type ChatMessage = {
@@ -939,6 +941,18 @@ function generationFallback(input: {
   };
 }
 
+function hasSufficientAtomicEvidence(
+  entries: KnowledgeEntry[],
+  plan: SearchPlan,
+) {
+  return entries.some(
+    (entry) =>
+      entry.reviewed &&
+      entry.tags.includes("atomic-fact") &&
+      (plan.intent !== "relationship" || entry.tags.includes("relationship")),
+  );
+}
+
 export async function generateGroundedResponse(input: {
   question: string;
   language: Language;
@@ -969,10 +983,16 @@ export async function generateGroundedResponse(input: {
   });
   const apiKey = process.env.LLM_API_KEY;
   if (!apiKey) {
-    const searched = await searchWebEvidence(input.question, input.language, {
-      emitTrace: input.emitTrace,
-      plan: fallbackSearchPlan,
-    }).catch(() => input.external);
+    const searchResult = hasSufficientAtomicEvidence(
+      input.entries,
+      fallbackSearchPlan,
+    )
+      ? { citations: input.external, attempts: [] }
+      : await searchWebEvidenceWithDiagnostics(input.question, input.language, {
+          emitTrace: input.emitTrace,
+          plan: fallbackSearchPlan,
+        }).catch(() => ({ citations: input.external, attempts: [] }));
+    const searched = searchResult.citations;
     const rawExternal = searched.length ? searched : input.external;
     const external = selectAnswerEvidence(rawExternal, {
       question: input.question,
@@ -994,6 +1014,7 @@ export async function generateGroundedResponse(input: {
         (paragraph) => paragraph.citationIds,
       ),
       searchPlan: fallbackSearchPlan,
+      searchAttempts: searchResult.attempts,
     };
   }
 
@@ -1029,33 +1050,52 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
   ];
   let bestExternal: Citation[] = input.external;
   let bestSearchPlan = fallbackSearchPlan;
+  let bestSearchAttempts: SearchAttempt[] = [];
 
   try {
     let searchedExternal: Citation[] = [];
     let searchPlan = fallbackSearchPlan;
+    let searchAttempts: SearchAttempt[] = [];
     if (usePreparedSearchPlan) {
-      await emitTrace(input.emitTrace, {
-        stage: "tool",
-        status: "running",
-        message: "按已确认的实体检索资料",
-        detail: "search_web_evidence",
-      });
-      searchedExternal = await searchWebEvidence(input.question, input.language, {
-        emitTrace: input.emitTrace,
-        plan: searchPlan,
-      });
-      searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal, searchPlan), {
-        question: input.question,
-        intent: searchPlan.intent,
-        plan: searchPlan,
-        language: input.language,
-      });
-      await emitTrace(input.emitTrace, {
-        stage: "tool",
-        status: "complete",
-        message: "新资料找到了",
-        detail: `${searchedExternal.length} 条来源`,
-      });
+      if (hasSufficientAtomicEvidence(input.entries, searchPlan)) {
+        await emitTrace(input.emitTrace, {
+          stage: "search",
+          status: "skipped",
+          message: "本地线索已经够用",
+        });
+      } else {
+        await emitTrace(input.emitTrace, {
+          stage: "tool",
+          status: "running",
+          message: "按已确认的实体检索资料",
+          detail: "search_web_evidence",
+        });
+        const searchResult = await searchWebEvidenceWithDiagnostics(
+          input.question,
+          input.language,
+          {
+            emitTrace: input.emitTrace,
+            plan: searchPlan,
+          },
+        );
+        searchedExternal = searchResult.citations;
+        searchAttempts = searchResult.attempts;
+        searchedExternal = selectAnswerEvidence(
+          preferReviewedEvidence(searchedExternal, searchPlan),
+          {
+            question: input.question,
+            intent: searchPlan.intent,
+            plan: searchPlan,
+            language: input.language,
+          },
+        );
+        await emitTrace(input.emitTrace, {
+          stage: "tool",
+          status: "complete",
+          message: "新资料找到了",
+          detail: `${searchedExternal.length} 条来源`,
+        });
+      }
     } else {
       const first = await postChatCompletion(baseURL, apiKey, {
         model,
@@ -1143,10 +1183,16 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
         questionUnderstanding,
         input.question,
       );
-      searchedExternal = await searchWebEvidence(input.question, args.language, {
-        emitTrace: input.emitTrace,
-        plan: searchPlan,
-      });
+      const searchResult = await searchWebEvidenceWithDiagnostics(
+        input.question,
+        args.language,
+        {
+          emitTrace: input.emitTrace,
+          plan: searchPlan,
+        },
+      );
+      searchedExternal = searchResult.citations;
+      searchAttempts = searchResult.attempts;
       searchedExternal = selectAnswerEvidence(preferReviewedEvidence(searchedExternal, searchPlan), {
         question: input.question,
         intent: searchPlan.intent,
@@ -1167,10 +1213,16 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
         }),
       });
       } else {
-        searchedExternal = await searchWebEvidence(input.question, input.language, {
-          emitTrace: input.emitTrace,
-          plan: fallbackSearchPlan,
-        });
+        const searchResult = await searchWebEvidenceWithDiagnostics(
+          input.question,
+          input.language,
+          {
+            emitTrace: input.emitTrace,
+            plan: fallbackSearchPlan,
+          },
+        );
+        searchedExternal = searchResult.citations;
+        searchAttempts = searchResult.attempts;
       }
     }
 
@@ -1186,6 +1238,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
     });
     bestExternal = external;
     bestSearchPlan = searchPlan;
+    bestSearchAttempts = searchAttempts;
     const evidenceFallback = generationFallback({ ...input, external });
     const evidence = buildEvidence({ entries: input.entries, external });
     const allowedSourceIds = new Set(evidence.map((item) => item.id));
@@ -1308,6 +1361,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
           (paragraph) => paragraph.citationIds,
         ),
         searchPlan,
+        searchAttempts,
       };
     }
 
@@ -1326,6 +1380,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       external,
       citedSourceIds,
       searchPlan,
+      searchAttempts,
     };
 
   } catch (error) {
@@ -1348,6 +1403,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       external: bestExternal,
       citedSourceIds: fallback.answerParagraphs.flatMap((paragraph) => paragraph.citationIds),
       searchPlan: bestSearchPlan,
+      searchAttempts: bestSearchAttempts,
     };
   }
 }

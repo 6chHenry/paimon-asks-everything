@@ -406,7 +406,7 @@ describe("whitelisted external search", () => {
     expect(results[0]?.excerpt).toContain("造物关系");
   });
 
-  it("includes general web results but ranks them below trusted wiki evidence", async () => {
+  it("stops before general web when direct wiki evidence is sufficient", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       if (url.hostname === "html.duckduckgo.com") {
@@ -445,10 +445,10 @@ describe("whitelisted external search", () => {
       fetchMock.mock.calls.some(
         (call) => new URL(String(call[0])).hostname === "html.duckduckgo.com",
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(results[0]?.sourceKind).toBe("trusted_wiki");
     expect(results.some((result) => result.sourceKind === "community")).toBe(
-      true,
+      false,
     );
   });
 

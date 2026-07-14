@@ -6,6 +6,11 @@ import type {
   SourceKind,
 } from "@/lib/domain";
 import { emitTrace, type TraceEmitter } from "@/lib/trace";
+import {
+  runStagedSearch,
+  type SearchAttempt,
+  type SearchRoutingResult,
+} from "@/lib/search-router";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import {
   assessSourceRule,
@@ -1656,30 +1661,48 @@ async function searchSogouWeb(
   });
 }
 
-export async function searchGeneralWeb(
+export async function searchGeneralWebWithDiagnostics(
   query: string,
   options: { enrich?: boolean; signal?: AbortSignal } = {},
-): Promise<Citation[]> {
+): Promise<SearchRoutingResult> {
   const cacheKey = `web-search-v2:${options.enrich === false ? "raw" : "enriched"}:${query
     .trim()
     .toLowerCase()}`;
   if (process.env.NODE_ENV !== "test") {
     const cached = generalSearchCache.get(cacheKey);
-    if (cached) return cached;
+    if (cached) return { citations: cached, attempts: [] };
   }
-  const results = await Promise.allSettled([
-    searchDuckDuckGoWeb(query, options.signal),
-    searchYahooWeb(query, options.signal),
-    searchSogouWeb(query, options.signal),
-  ]);
-  const citations = results.flatMap((result) =>
-    result.status === "fulfilled" ? result.value : [],
+  const routed = await runStagedSearch(
+    [
+      {
+        id: "duckduckgo-html",
+        tier: "general_web",
+        search: ({ signal }) => searchDuckDuckGoWeb(query, signal),
+      },
+      {
+        id: "yahoo-html",
+        tier: "general_web",
+        search: ({ signal }) => searchYahooWeb(query, signal),
+      },
+      {
+        id: "sogou-html",
+        tier: "general_web",
+        search: ({ signal }) => searchSogouWeb(query, signal),
+      },
+    ],
+    {
+      question: query,
+      language: containsCjk(query) ? "zh-CN" : "en",
+      signal: options.signal,
+      isSufficient: () => false,
+    },
   );
+  const citations = routed.citations;
   if (options.enrich === false) {
     if (process.env.NODE_ENV !== "test" && citations.length > 0) {
       generalSearchCache.set(cacheKey, citations);
     }
-    return citations;
+    return routed;
   }
   const enriched = await Promise.allSettled(
     citations
@@ -1697,7 +1720,14 @@ export async function searchGeneralWeb(
   if (process.env.NODE_ENV !== "test" && output.length > 0) {
     generalSearchCache.set(cacheKey, output);
   }
-  return output;
+  return { citations: output, attempts: routed.attempts };
+}
+
+export async function searchGeneralWeb(
+  query: string,
+  options: { enrich?: boolean; signal?: AbortSignal } = {},
+): Promise<Citation[]> {
+  return (await searchGeneralWebWithDiagnostics(query, options)).citations;
 }
 
 function tieredQueries(plan: SearchPlan, question: string, language: Language) {
@@ -1791,15 +1821,22 @@ function tieredQueries(plan: SearchPlan, question: string, language: Language) {
         ].filter((query, index, values) => values.indexOf(query) === index);
   return {
     first: boundedFirst,
-    second: second.slice(0, plan.intent === "relationship" ? 20 : 16),
+    second: second.slice(0, plan.intent === "relationship" ? 6 : 16),
     entityLookup,
   };
+}
+
+interface SearchWebEvidenceOptions {
+  emitTrace?: TraceEmitter;
+  plan?: Partial<SearchPlan>;
+  signal?: AbortSignal;
+  onAttempts?: (attempts: SearchAttempt[]) => void;
 }
 
 export async function searchWebEvidence(
   question: string,
   language: Language,
-  options: { emitTrace?: TraceEmitter; plan?: Partial<SearchPlan> } = {},
+  options: SearchWebEvidenceOptions = {},
 ): Promise<Citation[]> {
   const normalizedPlan = normalizeSearchPlan(options.plan, question);
   const plan =
@@ -1837,16 +1874,54 @@ export async function searchWebEvidence(
           plan.intent === "relationship" ||
           plan.intent === "story" ||
           plan.intent === "general");
-      const [wikiResults, webResults] = await Promise.allSettled([
-        !wikiEligible
-          ? Promise.resolve([] as Citation[])
-          : searchProviders(query, language, plan),
-        searchGeneralWeb(query, { enrich: false }),
+      let generalAttempts: SearchAttempt[] = [];
+      const routed = await runStagedSearch(
+        [
+          {
+            id: "mediawiki",
+            tier: "direct_reference",
+            search: () =>
+              !wikiEligible
+                ? Promise.resolve([] as Citation[])
+                : searchProviders(query, language, plan),
+          },
+          {
+            id: "general-web",
+            tier: "general_web",
+            search: async () => {
+              const result = await searchGeneralWebWithDiagnostics(query, {
+                enrich: false,
+                signal: options.signal,
+              });
+              generalAttempts = result.attempts;
+              return result.citations;
+            },
+          },
+        ],
+        {
+          question,
+          language,
+          signal: options.signal,
+          isSufficient: (citations) =>
+            citations.filter(
+              (citation) =>
+                passesEntityGate(citation, plan, question) &&
+                (citation.credibility === "official" ||
+                  citation.credibility === "trusted_wiki"),
+            ).length >= 2,
+        },
+      );
+      options.onAttempts?.([
+        ...routed.attempts.filter(
+          (attempt) => attempt.backendId !== "general-web",
+        ),
+        ...(generalAttempts.length
+          ? generalAttempts
+          : routed.attempts.filter(
+              (attempt) => attempt.backendId === "general-web",
+            )),
       ]);
-      return [
-        ...(wikiResults.status === "fulfilled" ? wikiResults.value : []),
-        ...(webResults.status === "fulfilled" ? webResults.value : []),
-      ];
+      return routed.citations;
       }),
     );
   const collectCandidates = (
@@ -2034,6 +2109,19 @@ export async function searchWebEvidence(
       .join(" · "),
   });
   return ranked;
+}
+
+export async function searchWebEvidenceWithDiagnostics(
+  question: string,
+  language: Language,
+  options: Omit<SearchWebEvidenceOptions, "onAttempts"> = {},
+): Promise<SearchRoutingResult> {
+  const attempts: SearchAttempt[] = [];
+  const citations = await searchWebEvidence(question, language, {
+    ...options,
+    onAttempts: (next) => attempts.push(...next),
+  });
+  return { citations, attempts };
 }
 
 export async function searchWhitelistedWiki(
