@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Compass,
-  Feather,
-  ShieldCheck,
-  Snowflake,
-  Sparkles,
-} from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { usePreferences } from "@/components/preferences-provider";
 
 const content = {
@@ -66,8 +60,6 @@ const content = {
   },
 } as const;
 
-const sectionIcons = [Compass, ShieldCheck, Feather, Snowflake] as const;
-
 export default function AboutPage() {
   const { preferences } = usePreferences();
   const copy = content[preferences.language];
@@ -76,49 +68,35 @@ export default function AboutPage() {
     <div className="about-page">
       <article className="about-sheet">
         <header className="about-heading">
-          <div>
-            <span className="about-eyebrow">
-              <Sparkles size={13} aria-hidden="true" />
-              {copy.eyebrow}
-            </span>
+          <div className="about-heading-main">
+            <div className="about-heading-meta">
+              <span className="about-eyebrow">
+                <Sparkles size={13} aria-hidden="true" />
+                {copy.eyebrow}
+              </span>
+              <span>DESIGN INTENT / 01</span>
+            </div>
             <h1>{copy.title}</h1>
             <p>{copy.lead}</p>
-          </div>
-          <div className="about-compass-mark" aria-hidden="true">
-            <Compass size={34} strokeWidth={1.25} />
-          </div>
-        </header>
-
-        <div className="about-story-grid">
-          <div className="about-story-main">
-            {copy.sections.map(([title, body], index) => {
-              const Icon = sectionIcons[index]!;
-              return (
-                <section className="about-story-section" key={title}>
-                  <span className="about-story-number">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className="about-story-icon" aria-hidden="true">
-                    <Icon size={17} />
-                  </span>
-                  <div>
-                    <h2>{title}</h2>
-                    <p>{body}</p>
-                  </div>
-                </section>
-              );
-            })}
           </div>
 
           <aside className="about-margin-note">
             <span>{copy.noteTitle}</span>
             <p>{copy.note}</p>
-            <div className="about-note-orbit" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </div>
           </aside>
+        </header>
+
+        <div className="about-story-grid">
+          {copy.sections.map(([title, body], index) => (
+            <section className="about-story-section" key={title}>
+              <div className="about-story-index">
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <i aria-hidden="true" />
+              </div>
+              <h2>{title}</h2>
+              <p>{body}</p>
+            </section>
+          ))}
         </div>
 
         <footer className="about-closing">

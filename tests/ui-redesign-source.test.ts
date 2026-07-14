@@ -82,6 +82,10 @@ describe("Genshin-style shell source", () => {
       shell.indexOf("const navigation"),
       shell.indexOf("];", shell.indexOf("const navigation")) + 2,
     );
+    const aboutCss = css.slice(
+      css.indexOf(".about-page"),
+      css.indexOf(".eyebrow {", css.indexOf(".about-page")),
+    );
 
     expect(about).toContain('"use client"');
     expect(about).toContain("usePreferences");
@@ -100,6 +104,10 @@ describe("Genshin-style shell source", () => {
     expect(css).toContain(".about-page");
     expect(css).toContain(".game-nav-about");
     expect(css).toContain(".about-story-grid");
+    expect(aboutCss).toContain('"Noto Sans SC"');
+    expect(aboutCss).toContain("grid-template-columns: repeat(2");
+    expect(aboutCss).not.toContain("var(--display)");
+    expect(aboutCss).not.toContain("font-size: 96px");
   });
 });
 
