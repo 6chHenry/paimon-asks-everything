@@ -13,6 +13,42 @@ const base = {
   sessionId: "test-session-123",
 };
 
+function isModelKnowledgeRequest(init?: RequestInit) {
+  if (typeof init?.body !== "string") return false;
+  try {
+    const body = JSON.parse(init.body) as {
+      messages?: Array<{ content?: unknown }>;
+    };
+    return body.messages?.some(
+      (message) =>
+        typeof message.content === "string" &&
+        message.content.includes("stable Genshin Impact knowledge already known"),
+    );
+  } catch {
+    return false;
+  }
+}
+
+function emptyNetworkResponse(input: RequestInfo | URL) {
+  const url = new URL(String(input));
+  if (url.searchParams.get("prop") === "extracts") {
+    return new Response(JSON.stringify({ query: { pages: {} } }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  if (url.pathname.includes("api.php")) {
+    return new Response(JSON.stringify({ query: { search: [] } }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  return new Response("", {
+    status: 200,
+    headers: { "Content-Type": "text/html" },
+  });
+}
+
 describe("agent workflow", () => {
   beforeEach(() => {
     delete process.env.LLM_API_KEY;
@@ -68,6 +104,189 @@ describe("agent workflow", () => {
     });
     expect(result.answer).toContain("最高领导者");
     expect(result.answer).toContain("个人动机并不完全相同");
+  });
+
+  it("uses bounded model knowledge for a stable zero-evidence relationship", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    let modelKnowledgeCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input));
+        if (url.hostname === "api.example.test") {
+          if (isModelKnowledgeRequest(init)) {
+            modelKnowledgeCalls += 1;
+            return new Response(
+              JSON.stringify({
+                choices: [
+                  {
+                    message: {
+                      content: JSON.stringify({
+                        paragraphs: [
+                          {
+                            text: "雷电将军是雷电影制造的人偶，用来代替她治理稻妻。",
+                          },
+                          {
+                            text: "两者共享将军这一身份，但雷电影是创造者与真实意识主体。",
+                          },
+                        ],
+                      }),
+                    },
+                  },
+                ],
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            );
+          }
+          return new Response(
+            JSON.stringify({ choices: [{ message: { content: "not json" } }] }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return emptyNetworkResponse(input);
+      }),
+    );
+
+    const result = await runAgent(
+      {
+        ...base,
+        focus: ["story", "character"],
+        question: "雷电将军与雷电影是什么关系？",
+      },
+      { recordEvent: false },
+    );
+
+    expect(modelKnowledgeCalls).toBe(1);
+    expect(result.status).toBe("answered");
+    expect(result.verificationStatus).toBe("model_knowledge");
+    expect(result.answerMode).toBe("limited_answer");
+    expect(result.confidence).toBe("low");
+    expect(result.citations).toEqual([]);
+    expect(result.claims).toEqual([]);
+    expect(result.usedExternalSources).toBe(false);
+    expect(result.answer).toContain("雷电影制造的人偶");
+  });
+
+  it.each([
+    ["current implementation", "爱可菲现在实装了吗？", false],
+    ["character arc", "婕德经历了怎样的成长？", true],
+    ["full ending", "讲讲婕德的完整剧情和结局", true],
+    ["leak", "爆料里说了什么？", false],
+    [
+      "strong negative",
+      "雷电将军与雷电影是什么关系，两人从未见过吗？",
+      false,
+    ],
+  ])("does not use model knowledge for %s", async (_name, question, confirmedHighRisk) => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    let modelKnowledgeCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input));
+        if (url.hostname === "api.example.test") {
+          if (isModelKnowledgeRequest(init)) modelKnowledgeCalls += 1;
+          return new Response(
+            JSON.stringify({ choices: [{ message: { content: "not json" } }] }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return emptyNetworkResponse(input);
+      }),
+    );
+
+    await runAgent(
+      { ...base, focus: ["story", "character"], question },
+      { recordEvent: false, confirmedHighRisk },
+    );
+
+    expect(modelKnowledgeCalls).toBe(0);
+  });
+
+  it("does not use model knowledge after cancellation", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    const controller = new AbortController();
+    controller.abort();
+    let modelKnowledgeCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input));
+        if (url.hostname === "api.example.test") {
+          if (isModelKnowledgeRequest(init)) modelKnowledgeCalls += 1;
+          return new Response(
+            JSON.stringify({ choices: [{ message: { content: "not json" } }] }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return emptyNetworkResponse(input);
+      }),
+    );
+
+    const result = await runAgent(
+      {
+        ...base,
+        focus: ["story", "character"],
+        question: "雷电将军与雷电影是什么关系？",
+      },
+      { recordEvent: false, signal: controller.signal },
+    );
+
+    expect(modelKnowledgeCalls).toBe(0);
+    expect(result.status).toBe("insufficient_evidence");
+  });
+
+  it("keeps the safe boundary when model knowledge JSON is invalid", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    let modelKnowledgeCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input));
+        if (url.hostname === "api.example.test") {
+          if (isModelKnowledgeRequest(init)) modelKnowledgeCalls += 1;
+          return new Response(
+            JSON.stringify({ choices: [{ message: { content: "not json" } }] }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return emptyNetworkResponse(input);
+      }),
+    );
+
+    const result = await runAgent(
+      {
+        ...base,
+        focus: ["story", "character"],
+        question: "雷电将军与雷电影是什么关系？",
+      },
+      { recordEvent: false },
+    );
+
+    expect(modelKnowledgeCalls).toBe(1);
+    expect(result.status).toBe("insufficient_evidence");
+    expect(result.answer).toBe("唔……派蒙还没找到可靠资料。先不乱下结论啦。");
+    expect(result.verificationStatus).toBeUndefined();
   });
 
   it("reconfirms high-risk identity spoilers", async () => {
@@ -264,11 +483,13 @@ describe("agent workflow", () => {
     delete process.env.HTTPS_PROXY;
     delete process.env.http_proxy;
     delete process.env.HTTP_PROXY;
+    let modelKnowledgeCalls = 0;
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = new URL(String(input));
         if (url.hostname === "api.example.test") {
+          if (isModelKnowledgeRequest(init)) modelKnowledgeCalls += 1;
           return new Response(
             JSON.stringify({
               choices: [
@@ -323,6 +544,7 @@ describe("agent workflow", () => {
       true,
     );
     expect(result.answer).toContain("造物");
+    expect(modelKnowledgeCalls).toBe(0);
   });
 
   it("treats directly cited trusted wiki evidence as medium confidence, not speculation", async () => {

@@ -4,6 +4,7 @@ import {
   isDeepStoryIntent,
   isHighRiskSpoilerQuestion,
 } from "@/lib/classification";
+import { answerText } from "@/lib/answer-quality";
 import type {
   ChatResult,
   Citation,
@@ -14,6 +15,10 @@ import type {
 import { recordEvent } from "@/lib/event-store";
 import { buildHints, generateGroundedResponse } from "@/lib/generation";
 import { t } from "@/lib/i18n";
+import {
+  canUseModelKnowledgeFallback,
+  generateModelKnowledgeAnswer,
+} from "@/lib/model-knowledge";
 import { understandQuestion } from "@/lib/question-understanding";
 import { retrieveControlled } from "@/lib/retrieval";
 import type { ChatRequest } from "@/lib/schemas";
@@ -245,6 +250,39 @@ export async function runAgent(
   const citations = [...controlledCitations, ...generated.external];
 
   if (!entries.length && !generated.external.length) {
+    const mayUseModelKnowledge =
+      !options.signal?.aborted &&
+      canUseModelKnowledgeFallback({
+        question: request.question,
+        category: eventClassification.questionCategory,
+        intent: generated.searchPlan.intent,
+        storyScope: generated.searchPlan.storyScope,
+        confirmedHighRisk: Boolean(options.confirmedHighRisk),
+      });
+    const modelKnowledge = mayUseModelKnowledge
+      ? await generateModelKnowledgeAnswer({
+          question: request.question,
+          language,
+          signal: options.signal,
+        })
+      : null;
+    if (modelKnowledge) {
+      return finish({
+        status: "answered",
+        answer: answerText(modelKnowledge.paragraphs),
+        answerParagraphs: modelKnowledge.paragraphs,
+        verificationStatus: "model_knowledge",
+        language,
+        answerMode: "limited_answer",
+        claims: [],
+        citations: [],
+        spoilerAction: "filtered",
+        usedExternalSources: false,
+        confidence: "low",
+        eventClassification,
+        eventRecorded: false,
+      });
+    }
     return finish({
       status: "insufficient_evidence",
       answer: t(
