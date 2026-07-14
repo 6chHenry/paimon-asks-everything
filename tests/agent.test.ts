@@ -67,6 +67,32 @@ describe("agent workflow", () => {
     expect(result.confirmationToken).toBeTruthy();
   });
 
+  it.each([
+    "婕德经历了怎么的变化？",
+    "婕德经历了怎样的变化？",
+    "婕德有什么成长？",
+    "婕德是如何转变的？",
+  ])(
+    "requires spoiler confirmation for a character-arc question: %s",
+    async (question) => {
+      const result = await runAgent(
+        {
+          ...base,
+          profile: "story",
+          progress: "sumeru",
+          spoilerPreference: "full",
+          focus: ["story", "character"],
+          question,
+        },
+        { recordEvent: false },
+      );
+
+      expect(result.status).toBe("spoiler_confirmation_required");
+      expect(result.confirmationToken).toBeTruthy();
+      expect(result.spoilerAction).toBe("confirmation_required");
+    },
+  );
+
   it("answers the Sandrone-Alain relationship from the current controlled evidence", async () => {
     const result = await runAgent(
       {

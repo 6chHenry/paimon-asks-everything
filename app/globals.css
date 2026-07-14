@@ -1613,7 +1613,7 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
 .hint-stack summary svg, .sources summary > svg { margin-left: auto; transition: transform .2s; }
 .hint-stack details[open] summary svg, .sources details[open] summary > svg { transform: rotate(180deg); }
 .hint-stack details p { margin: 0; padding: 0 15px 16px 48px; color: var(--ink-soft); line-height: 1.7; font-size: 13px; }
-.claim-list > div { display: grid; grid-template-columns: 18px 1fr auto; align-items: start; gap: 9px; padding: 11px 0; border-bottom: 1px dashed var(--line); }
+.claim-list > div:not(.clue-ledger-heading) { display: grid; grid-template-columns: 18px 1fr auto; align-items: start; gap: 9px; padding: 11px 0; border-bottom: 1px dashed var(--line); }
 .claim-list svg { color: var(--green); margin-top: 3px; }
 .claim-list p { margin: 0; font-size: 12px; line-height: 1.55; }
 .claim-list span { padding: 4px 7px; background: var(--blue-light); font-size: 9px; }
@@ -3113,6 +3113,8 @@ html[data-nav-collapsed="true"] .game-shell .language-toggle span { min-width: 2
   .page-heading h1, .ask-intro h1 { font-size: 40px; }
   .answer-card { padding: 23px 18px; }
   .answer-text { font-size: 18px; padding-left: 16px; }
+  .clue-ledger-heading { flex-direction: column; gap: 6px; }
+  .clue-ledger-heading small { max-width: none; text-align: left; }
   .answer-footer { align-items: flex-start; flex-direction: column; }
   .reading-heading { align-items: flex-start; flex-direction: column; gap: 7px; }
   .reading-grid { grid-template-columns: 1fr; }

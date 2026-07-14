@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanEvidenceText,
+  evidenceForGeneration,
+  safeBoundaryAnswer,
   selectAnswerEvidence,
 } from "@/lib/evidence-quality";
 import type { Citation } from "@/lib/domain";
@@ -116,7 +118,7 @@ describe("evidence quality", () => {
     const video = citation(
       "video",
       "巴老师看博士富人唠嗑得知富人烟瘾大到需要换肺：博士亲手换的吗",
-      "更多实用攻略教学，热门游戏视频7*24小时持续更新。",
+      "本视频整理主线剧情片段，内容以标题和原片段为索引。",
       "https://www.bilibili.com/video/BV-test/",
     );
     video.sourceKind = "community";
@@ -145,5 +147,260 @@ describe("evidence quality", () => {
 
     expect(selected).toHaveLength(1);
     expect(selected[0]?.title).toContain("换肺");
+  });
+
+  it("decodes HTML entities before evidence reaches generation", () => {
+    expect(cleanEvidenceText("婕德：她会孤独吗&hellip;")).toBe(
+      "婕德:她会孤独吗…",
+    );
+    expect(cleanEvidenceText(cleanEvidenceText("婕德&hellip;"))).toBe(
+      "婕德…",
+    );
+
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "supported-entity",
+          "婕德剧情变化&hellip;",
+          "婕德选择自己的道路&hellip;",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toBe("婕德剧情变化…");
+    expect(selected[0]?.excerpt).toBe("婕德选择自己的道路…");
+    expect(`${selected[0]?.title} ${selected[0]?.excerpt}`).not.toContain(
+      "&hellip;",
+    );
+    expect(selected[0]?.url).toBe("https://example.com/supported-entity");
+    expect(selected[0]?.sourceName).toBe("Test");
+    expect(evidenceForGeneration(selected[0]!).excerpt).toBe(
+      "婕德选择自己的道路…",
+    );
+  });
+
+  it("rejects unresolved named and numeric entities before generation", () => {
+    const generated = selectAnswerEvidence(
+      [
+        citation(
+          "unsupported-named",
+          "婕德剧情变化",
+          "婕德选择自己的道路&amp;copy;",
+        ),
+        citation(
+          "unsupported-numeric",
+          "婕德&#0;关系",
+          "婕德与塔尼特部族决裂。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    ).map(evidenceForGeneration);
+
+    expect(generated).toEqual([]);
+  });
+
+  it("rejects duplicated site chrome for a character-arc answer", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "chrome",
+          "旅行者创作平台-观测枢-原神wiki",
+          "旅行者创作平台-观测枢-原神wiki旅行者创作平台-观测枢-原神wiki",
+        ),
+        citation(
+          "arc",
+          "因为她的罪恶滔天…",
+          "婕德发现芭别尔的陷害后与塔尼特决裂，并决定选择自己的道路。",
+        ),
+      ],
+      { question: "婕德经历了怎么的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toBe("因为她的罪恶滔天…");
+  });
+
+  it("rejects a standalone dialogue dump for a character-arc answer", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "dialogue",
+          "婕德对话",
+          "婕德：那个家伙让我不爽。婕德：现在安静了。婕德：她会孤独吗？婕德：真可惜。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toEqual([]);
+  });
+
+  it.each([
+    "派蒙:想念婕德和奔奔了... 冻梨:你还别说，这段剧情确实让人难忘。",
+    "派蒙：想念婕德和奔奔了……冻梨：你还别说，这段剧情确实让人难忘。",
+  ])("rejects a short raw dialogue excerpt for story evidence: %s", (excerpt) => {
+    expect(
+      selectAnswerEvidence([citation("short-dialogue", "婕德讨论", excerpt)], {
+        question: "婕德经历了怎样的变化？",
+        intent: "story",
+        language: "zh-CN",
+      }),
+    ).toEqual([]);
+  });
+
+  it.each([
+    "派蒙:想念婕德和奔奔了... 冻梨:你还别说，这段剧情确实让人难忘。",
+    "派蒙：想念婕德和奔奔了……冻梨：你还别说，这段剧情确实让人难忘。",
+  ])("keeps short dialogue-shaped evidence for relationship intent: %s", (excerpt) => {
+    expect(
+      selectAnswerEvidence([citation("short-dialogue", "富人与博士讨论", excerpt)], {
+        question: "富人和博士是什么关系？",
+        intent: "relationship",
+        language: "zh-CN",
+      }),
+    ).toHaveLength(1);
+  });
+
+  it("keeps narrative story evidence with one quoted line", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "narrative",
+          "婕德的选择",
+          "这段剧情展示了婕德逐渐建立自我判断的过程。婕德：这一次我要自己决定。此后她独自踏上旅程。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toHaveLength(1);
+  });
+
+  it("removes a site-description shell while keeping substantive story evidence", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "site-shell",
+          "米游社",
+          "米游社-原神社区是米哈游旗下官方社区，提供游戏资讯、攻略、角色图鉴、活动内容与玩家交流。",
+        ),
+        citation(
+          "story",
+          "婕德的选择",
+          "社区分析认为，婕德认清背叛后开始为自己做决定。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toBe("婕德的选择");
+  });
+
+  it("removes a promotional metric-listing shell while keeping story evidence", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "listing-shell",
+          "沙漠故事视频",
+          "更多原神实用攻略教学,爆笑沙雕集锦,你所不知道的原神游戏知识,热门原神游戏视频7*24小时持续更新,尽在哔哩哔哩bilibili 视频播放量 241、弹幕量 0、点赞数 6、投硬币枚数 0...",
+        ),
+        citation(
+          "clean-story",
+          "婕德的选择",
+          "失去父亲后，婕德寻找新的归属；认清背叛后，她决定独立选择自己的道路。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toBe("婕德的选择");
+  });
+
+  it("rejects live-shaped task indexes and alternating-speaker transcripts", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "task-index",
+          "智慧筑屋,凿成七柱",
+          "任务攻略 任务流程 前置任务 后续任务 智慧筑屋,凿成七柱 流沙如泪的神殿 埋葬丰饶的沙丘",
+        ),
+        citation(
+          "raw-transcript",
+          "永恒的葱茏之梦",
+          "婕德：我不想再被利用。旅行者：我们会查清真相。派蒙：这里还有线索。阿萨里格：你们走不了。芭别尔：服从我的安排。",
+        ),
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toEqual([]);
+  });
+
+  it("rejects live wiki browser and editing instructions", () => {
+    const clean = citation(
+      "clean-arc",
+      "角色剧情整理",
+      "失去父亲后，她一度把新的部族当作归属，认清背叛后决定自己选择未来。",
+    );
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "live-wiki-ui",
+          "角色条目",
+          "This site requires JavaScript enabled. Please check your browser settings... 欢迎正在阅读这个条目的旅行者协助 编辑本条目...萌娘百科祝各位旅行者在本站度过愉快的时光!",
+        ),
+        clean,
+      ],
+      { question: "婕德经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toEqual([expect.objectContaining({ id: "external-1" })]);
+    expect(selected[0]?.excerpt).toBe(cleanEvidenceText(clean.excerpt));
+  });
+
+  it("rejects unresolved search-result destinations as defense in depth", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "unresolved-yahoo",
+          "聊一聊角色的故事-社区",
+          "失去家人后寻找归属，最后决定独立前行。",
+          "https://www.yahoo.com/",
+        ),
+      ],
+      { question: "这个角色经历了怎样的变化？", intent: "story", language: "zh-CN" },
+    );
+
+    expect(selected).toEqual([]);
+  });
+
+  it("keeps dialogue-shaped evidence for a relationship answer", () => {
+    const selected = selectAnswerEvidence(
+      [
+        citation(
+          "relationship-dialogue",
+          "富人与博士对话",
+          "博士：肺是我换的。富人：研究由北国银行资助。博士：合作继续。富人：条件不变。",
+        ),
+      ],
+      {
+        question: "富人和博士是什么关系？",
+        intent: "relationship",
+        language: "zh-CN",
+      },
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.title).toBe("富人与博士对话");
+  });
+
+  it("describes a Chinese external-evidence boundary without calling it foreign", () => {
+    expect(safeBoundaryAnswer("zh-CN", "婕德", true)).toBe(
+      "目前找到的资料还不足以稳妥回答“婕德”这个问题。派蒙先不把外部片段硬拼成结论，相关原文保留在下方来源里。",
+    );
   });
 });

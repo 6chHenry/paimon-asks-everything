@@ -1,5 +1,15 @@
 import type { AnswerParagraph, Language } from "@/lib/domain";
-import { detectQuestionEntities } from "@/lib/entity-lexicon";
+import type { SearchIntent } from "@/lib/external-search";
+import {
+  detectQuestionEntities,
+  isCharacterArcQuestion,
+} from "@/lib/entity-lexicon";
+import {
+  containsUnrenderedHtmlEntity,
+  hasRepeatedSiteChrome,
+  isNavigationHeavy,
+  isUnusableWebText,
+} from "@/lib/web-text-quality";
 
 export interface ParsedGeneratedAnswer {
   paragraphs: AnswerParagraph[];
@@ -164,8 +174,13 @@ function isOffTopic(value: string, question: string, language: Language) {
 }
 
 function containsWebNoise(value: string) {
-  return /\[(?:\d{1,3}|编辑|edit)\]|\bToggle\b|\bContents?\b|\bNavigation\b|\bChange History\b/iu.test(
-    value,
+  return (
+    /\[(?:\d{1,3}|编辑|edit)\]|\bToggle\b|\bContents?\b|\bNavigation\b|\bChange History\b/iu.test(
+      value,
+    ) ||
+    containsUnrenderedHtmlEntity(value) ||
+    hasRepeatedSiteChrome(value) ||
+    isNavigationHeavy(value)
   );
 }
 
@@ -193,6 +208,7 @@ export function validateAnswerQuality(input: {
   paragraphs: AnswerParagraph[];
   language: Language;
   question: string;
+  intent?: SearchIntent;
   allowedSourceIds: Set<string>;
   sourceAuthorityById?: Map<string, "official" | "non_official">;
   sourceTextById?: Map<string, string>;
@@ -266,6 +282,25 @@ export function validateAnswerQuality(input: {
     if (hasUnsupportedNegative) failures.push("unsupported_negative_claim");
   }
   if (containsWebNoise(text)) failures.push("web_noise");
+  const rejectsDialogueSources =
+    input.intent === "story" ||
+    (input.intent === undefined &&
+      (isCharacterArcQuestion(input.question) ||
+        /剧情|劇情|故事|传说任务|傳說任務|story|quest|lore/iu.test(
+          input.question,
+        )));
+  if (
+    input.sourceTextById &&
+    input.paragraphs.some((paragraph) =>
+      paragraph.citationIds.some((id) =>
+        isUnusableWebText(input.sourceTextById?.get(id) ?? "", {
+          rejectDialogue: rejectsDialogueSources,
+        }),
+      ),
+    )
+  ) {
+    failures.push("web_noise");
+  }
   if (isTemplateHeavy(text, input.language)) failures.push("template_heavy");
   return Array.from(new Set(failures));
 }

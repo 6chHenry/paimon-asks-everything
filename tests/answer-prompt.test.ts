@@ -15,4 +15,12 @@ describe("answer prompt", () => {
     expect(prompt).toContain("requires a cited source that explicitly states that absence");
     expect(prompt).toContain("acknowledge that event");
   });
+
+  it("asks character-change answers to explain an arc instead of copying dialogue", () => {
+    const prompt = answerSystemPrompt("zh-CN", false);
+    expect(prompt).toContain("initial state");
+    expect(prompt).toContain("turning point");
+    expect(prompt).toContain("end state");
+    expect(prompt).toContain("Do not substitute a dialogue dump");
+  });
 });

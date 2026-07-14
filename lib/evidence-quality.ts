@@ -1,10 +1,16 @@
 import type { Citation, Language } from "@/lib/domain";
 import type { SearchIntent } from "@/lib/external-search";
+import { isUnresolvedSearchResultUrl } from "@/lib/search-result-url";
 import {
   isChineseAnswerEvidence,
   isCharacterStoryQuestEvidence,
   type SearchPlan,
 } from "@/lib/external-search";
+import {
+  cleanWebText,
+  isUnusableWebText,
+  looksLikeShortRawDialogue,
+} from "@/lib/web-text-quality";
 
 const genericPagePattern =
   /欢迎来到|开放编辑|游戏数据库|图鉴资料|攻略内容|contents?\s+\d|navigation|overview\s+profile\s+storyline\s+voice-overs|dressing room\s+companion\s+gallery|wiki.*database|open(?:ly)? edited|game database/iu;
@@ -12,17 +18,7 @@ const gameplayPattern =
   /\/技能|\/天赋|\/命座|技能|天赋|命座|普通攻击|元素战技|元素爆发|长按|抗打断|倍率|冷却|伤害|skill|talent|constellation|normal attack|elemental skill|elemental burst|cooldown|damage/iu;
 
 export function cleanEvidenceText(value: string) {
-  return value
-    .normalize("NFKC")
-    .replace(/[\u00ad\u200b-\u200f\u202a-\u202e\u2060\ufeff]/gu, "")
-    .replace(/\[(?:\d{1,3}|编辑|edit)\]/giu, "")
-    .replace(/\bToggle\b(?:\s+\w+){0,3}/giu, "")
-    .replace(/\bContents?\b(?:\s+\d+(?:\.\d+)*)*/giu, "")
-    .replace(/\bGallery\b|\bChange History\b|\bReferences\b|\bNavigation\b/giu, "")
-    .replace(/&n(?:s)?bp;|&nbsp;/giu, " ")
-    .replace(/\s+/gu, " ")
-    .replace(/^[。；，、,.!?：:\s]+/u, "")
-    .trim();
+  return cleanWebText(value.replace(/…/gu, "&hellip;"));
 }
 
 export function compactCleanEvidence(value: string, maxLength = 700) {
@@ -67,6 +63,14 @@ function looksLikeGameplayQuestion(question: string) {
   );
 }
 
+function isUnusableWebEvidence(citation: Citation, intent: SearchIntent) {
+  const text = `${citation.title} ${citation.excerpt}`;
+  if (intent === "story" && looksLikeShortRawDialogue(citation.excerpt)) {
+    return true;
+  }
+  return isUnusableWebText(text, { rejectDialogue: intent === "story" });
+}
+
 export function selectAnswerEvidence(
   citations: Citation[],
   input: {
@@ -78,7 +82,9 @@ export function selectAnswerEvidence(
 ) {
   return citations
     .filter((citation) => {
+      if (isUnresolvedSearchResultUrl(citation.url)) return false;
       if (!cleanEvidenceText(citation.excerpt || citation.title)) return false;
+      if (isUnusableWebEvidence(citation, input.intent)) return false;
       if (
         input.language === "zh-CN" &&
         !isChineseAnswerEvidence(citation)
@@ -116,6 +122,8 @@ export function selectAnswerEvidence(
     })
     .map((citation, index) => ({
       ...citation,
+      title: cleanEvidenceText(citation.title),
+      excerpt: cleanEvidenceText(citation.excerpt),
       id: citation.external ? `external-${index + 1}` : citation.id,
     }));
 }
@@ -149,8 +157,8 @@ export function safeBoundaryAnswer(
       return "派蒙暂时没找到足够可靠的资料，先不乱下结论。";
     }
     return subject
-      ? `目前找到的资料还不足以稳妥回答“${subject}”这个问题。派蒙先不把外文摘要硬拼成结论，相关原文保留在下方来源里。`
-      : "目前找到的资料还不足以稳妥下结论。派蒙先不把外文摘要硬拼进回答，相关原文保留在下方来源里。";
+      ? `目前找到的资料还不足以稳妥回答“${subject}”这个问题。派蒙先不把外部片段硬拼成结论，相关原文保留在下方来源里。`
+      : "目前找到的资料还不足以稳妥下结论。派蒙先不把外部片段硬拼进回答，相关原文保留在下方来源里。";
   }
   return hasEvidence
     ? "The available evidence is not strong enough for a reliable conclusion yet. The original sources are preserved below."

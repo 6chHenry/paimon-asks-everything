@@ -18,6 +18,9 @@ describe("deep story guidance", () => {
       isDeepStoryIntent("简单说说水仙十字结社，不要剧透", "story"),
     ).toBe(false);
     expect(isDeepStoryIntent("给我讲讲法尔伽", "other")).toBe(true);
+    expect(
+      isDeepStoryIntent("简单说婕德有什么成长，不要剧透", "character"),
+    ).toBe(false);
   });
 
   it("discovers official character videos from the generic entity plan", async () => {

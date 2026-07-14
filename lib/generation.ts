@@ -30,13 +30,22 @@ import {
   searchWebEvidence,
   type SearchPlan,
 } from "@/lib/external-search";
-import { detectQuestionEntities, type QuestionEntity } from "@/lib/entity-lexicon";
+import {
+  detectQuestionEntities,
+  isCharacterArcQuestion,
+  type QuestionEntity,
+} from "@/lib/entity-lexicon";
 import { t } from "@/lib/i18n";
 import {
   searchPlanFromUnderstanding,
   type QuestionUnderstanding,
 } from "@/lib/question-understanding";
 import { emitTrace, type TraceEmitter } from "@/lib/trace";
+import {
+  containsUnrenderedHtmlEntity,
+  hasRepeatedSiteChrome,
+  isNavigationHeavy,
+} from "@/lib/web-text-quality";
 
 let proxyAgent: ProxyAgent | undefined;
 
@@ -210,8 +219,16 @@ function isGameplayMechanicsExcerpt(citation: Citation) {
 }
 
 function answerWorthyExternalCitation(citation: Citation, question: string) {
+  const rawText = `${citation.title} ${citation.excerpt}`;
   const text = compactEvidenceText(citation.excerpt || citation.title);
   if (!text) return false;
+  if (
+    containsUnrenderedHtmlEntity(rawText) ||
+    hasRepeatedSiteChrome(rawText) ||
+    isNavigationHeavy(rawText)
+  ) {
+    return false;
+  }
   if (isGenericWikiExcerpt(citation)) return false;
   if (
     looksLikeIdentityQuestionForFallback(question) &&
@@ -760,6 +777,7 @@ function mergeQuestionEntityAnchors(
         ? "identity"
         : plan.intent,
     queries: Array.from(new Set(anchoredQueries)).slice(0, 4),
+    storyScope: plan.storyScope,
   };
 }
 
@@ -866,6 +884,22 @@ function coldSafeDeterministicAnswer(input: {
           (entry) => !containsCjkText(`${entry.summary} ${entry.content}`),
         )
       : input.entries;
+
+  const subject = detectQuestionEntities(input.question)[0]?.canonical;
+  const openEndedStoryQuestion =
+    Boolean(input.deepStory) ||
+    isCharacterArcQuestion(input.question) ||
+    /传说任务|剧情|故事|梗概|概述|结局|story|quest|synopsis/iu.test(
+      input.question,
+    );
+
+  if (openEndedStoryQuestion && !usableEntries.length) {
+    return safeBoundaryAnswer(
+      input.language,
+      subject,
+      input.external.length > 0,
+    );
+  }
 
   if (input.external.length) {
     return directExternalEvidenceAnswer({
@@ -1242,6 +1276,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
           paragraphs: normalized.paragraphs,
           language: input.language,
           question: input.question,
+          intent: searchPlan.intent,
           allowedSourceIds,
           sourceAuthorityById,
           sourceTextById,
@@ -1259,6 +1294,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
         paragraphs: normalized.paragraphs,
         language: input.language,
         question: input.question,
+        intent: searchPlan.intent,
         allowedSourceIds,
         sourceAuthorityById,
         sourceTextById,
@@ -1287,6 +1323,7 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
             paragraphs: normalized.paragraphs,
             language: input.language,
             question: input.question,
+            intent: searchPlan.intent,
             allowedSourceIds,
             sourceAuthorityById,
             sourceTextById,
@@ -1342,10 +1379,16 @@ You must use the search_web_evidence tool to plan a current, entity-grounded sea
       status: "error",
       message: "生成出错，改用保守回答",
     });
-    const fallback = generationFallback({ ...input, external: bestExternal });
+    const external = selectAnswerEvidence(bestExternal, {
+      question: input.question,
+      intent: bestSearchPlan.intent,
+      plan: bestSearchPlan,
+      language: input.language,
+    });
+    const fallback = generationFallback({ ...input, external });
     return {
       ...fallback,
-      external: bestExternal,
+      external,
       citedSourceIds: fallback.answerParagraphs.flatMap((paragraph) => paragraph.citationIds),
       searchPlan: bestSearchPlan,
     };

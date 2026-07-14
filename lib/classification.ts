@@ -3,7 +3,10 @@ import type {
   Language,
   QuestionCategory,
 } from "@/lib/domain";
-import { detectQuestionEntities } from "@/lib/entity-lexicon";
+import {
+  detectQuestionEntities,
+  isCharacterArcQuestion,
+} from "@/lib/entity-lexicon";
 
 const patterns: Array<{
   category: QuestionCategory;
@@ -196,6 +199,7 @@ export function isDeepStoryIntent(
     "no spoilers",
   ].some((term) => normalized.includes(term));
   if (shortOnly) return false;
+  if (isCharacterArcQuestion(question)) return true;
   return [
     "讲一讲",
     "讲讲",

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  balanceCharacterArcCandidateBuckets,
   classifyWebSource,
   isCharacterStoryQuestEvidence,
   normalizeSearchPlan,
@@ -603,6 +604,446 @@ describe("whitelisted external search", () => {
     ).toBe(true);
   });
 
+  it.each([
+    "婕德经历了怎样的变化？",
+    "婕德经历了怎么的变化？",
+  ])(
+    "reserves mandatory character-arc candidates when the raw query is shallow: %s",
+    (question) => {
+      const plan = normalizeSearchPlan(
+        {
+          coreEntities: ["婕德"],
+          aliases: [],
+          intent: "story",
+          storyScope: "character_arc",
+          queries: [question, "婕德 剧情 经历", "婕德 结局 变化"],
+        },
+        question,
+      );
+      const makeCandidate = (
+        id: string,
+        url: string,
+        title: string,
+        excerpt: string,
+      ): Citation => ({
+        id,
+        title,
+        url,
+        sourceName: "Test",
+        sourceKind: "trusted_wiki",
+        credibility: "trusted_wiki",
+        factStatus: "trusted_secondary",
+        excerpt,
+        external: true,
+        crossLanguage: false,
+      });
+      const raw = Array.from({ length: 14 }, (_, index) =>
+        makeCandidate(
+          `raw-${index}`,
+          index === 0
+            ? "https://example.com/shared-source#raw"
+            : `https://example.com/raw-${index}`,
+          `婕德资料 ${index}`,
+          `婕德人物资料与基础档案 ${index}`,
+        ),
+      );
+      const firstMandatory = Array.from({ length: 6 }, (_, index) =>
+        makeCandidate(
+          `start-${index}`,
+          index === 0
+            ? "https://example.com/shared-source"
+            : `https://example.com/start-${index}`,
+          index === 0 ? "永恒的葱茏之梦" : `婕德经历 ${index}`,
+          `婕德在失去父亲后寻找新的归属，这是她经历变化的起点 ${index}。`,
+        ),
+      );
+      const secondMandatory = Array.from({ length: 6 }, (_, index) =>
+        makeCandidate(
+          `end-${index}`,
+          index === 0
+            ? "https://example.com/start-1"
+            : `https://example.com/end-${index}`,
+          index === 0 ? "因为她的罪恶滔天：完整剧情" : `婕德结局 ${index}`,
+          index === 0
+            ? "婕德认清芭别尔的利用后与虚假的家族决裂，并开始以自己的判断选择道路。"
+            : `婕德认清背叛后决定独立前行，这是她结局中的变化 ${index}。`,
+        ),
+      );
+
+      const selected = balanceCharacterArcCandidateBuckets([
+        { query: question, candidates: raw },
+        { query: "婕德 剧情 经历", candidates: firstMandatory },
+        { query: "婕德 结局 变化", candidates: secondMandatory },
+      ], plan, question);
+      const canonicalUrls = selected.map((candidate) =>
+        candidate.url.replace(/#.*$/u, "").toLowerCase(),
+      );
+
+      expect(selected).toHaveLength(15);
+      expect(new Set(canonicalUrls).size).toBe(selected.length);
+      expect(selected.filter((candidate) => candidate.id.startsWith("raw-")))
+        .toHaveLength(4);
+      expect(selected.map((candidate) => candidate.id)).toEqual(
+        expect.arrayContaining([
+          "start-0",
+          "start-2",
+          "start-3",
+          "start-4",
+          "start-5",
+          "end-0",
+          "end-1",
+          "end-2",
+          "end-3",
+          "end-4",
+          "end-5",
+        ]),
+      );
+      expect(selected.find((candidate) => candidate.url.includes("start-1"))?.id)
+        .toBe("end-0");
+      expect(selected.find((candidate) => candidate.url.includes("shared-source"))?.id)
+        .toBe("start-0");
+    },
+  );
+
+  it("dedupes scheme and host case while preserving case-sensitive path and query URLs", () => {
+    const question = "婕德经历了怎样的变化？";
+    const plan = normalizeSearchPlan(
+      {
+        coreEntities: ["婕德"],
+        aliases: [],
+        intent: "story",
+        storyScope: "character_arc",
+        queries: [question, "婕德 剧情 经历", "婕德 结局 变化"],
+      },
+      question,
+    );
+    const citation = (id: string, url: string, excerpt: string): Citation => ({
+      id,
+      title: "婕德剧情经历与结局变化",
+      url,
+      sourceName: "Test",
+      sourceKind: "trusted_wiki",
+      credibility: "trusted_wiki",
+      factStatus: "trusted_secondary",
+      excerpt,
+      external: true,
+      crossLanguage: false,
+    });
+    const upperPath = citation(
+      "upper-path",
+      "https://MEDIA.example/Video/BVAbC?Token=X",
+      "婕德经历背叛后逐渐形成自己的判断，最终选择独立前行。",
+    );
+    const hostCaseDuplicate = citation(
+      "host-case-duplicate",
+      "https://media.EXAMPLE/Video/BVAbC?Token=X#mirror",
+      "婕德剧情变化。",
+    );
+    const lowerPath = citation(
+      "lower-path",
+      "https://media.example/video/bvabc?Token=x",
+      "婕德在结局中认清利用并决定由自己选择未来，这是完整的角色变化。",
+    );
+
+    const selected = balanceCharacterArcCandidateBuckets(
+      [
+        { query: question, candidates: [] },
+        {
+          query: "婕德 剧情 经历",
+          candidates: [upperPath, hostCaseDuplicate, lowerPath],
+        },
+        { query: "婕德 结局 变化", candidates: [] },
+      ],
+      plan,
+      question,
+    );
+
+    expect(selected).toHaveLength(2);
+    expect(selected.map((candidate) => candidate.id)).toEqual(
+      expect.arrayContaining(["upper-path", "lower-path"]),
+    );
+    expect(selected.map((candidate) => candidate.id)).not.toContain(
+      "host-case-duplicate",
+    );
+  });
+
+  it.each([
+    ["婕德经历了怎样的变化？", "standard"],
+    ["婕德经历了怎么的变化？", "typo"],
+  ])(
+    "ranks and removes unusable character-arc candidates before mandatory quotas: %s",
+    (question, rawVariant) => {
+      const plan = normalizeSearchPlan(
+        {
+          coreEntities: ["婕德"],
+          aliases: [],
+          intent: "story",
+          storyScope: "character_arc",
+          queries: [question, "婕德 剧情 经历", "婕德 结局 变化"],
+        },
+        question,
+      );
+      const makeCandidate = (
+        id: string,
+        title: string,
+        excerpt: string,
+        sourceKind: Citation["sourceKind"] = "trusted_wiki",
+      ): Citation => ({
+        id,
+        title,
+        url: `https://example.com/${rawVariant}/${id}`,
+        sourceName: sourceKind === "unknown_web" ? "example.com" : "Test Wiki",
+        sourceKind,
+        credibility: sourceKind === "unknown_web" ? "unknown_web" : "trusted_wiki",
+        factStatus:
+          sourceKind === "unknown_web" ? "community_analysis" : "trusted_secondary",
+        excerpt,
+        external: true,
+        crossLanguage: false,
+      });
+      const raw = Array.from({ length: 14 }, (_, index) =>
+        makeCandidate(
+          `raw-${index}`,
+          `婕德资料 ${rawVariant} ${index}`,
+          `婕德人物资料与基础档案 ${rawVariant} ${index}。`,
+        ),
+      );
+      const dirtyMandatory = (prefix: string) => [
+        makeCandidate(
+          `${prefix}-site-shell`,
+          "社区入口",
+          "星港论坛是由北辰互动运营的官方社区平台，提供新闻、攻略、图鉴与活动内容。",
+        ),
+        makeCandidate(
+          `${prefix}-browser-shell`,
+          "婕德页面",
+          "This site requires JavaScript enabled. Please check your browser settings.",
+        ),
+        makeCandidate(
+          `${prefix}-chrome`,
+          "婕德索引",
+          "旅行者创作平台-观测枢-wiki旅行者创作平台-观测枢-wiki",
+        ),
+        makeCandidate(
+          `${prefix}-navigation`,
+          "婕德资料",
+          "Created with Sketch 首页 新闻 公告 攻略 图鉴 角色 武器 圣遗物 社区 编辑",
+        ),
+        makeCandidate(
+          `${prefix}-dialogue`,
+          "婕德对话",
+          "婕德：我不再服从。旅行者：先离开这里。派蒙：出口在前面。阿萨里格：拦住他们。芭别尔：执行命令。",
+        ),
+        makeCandidate(
+          `${prefix}-entity`,
+          "婕德资料",
+          "婕德人物资料仍含有无法渲染的标记 &unknownentity;",
+        ),
+      ];
+      const cleanStart = makeCandidate(
+        "clean-start",
+        "永恒的葱茏之梦：婕德经历",
+        "失去父亲后，婕德渴望新的归属，并把塔尼特和芭别尔视为替代家庭。",
+        "unknown_web",
+      );
+      const cleanEnd = makeCandidate(
+        "clean-end",
+        "因为她的罪恶滔天：婕德结局",
+        "婕德认清芭别尔的操控与背叛后同塔尼特决裂，决定自己选择未来的道路。",
+        "unknown_web",
+      );
+
+      const selected = balanceCharacterArcCandidateBuckets(
+        [
+          { query: question, candidates: raw },
+          {
+            query: "婕德 剧情 经历",
+            candidates: [...dirtyMandatory("start"), cleanStart],
+          },
+          {
+            query: "婕德 结局 变化",
+            candidates: [...dirtyMandatory("end"), cleanEnd],
+          },
+        ],
+        plan,
+        question,
+      );
+      const canonicalUrls = selected.map((candidate) =>
+        candidate.url.replace(/#.*$/u, "").toLowerCase(),
+      );
+
+      expect(selected.map((candidate) => candidate.id)).toEqual(
+        expect.arrayContaining(["clean-start", "clean-end"]),
+      );
+      expect(selected.some((candidate) => candidate.id.includes("shell")))
+        .toBe(false);
+      expect(selected.some((candidate) => candidate.id.includes("chrome")))
+        .toBe(false);
+      expect(selected.some((candidate) => candidate.id.includes("navigation")))
+        .toBe(false);
+      expect(selected.some((candidate) => candidate.id.includes("dialogue")))
+        .toBe(false);
+      expect(selected.some((candidate) => candidate.id.includes("entity")))
+        .toBe(false);
+      expect(selected.filter((candidate) => candidate.id.startsWith("raw-")))
+        .toHaveLength(4);
+      expect(new Set(canonicalUrls).size).toBe(selected.length);
+      expect(selected.length).toBeLessThanOrEqual(16);
+    },
+  );
+
+  it.each([
+    ["婕德经历了怎样的变化？", "finite-standard"],
+    ["婕德经历了怎么的变化？", "finite-typo"],
+  ])(
+    "prioritizes decisive arc context over six finite curated profiles in a mandatory bucket: %s",
+    (question, rawVariant) => {
+      const plan = normalizeSearchPlan(
+        {
+          coreEntities: ["婕德"],
+          aliases: [],
+          intent: "story",
+          storyScope: "character_arc",
+          queries: [question, "婕德 剧情 经历", "婕德 结局 变化"],
+        },
+        question,
+      );
+      const makeCandidate = (
+        id: string,
+        title: string,
+        excerpt: string,
+        kind: "wiki" | "community" = "wiki",
+      ): Citation => ({
+        id,
+        title,
+        url: `https://example.com/${rawVariant}/${id}`,
+        sourceName: kind === "wiki" ? "Curated Wiki" : "Community Analysis",
+        sourceKind: kind === "wiki" ? "trusted_wiki" : "community",
+        credibility: kind === "wiki" ? "trusted_wiki" : "community",
+        factStatus:
+          kind === "wiki" ? "trusted_secondary" : "community_analysis",
+        excerpt,
+        external: true,
+        crossLanguage: false,
+        assessment:
+          kind === "wiki"
+            ? {
+                platformKind: "official_operated_wiki",
+                publisherKind: "verified_aggregator",
+                contentKind: "character_profile",
+                authority: "curated_reference",
+                signals: ["curated-character-profile"],
+                confidence: "high",
+              }
+            : {
+                platformKind: "community",
+                publisherKind: "unknown",
+                contentKind: "lore_analysis",
+                authority: "community_analysis",
+                signals: ["story-analysis"],
+                confidence: "low",
+              },
+      });
+      const raw = Array.from({ length: 14 }, (_, index) =>
+        makeCandidate(
+          `raw-${index}`,
+          `婕德资料 ${rawVariant} ${index}`,
+          `婕德人物资料与基础档案 ${rawVariant} ${index}。`,
+        ),
+      );
+      const shallowProfiles = Array.from({ length: 6 }, (_, index) =>
+        makeCandidate(
+          `profile-${index}`,
+          `婕德人物资料与基础档案 ${index}`,
+          `婕德人物资料与基础档案，收录角色名称、分类与页面索引 ${index}。`,
+        ),
+      );
+      const decisiveArc = makeCandidate(
+        "decisive-arc",
+        "婕德的选择",
+        "失去父亲后，她渴望新的归属；认清操控与背叛后，她与虚假的家庭决裂，决定不再依附他人并由自己选择未来。",
+        "community",
+      );
+      const endingProfiles = Array.from({ length: 6 }, (_, index) =>
+        makeCandidate(
+          `ending-profile-${index}`,
+          `婕德结局资料与基础档案 ${index}`,
+          `婕德结局变化资料索引，收录角色名称、分类与页面条目 ${index}。`,
+        ),
+      );
+
+      const selected = balanceCharacterArcCandidateBuckets(
+        [
+          { query: question, candidates: raw },
+          {
+            query: "婕德 剧情 经历",
+            candidates: [...shallowProfiles, decisiveArc],
+          },
+          { query: "婕德 结局 变化", candidates: endingProfiles },
+        ],
+        plan,
+        question,
+      );
+      const canonicalUrls = selected.map((candidate) =>
+        candidate.url.replace(/#.*$/u, "").toLowerCase(),
+      );
+
+      expect(selected.map((candidate) => candidate.id)).toContain("decisive-arc");
+      expect(selected.filter((candidate) => candidate.id.startsWith("raw-")))
+        .toHaveLength(4);
+      expect(new Set(canonicalUrls).size).toBe(selected.length);
+      expect(selected.length).toBeLessThanOrEqual(16);
+    },
+  );
+
+  it("rejects incidental story mentions on pages titled for another subject", () => {
+    const plan = normalizeSearchPlan(
+      {
+        coreEntities: ["婕德"],
+        aliases: [],
+        intent: "story",
+        queries: ["婕德 剧情 经历", "婕德 结局 变化"],
+      },
+      "婕德经历了怎样的变化？",
+    );
+    const candidates: Citation[] = [
+      {
+        id: "other-subject",
+        title: "娜布·玛莉卡塔剧情故事",
+        url: "https://example.com/other-subject",
+        sourceName: "剧情文本索引",
+        sourceKind: "trusted_wiki",
+        credibility: "trusted_wiki",
+        factStatus: "trusted_secondary",
+        excerpt: "资料索引还列出婕德，但没有叙述她的经历。",
+        external: true,
+        crossLanguage: false,
+      },
+      {
+        id: "quest-event",
+        title: "因为她的罪恶滔天…",
+        url: "https://example.com/quest-event",
+        sourceName: "剧情文本索引",
+        sourceKind: "game_text",
+        credibility: "official",
+        factStatus: "official_explicit",
+        excerpt:
+          "任务中，婕德查明族长的陷害，拒绝继续受人操控，与部族决裂后选择独自踏上新的道路。",
+        external: true,
+        crossLanguage: false,
+      },
+    ];
+
+    const selected = selectCandidatesForAssessment(
+      candidates,
+      plan,
+      "婕德经历了怎样的变化？",
+    );
+
+    expect(selected.map((citation) => citation.id)).toEqual(["external-1"]);
+    expect(selected[0]?.title).toBe("因为她的罪恶滔天…");
+  });
+
   it("uses Sogou as a Chinese web-search fallback for direct interaction evidence", async () => {
     vi.stubGlobal(
       "fetch",
@@ -611,7 +1052,7 @@ describe("whitelisted external search", () => {
         if (url.hostname === "www.sogou.com") {
           return new Response(
             `<div class="rb">
-              <h3 class="vr-title"><a href="/link?url=direct-story">富人与博士主线对话</a></h3>
+              <h3 class="vr-title"><a href="https://example.com/direct-story">富人与博士主线对话</a></h3>
               <div class="text-layout">博士曾为富人换肺，富人通过北国银行长期资助博士研究。</div>
             </div>`,
             { status: 200, headers: { "Content-Type": "text/html" } },
@@ -636,6 +1077,210 @@ describe("whitelisted external search", () => {
         }),
       ]),
     );
+  });
+
+  it("does not replace a clean search snippet with noisy fetched page chrome", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "html.duckduckgo.com") {
+          return new Response(
+            `<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fjeht-arc">婕德剧情变化</a>
+             <div class="result__snippet">婕德发现芭别尔的陷害后与塔尼特决裂，并选择自己的道路。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        if (url.hostname === "example.com") {
+          return new Response(
+            `<html><body>Created with Sketch 首页 新闻 公告 攻略 图鉴 角色 武器 圣遗物 社区 编辑
+             旅行者创作平台-观测枢-原神wiki旅行者创作平台-观测枢-原神wiki</body></html>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        if (url.searchParams.get("prop") === "extracts") {
+          return new Response(JSON.stringify({ query: { pages: {} } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("婕德 剧情 变化");
+
+    expect(results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: "https://example.com/jeht-arc",
+          excerpt: "婕德发现芭别尔的陷害后与塔尼特决裂，并选择自己的道路。",
+        }),
+      ]),
+    );
+  });
+
+  it("drops a Yahoo root result even when its title and snippet look like a destination page", async () => {
+    const title = "聊一聊婕德的故事(剧透警告)-原神社区-米游社";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "search.yahoo.com") {
+          return new Response(
+            `<a href="https://www.yahoo.com/"><h3 class="title">${title}</h3></a><div><p>婕德失去亲人后寻找归属，最终选择自己的道路。</p></div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("婕德 剧情 经历", { enrich: false });
+
+    expect(results.some((citation) => citation.title === title)).toBe(false);
+  });
+
+  it("decodes a valid Yahoo RU target and classifies the decoded destination", async () => {
+    const target = "https://www.miyoushe.com/ys/article/35324992";
+    const ru = encodeURIComponent(target);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "search.yahoo.com") {
+          return new Response(
+            `<a href="https://r.search.yahoo.com/_ylt=test/RV=2/RE=1/RO=10/RU=${ru}/RK=2/RS=test"><h3 class="title">聊一聊婕德的故事</h3></a><div><p>婕德失去亲人后寻找归属，最终选择自己的道路。</p></div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("婕德 剧情 经历", { enrich: false });
+    const result = results.find((citation) => citation.url === target);
+
+    expect(result).toMatchObject({
+      url: target,
+      sourceName: "miyoushe.com",
+      sourceKind: "community",
+      credibility: "community",
+    });
+    expect(result?.assessment?.platformKind).toBe("community");
+  });
+
+  it("drops malformed Yahoo and DuckDuckGo redirects during citation creation", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "html.duckduckgo.com") {
+          return new Response(
+            `<a class="result__a" href="//duckduckgo.com/l/?uddg=%E0%A4%A">Malformed DDG result</a><div class="result__snippet">A story-shaped snippet.</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        if (url.hostname === "search.yahoo.com") {
+          return new Response(
+            `<a href="https://r.search.yahoo.com/_ylt=test/RU=%E0%A4%A/RS=test"><h3 class="title">Malformed Yahoo result</h3></a><div><p>A story-shaped snippet.</p></div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("character story", { enrich: false });
+
+    expect(results).toEqual([]);
+  });
+
+  it("recomputes provenance atomically when enrichment changes the destination host", async () => {
+    const finalUrl = "https://www.miyoushe.com/ys/article/35324992";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "html.duckduckgo.com") {
+          return new Response(
+            `<a class="result__a" href="https://origin.example/story">角色故事</a><div class="result__snippet">角色失去亲人后寻找归属，最后选择独立前行。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        if (url.hostname === "origin.example") {
+          const response = new Response(
+            "<main><p>角色失去亲人后寻找归属，认清背叛后选择独立前行。</p></main>",
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+          Object.defineProperty(response, "url", { value: finalUrl });
+          return response;
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("角色 剧情 经历");
+    const result = results.find((citation) => citation.url === finalUrl);
+
+    expect(result).toMatchObject({
+      sourceName: "miyoushe.com",
+      sourceKind: "community",
+      credibility: "community",
+      factStatus: "community_analysis",
+    });
+    expect(result?.assessment?.platformKind).toBe("community");
+    expect(result?.sourceName).not.toBe("origin.example");
+  });
+
+  it.each([
+    "https://www.yahoo.com/",
+    "https://r.search.yahoo.com/_ylt=test/RU=%E0%A4%A/RS=test",
+    "https://duckduckgo.com/l/?uddg=%E0%A4%A",
+  ])("drops a citation when enrichment resolves to an unusable destination: %s", async (finalUrl) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "html.duckduckgo.com") {
+          return new Response(
+            `<a class="result__a" href="https://origin.example/story">角色故事</a><div class="result__snippet">角色失去亲人后寻找归属，最后选择独立前行。</div>`,
+            { status: 200, headers: { "Content-Type": "text/html" } },
+          );
+        }
+        if (url.hostname === "origin.example") {
+          const response = new Response("<main><p>Search interstitial</p></main>", {
+            status: 200,
+            headers: { "Content-Type": "text/html" },
+          });
+          Object.defineProperty(response, "url", { value: finalUrl });
+          return response;
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const results = await searchGeneralWeb("角色 剧情 经历");
+
+    expect(results).toEqual([]);
   });
 
   it("keeps Pantalone-Dottore search terms scoped to that relationship", async () => {
@@ -1160,6 +1805,79 @@ describe("whitelisted external search", () => {
       "official_operated_wiki",
     );
     expect(results[0]?.excerpt).toContain("料理对决");
+  });
+
+  it("runs the three prepared character-arc provider queries in the first tier", async () => {
+    const providerQueries: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        const providerQuery = url.searchParams.get("srsearch");
+        if (providerQuery) {
+          providerQueries.push(providerQuery);
+          return new Response(
+            JSON.stringify({
+              query: {
+                search: [
+                  {
+                    title: "婕德",
+                    snippet: "婕德角色资料与基础档案。",
+                    pageid: 8101,
+                  },
+                  {
+                    title: "婕德资料",
+                    snippet: "婕德人物页面与分类索引。",
+                    pageid: 8102,
+                  },
+                ],
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (url.searchParams.get("prop") === "extracts") {
+          return new Response(
+            JSON.stringify({
+              query: {
+                pages: {
+                  "8101": { pageid: 8101, extract: "婕德角色资料与基础档案。" },
+                  "8102": { pageid: 8102, extract: "婕德人物页面与分类索引。" },
+                },
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (url.searchParams.get("action") === "parse") {
+          return new Response(JSON.stringify({ parse: { text: { "*": "" } } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const question = "婕德经历了怎样的变化？";
+    await searchWebEvidence(question, "zh-CN", {
+      plan: {
+        coreEntities: ["婕德"],
+        aliases: [],
+        intent: "story",
+        storyScope: "character_arc",
+        queries: [question, "婕德 剧情 经历", "婕德 结局 变化"],
+      },
+    });
+
+    expect(Array.from(new Set(providerQueries))).toEqual([
+      question,
+      "婕德 剧情 经历",
+      "婕德 结局 变化",
+    ]);
   });
 
   it("blocks Yahoo gameplay-guide fallbacks for story questions", async () => {

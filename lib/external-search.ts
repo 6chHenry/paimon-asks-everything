@@ -5,6 +5,8 @@ import type {
   SourceCredibility,
   SourceKind,
 } from "@/lib/domain";
+import { isCharacterArcQuestion } from "@/lib/entity-lexicon";
+import { normalizeSearchResultUrl } from "@/lib/search-result-url";
 import { emitTrace, type TraceEmitter } from "@/lib/trace";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import {
@@ -17,6 +19,11 @@ import {
   sourceGovernanceScore,
 } from "@/lib/source-governance";
 import { TtlCache } from "@/lib/ttl-cache";
+import {
+  decodeHtmlEntities,
+  preferHigherQualityWebText,
+  webTextQualityScore,
+} from "@/lib/web-text-quality";
 
 interface MediaWikiProvider {
   apiUrl: string;
@@ -49,7 +56,10 @@ export type SearchIntent =
   | "official_media"
   | "general";
 
-export type StorySearchScope = "character_story_quest" | "general_story";
+export type StorySearchScope =
+  | "character_story_quest"
+  | "character_arc"
+  | "general_story";
 
 export interface SearchPlan {
   coreEntities: string[];
@@ -64,6 +74,7 @@ export function inferStorySearchScope(
   intent: SearchIntent,
 ): StorySearchScope | undefined {
   if (intent !== "story") return undefined;
+  if (isCharacterArcQuestion(question)) return "character_arc";
   return /传说任务|傳說任務|角色任务|角色任務|story\s*quest|legend(?:ary)?\s+quest/iu.test(
     question,
   )
@@ -262,17 +273,7 @@ function normalizeChineseVariants(value: string) {
 }
 
 function decodeHtml(value: string) {
-  return stripHtml(value)
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&apos;/g, "'")
-    .replace(/&#x([0-9a-f]+);/giu, (_match, code) =>
-      String.fromCodePoint(Number.parseInt(code, 16)),
-    )
-    .replace(/&#(\d+);/gu, (_match, code) =>
-      String.fromCodePoint(Number.parseInt(code, 10)),
-    );
+  return decodeHtmlEntities(stripHtml(value));
 }
 
 function htmlToText(value: string) {
@@ -690,6 +691,57 @@ function passesEntityGate(
         entityRelevanceScore(citation, plan) >= 30)
     );
   }
+  if (plan.intent === "story") {
+    if (titleOrUrlMatch) return true;
+    const storyContextPattern =
+      /任务|任務|剧情|劇情|故事|事件|章节|章節|幕|结局|結局|转折|轉折|成长|成長|变化|變化|战斗|戰鬥|决斗|決鬥|story|quest|chapter|act|event|ending|turning point|duel|battle/giu;
+    const subjectActionPattern =
+      /加入|离开|離開|失去|渴望|寻找|尋找|帮助|幫助|发现|發現|查明|认清|認清|拒绝|拒絕|背叛|操控|利用|欺骗|欺騙|陷害|决裂|決裂|反抗|选择|選擇|决定|決定|成为|成為|改变|改變|成长|成長|转变|轉變|败北|敗北|击败|擊敗|处决|處決|死亡|join(?:ed)?|leave|left|lose|lost|long(?:ed)?\s+for|discover(?:ed)?|recogniz(?:e|ed)|betray(?:al|ed)?|manipulat(?:e|ed|ion)|break\s+with|choose|chose|decid(?:e|ed)|change(?:d)?|grow|grew|defeat(?:ed)?|execut(?:e|ed)|die|died/giu;
+    const contextualTitle =
+      (citation.title.match(storyContextPattern) ?? []).length > 0;
+    const subjectSentences = citation.excerpt
+      .split(/[。！？!?；;\n]+/u)
+      .filter((sentence) =>
+        [...plan.coreEntities, ...plan.aliases].some((entity) =>
+          includesEntity(sentence, entity),
+        ),
+      );
+    const normalizedExcerpt = normalizedExcerptText(citation.excerpt);
+    const subjectWindows = [...plan.coreEntities, ...plan.aliases].flatMap(
+      (entity) => {
+        const normalizedEntity = normalizedExcerptText(entity);
+        const windows: string[] = [];
+        let cursor = normalizedExcerpt.indexOf(normalizedEntity);
+        while (cursor >= 0) {
+          windows.push(normalizedExcerpt.slice(cursor, cursor + 180));
+          cursor = normalizedExcerpt.indexOf(
+            normalizedEntity,
+            cursor + normalizedEntity.length,
+          );
+        }
+        return windows;
+      },
+    );
+    const actionCount = Math.max(
+      0,
+      ...subjectWindows.map(
+        (window) => (window.match(subjectActionPattern) ?? []).length,
+      ),
+    );
+    const contextualExcerpt = subjectSentences.some(
+      (sentence) => (sentence.match(storyContextPattern) ?? []).length > 0,
+    );
+    const contextCount = subjectSentences.reduce(
+      (count, sentence) =>
+        count + (sentence.match(storyContextPattern) ?? []).length,
+      0,
+    );
+    return (
+      actionCount >= 2 ||
+      (actionCount >= 1 && (contextualTitle || contextualExcerpt)) ||
+      contextCount >= 2
+    );
+  }
   const excerptThreshold = plan.intent === "relationship" ? 60 : 30;
   return titleOrUrlMatch || entityRelevanceScore(citation, plan) >= excerptThreshold;
 }
@@ -980,6 +1032,148 @@ function identityClaimScore(citation: Citation, question: string, plan: SearchPl
     : 90;
 }
 
+function canonicalCitationUrl(value: string) {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.protocol = url.protocol.toLowerCase();
+    url.hostname = url.hostname.toLowerCase();
+    return url.toString().replace(/\/$/u, "");
+  } catch {
+    return value.trim().replace(/#.*$/u, "").replace(/\/$/u, "");
+  }
+}
+
+function citationTextQuality(citation: Citation) {
+  return webTextQualityScore(`${citation.title} ${citation.excerpt}`);
+}
+
+const characterArcActionPattern =
+  /失去|渴望|寻找|尋找|加入|离开|離開|操控|利用|欺骗|欺騙|背叛|认清|認清|发现|發現|拒绝|拒絕|决裂|決裂|反抗|选择|選擇|决定|決定|独立|獨立|成长|成長|改变|改變|转变|轉變|lose|lost|loss|long(?:ed|ing)?\s+for|search(?:ed|ing)?\s+for|join(?:ed|ing)?|leave|left|manipulat(?:e|ed|ion)|exploit(?:ed|ation)?|deceiv(?:e|ed)|betray(?:al|ed)?|realiz(?:e|ed)|discover(?:ed)?|refus(?:e|ed)|break\s+(?:away|with)|rebel(?:led|lion)?|cho(?:ose|se|sen)|decid(?:e|ed)|independen(?:t|ce)|grow|grew|growth|chang(?:e|ed)|transform(?:ed|ation)?/giu;
+const characterArcTurningPointPattern =
+  /起初|最初|后来|後來|此后|此後|最终|最終|从此|從此|转折|轉折|转机|轉機|不再|开始|開始|after|before|later|eventually|finally|turning\s+point|no\s+longer|began|started/giu;
+
+function characterArcRelevanceScore(
+  citation: Citation,
+  bucketQuery: string,
+  plan: SearchPlan,
+) {
+  const title = normalizedExcerptText(citation.title);
+  const excerpt = normalizedExcerptText(citation.excerpt);
+  const entityTerms = [...plan.coreEntities, ...plan.aliases]
+    .map(normalizedExcerptText)
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  const queryWithoutEntities = entityTerms.reduce(
+    (query, entity) => query.split(entity).join(" "),
+    normalizedExcerptText(bucketQuery),
+  );
+  const mandatoryTerms = queryWithoutEntities
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((term) => term.length >= 2);
+  const queryScore = mandatoryTerms.reduce(
+    (score, term) =>
+      score + (title.includes(term) ? 8 : 0) + (excerpt.includes(term) ? 4 : 0),
+    0,
+  );
+  const text = `${citation.title} ${citation.excerpt}`;
+  const actionScore = (text.match(characterArcActionPattern) ?? []).length * 20;
+  const turningPointScore =
+    (text.match(characterArcTurningPointPattern) ?? []).length * 10;
+  return queryScore + actionScore + turningPointScore;
+}
+
+export interface CharacterArcCandidateBucket {
+  query: string;
+  candidates: Citation[];
+}
+
+export function balanceCharacterArcCandidateBuckets(
+  buckets: CharacterArcCandidateBucket[],
+  plan: SearchPlan,
+  question: string,
+  limit = 16,
+) {
+  const bucketCandidates = buckets.map((bucket, bucketIndex) => {
+    const unique = new Map<string, Citation>();
+    for (const citation of bucket.candidates) {
+      if (citationTextQuality(citation) === Number.NEGATIVE_INFINITY) continue;
+      const key = canonicalCitationUrl(citation.url);
+      const current = unique.get(key);
+      if (!current || citationTextQuality(citation) > citationTextQuality(current)) {
+        unique.set(key, citation);
+      }
+    }
+    const candidatesByCanonicalUrl = new Map(
+      [...unique.values()].map((citation) => [
+        canonicalCitationUrl(citation.url),
+        citation,
+      ]),
+    );
+    const ranked = dedupeAndRank([...unique.values()], plan, question).flatMap(
+      (citation) =>
+        candidatesByCanonicalUrl.get(canonicalCitationUrl(citation.url)) ?? [],
+    );
+    if (bucketIndex === 0) return ranked;
+    return ranked
+      .map((citation, rankIndex) => ({ citation, rankIndex }))
+      .sort(
+        (a, b) =>
+          characterArcRelevanceScore(b.citation, bucket.query, plan) -
+            characterArcRelevanceScore(a.citation, bucket.query, plan) ||
+          a.rankIndex - b.rankIndex,
+      )
+      .map(({ citation }) => citation);
+  });
+
+  const winners = new Map<
+    string,
+    { citation: Citation; bucketIndex: number; quality: number }
+  >();
+  bucketCandidates.forEach((candidates, bucketIndex) => {
+    for (const citation of candidates) {
+      const key = canonicalCitationUrl(citation.url);
+      const quality = citationTextQuality(citation);
+      const current = winners.get(key);
+      const mandatory = bucketIndex > 0;
+      const currentMandatory = (current?.bucketIndex ?? 0) > 0;
+      if (
+        !current ||
+        (mandatory && !currentMandatory) ||
+        (mandatory === currentMandatory && quality > current.quality)
+      ) {
+        winners.set(key, { citation, bucketIndex, quality });
+      }
+    }
+  });
+
+  const eligibleBuckets = bucketCandidates.map((candidates, bucketIndex) =>
+    candidates.filter((citation) => {
+      const winner = winners.get(canonicalCitationUrl(citation.url));
+      return winner?.bucketIndex === bucketIndex && winner.citation === citation;
+    }),
+  );
+  const selected: Citation[] = [];
+  const selectedUrls = new Set<string>();
+  const add = (citation: Citation) => {
+    if (selected.length >= limit) return;
+    const key = canonicalCitationUrl(citation.url);
+    if (selectedUrls.has(key)) return;
+    selected.push(citation);
+    selectedUrls.add(key);
+  };
+
+  eligibleBuckets[0]?.slice(0, 4).forEach(add);
+  for (const mandatoryBucket of eligibleBuckets.slice(1)) {
+    mandatoryBucket.slice(0, 6).forEach(add);
+  }
+  for (const mandatoryBucket of eligibleBuckets.slice(1)) {
+    for (const citation of mandatoryBucket.slice(6)) add(citation);
+  }
+
+  return selected.slice(0, limit);
+}
+
 function dedupeAndRank(
   citations: Citation[],
   plan: SearchPlan,
@@ -987,8 +1181,11 @@ function dedupeAndRank(
 ) {
   const deduped = new Map<string, Citation>();
   for (const citation of citations) {
-    const key = `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`;
-    if (!deduped.has(key)) deduped.set(key, citation);
+    const key = canonicalCitationUrl(citation.url);
+    const current = deduped.get(key);
+    if (!current || citationTextQuality(citation) > citationTextQuality(current)) {
+      deduped.set(key, citation);
+    }
   }
   return [...deduped.values()]
     .filter((citation) => passesEntityGate(citation, plan, question))
@@ -1068,16 +1265,10 @@ export function selectCandidatesForAssessment(
     .filter((citation) => relationshipInteractionScore(citation, plan) > 0)
     .slice(0, 3);
   const reservedKeys = new Set(
-    directInteractions.map(
-      (citation) =>
-        `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`,
-    ),
+    directInteractions.map((citation) => canonicalCitationUrl(citation.url)),
   );
   const remainder = ranked.filter(
-    (citation) =>
-      !reservedKeys.has(
-        `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`,
-      ),
+    (citation) => !reservedKeys.has(canonicalCitationUrl(citation.url)),
   );
   return [...directInteractions, ...remainder].slice(0, limit);
 }
@@ -1208,21 +1399,6 @@ function chineseQueriesFromEnglishClues(
   return [...localized, ...generic, ...titleQueries];
 }
 
-function normalizeResultUrl(rawUrl: string) {
-  try {
-    const parsed = new URL(rawUrl, "https://duckduckgo.com");
-    const redirected = parsed.searchParams.get("uddg");
-    if (redirected) return decodeURIComponent(redirected);
-    if (parsed.hostname === "r.search.yahoo.com") {
-      const match = parsed.pathname.match(/\/RU=([^/]+)\//u);
-      if (match?.[1]) return decodeURIComponent(match[1]);
-    }
-    return parsed.toString();
-  } catch {
-    return rawUrl;
-  }
-}
-
 function makeWebCitation({
   id,
   url,
@@ -1235,24 +1411,14 @@ function makeWebCitation({
   excerpt: string;
 }): Citation[] {
   if (!url || !title) return [];
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-    if (
-      hostname === "search.yahoo.com" ||
-      hostname === "images.search.yahoo.com" ||
-      hostname === "video.search.yahoo.com"
-    ) {
-      return [];
-    }
-  } catch {
-    return [];
-  }
-  const classification = classifyWebSource(url);
+  const destination = normalizeSearchResultUrl(url);
+  if (!destination) return [];
+  const classification = classifyWebSource(destination);
   const fallbackExcerpt =
     excerpt ||
     `General web search matched "${title}". Open the page and verify against primary sources.`;
   const assessment = assessSourceRule({
-    url,
+    url: destination,
     title,
     excerpt: fallbackExcerpt,
   });
@@ -1261,7 +1427,7 @@ function makeWebCitation({
     {
       id,
       title,
-      url,
+      url: destination,
       sourceName: classification.sourceName,
       sourceKind: legacy.sourceKind,
       credibility: legacy.credibility,
@@ -1304,11 +1470,63 @@ function looksLikeHtmlResponse(contentType: string | null, body: string) {
   );
 }
 
+function citationWithProvenance(
+  citation: Citation,
+  url: string,
+  excerpt: string,
+  options: { pageHtml?: string; resolvedFinalUrl?: boolean } = {},
+): Citation {
+  const classification = classifyWebSource(url);
+  const platform = platformForUrl(url);
+  const assessment = assessSourceRule({
+    url,
+    title: citation.title,
+    excerpt,
+    pageHtml: options.pageHtml,
+  });
+  const identitySignals = options.pageHtml
+    ? extractPublisherIdentity(url, options.pageHtml).signals
+    : [];
+  const legacy = legacySourceFields(assessment);
+  const sourceName =
+    assessment.platformKind === "official_site"
+      ? url.includes("mihoyo.com")
+        ? "米哈游《原神》官网"
+        : "HoYoverse"
+      : assessment.publisherKind === "genshin_official"
+        ? platform.platform === "bilibili"
+          ? "原神官方 · Bilibili"
+          : platform.platform === "youtube"
+            ? "Genshin Impact · YouTube"
+            : platform.platform === "miyoushe"
+              ? "原神官方 · 米游社"
+              : "Genshin Impact · HoYoLAB"
+        : classification.sourceName;
+  return {
+    ...citation,
+    url,
+    excerpt,
+    sourceName,
+    sourceKind: legacy.sourceKind,
+    credibility: legacy.credibility,
+    factStatus: legacy.factStatus,
+    assessment: {
+      ...assessment,
+      signals: Array.from(
+        new Set([
+          ...assessment.signals,
+          ...identitySignals,
+          ...(options.resolvedFinalUrl ? ["resolved-final-url"] : []),
+        ]),
+      ),
+    },
+  };
+}
+
 async function enrichWebCitationUncached(
   citation: Citation,
   options: { signal?: AbortSignal; question?: string } = {},
 ) {
-  let platform = platformForUrl(citation.url);
   const hostname = (() => {
     try {
       return new URL(citation.url).hostname.replace(/^www\./, "").toLowerCase();
@@ -1328,14 +1546,24 @@ async function enrichWebCitationUncached(
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.7",
       },
     });
-    if (!response.ok) return citation;
+    const finalUrl = normalizeSearchResultUrl(response.url || citation.url);
+    if (!finalUrl) return undefined;
+    const resolvedFinalUrl = finalUrl !== citation.url;
+    if (!response.ok) {
+      return resolvedFinalUrl
+        ? citationWithProvenance(citation, finalUrl, citation.excerpt, {
+            resolvedFinalUrl,
+          })
+        : citation;
+    }
     const html = (await response.text()).slice(0, 800_000);
     if (!looksLikeHtmlResponse(response.headers.get("Content-Type"), html)) {
-      return citation;
+      return resolvedFinalUrl
+        ? citationWithProvenance(citation, finalUrl, citation.excerpt, {
+            resolvedFinalUrl,
+          })
+        : citation;
     }
-    const finalUrl = response.url || citation.url;
-    platform = platformForUrl(finalUrl);
-    const identity = extractPublisherIdentity(finalUrl, html);
     const pageExcerpt = focusedExcerpt(
       htmlToText(html),
       options.question || `${citation.title} ${citation.excerpt}`,
@@ -1344,51 +1572,16 @@ async function enrichWebCitationUncached(
       citation.excerpt,
     );
     const pageInteractionSignals = relationshipInteractionSignalCount(pageExcerpt);
-    const excerpt =
-      pageExcerpt &&
-      (originalInteractionSignals === 0 ||
-        pageInteractionSignals >= originalInteractionSignals)
-        ? pageExcerpt
-        : citation.excerpt;
-    const assessment = assessSourceRule({
-      url: finalUrl,
-      title: citation.title,
-      excerpt,
+    const relationshipSignalsPreserved =
+      originalInteractionSignals === 0 ||
+      pageInteractionSignals >= originalInteractionSignals;
+    const excerpt = relationshipSignalsPreserved
+      ? preferHigherQualityWebText(citation.excerpt, pageExcerpt)
+      : citation.excerpt;
+    return citationWithProvenance(citation, finalUrl, excerpt, {
       pageHtml: html,
+      resolvedFinalUrl,
     });
-    const legacy = legacySourceFields(assessment);
-    return {
-      ...citation,
-      url: finalUrl,
-      excerpt,
-      sourceName:
-        assessment.platformKind === "official_site"
-          ? finalUrl.includes("mihoyo.com")
-            ? "米哈游《原神》官网"
-            : "HoYoverse"
-          : assessment.publisherKind === "genshin_official"
-          ? platform.platform === "bilibili"
-            ? "原神官方 · Bilibili"
-            : platform.platform === "youtube"
-              ? "Genshin Impact · YouTube"
-              : platform.platform === "miyoushe"
-                ? "原神官方 · 米游社"
-                : "Genshin Impact · HoYoLAB"
-          : citation.sourceName,
-      sourceKind: legacy.sourceKind,
-      credibility: legacy.credibility,
-      factStatus: legacy.factStatus,
-      assessment: {
-        ...assessment,
-        signals: Array.from(
-          new Set([
-            ...assessment.signals,
-            ...identity.signals,
-            ...(finalUrl !== citation.url ? ["resolved-final-url"] : []),
-          ]),
-        ),
-      },
-    };
   } catch {
     return citation;
   }
@@ -1409,7 +1602,7 @@ async function enrichWebCitation(
   const cached = pageEnrichmentCache.get(cacheKey);
   if (cached) return { ...cached, id: citation.id };
   const enriched = await enrichWebCitationUncached(citation, options);
-  pageEnrichmentCache.set(cacheKey, enriched);
+  if (enriched) pageEnrichmentCache.set(cacheKey, enriched);
   return enriched;
 }
 
@@ -1574,7 +1767,7 @@ async function searchDuckDuckGoWeb(
     ),
   ];
   return matches.slice(0, 4).flatMap((match, index) => {
-    const rawUrl = normalizeResultUrl(decodeHtml(match[1] ?? ""));
+    const rawUrl = normalizeSearchResultUrl(decodeHtml(match[1] ?? "")) ?? "";
     const title = decodeHtml(match[2] ?? "");
     const excerpt = decodeHtml(match[3] ?? "");
     return makeWebCitation({ id: `web-ddg-${index + 1}`, url: rawUrl, title, excerpt });
@@ -1602,7 +1795,7 @@ async function searchYahooWeb(
     ),
   ];
   return matches.slice(0, 4).flatMap((match, index) => {
-    const url = normalizeResultUrl(decodeHtml(match[1] ?? ""));
+    const url = normalizeSearchResultUrl(decodeHtml(match[1] ?? "")) ?? "";
     const title = decodeHtml(match[2] ?? "");
     const snippetMatch = (match[3] ?? "").match(/<p[^>]*>([\s\S]*?)<\/p>/i);
     const excerpt = decodeHtml(snippetMatch?.[1] ?? "");
@@ -1692,7 +1885,7 @@ export async function searchGeneralWeb(
       ),
   );
   const output = enriched.flatMap((result) =>
-    result.status === "fulfilled" ? [result.value] : [],
+    result.status === "fulfilled" && result.value ? [result.value] : [],
   );
   if (process.env.NODE_ENV !== "test" && output.length > 0) {
     generalSearchCache.set(cacheKey, output);
@@ -1746,7 +1939,10 @@ function tieredQueries(plan: SearchPlan, question: string, language: Language) {
     ),
   );
   if (storyQuestLookup) first.unshift(storyQuestLookup);
-  const boundedFirst = Array.from(new Set(first)).slice(0, 3);
+  const boundedFirst =
+    plan.storyScope === "character_arc"
+      ? Array.from(new Set(plan.queries)).slice(0, 3)
+      : Array.from(new Set(first)).slice(0, 3);
   const remaining = all.filter((query) => !boundedFirst.includes(query));
   const chineseCommunity =
     language === "zh-CN" && plan.coreEntities[0]
@@ -1862,8 +2058,11 @@ export async function searchWebEvidence(
   ) => {
   const uniqueCandidates = new Map<string, Citation>();
   for (const citation of candidates) {
-    const key = `${citation.url.toLowerCase()}::${citation.title.toLowerCase()}`;
-    if (!uniqueCandidates.has(key)) uniqueCandidates.set(key, citation);
+    const key = canonicalCitationUrl(citation.url);
+    const current = uniqueCandidates.get(key);
+    if (!current || citationTextQuality(citation) > citationTextQuality(current)) {
+      uniqueCandidates.set(key, citation);
+    }
   }
   const selectedCandidates = selectCandidatesForAssessment(
     [...uniqueCandidates.values()],
@@ -1883,7 +2082,7 @@ export async function searchWebEvidence(
       );
   return assessSources(
     enrichedCandidates.flatMap((result) =>
-      result.status === "fulfilled" ? [result.value] : [],
+      result.status === "fulfilled" && result.value ? [result.value] : [],
     ),
     { question, plan, useModel },
   );
@@ -1916,7 +2115,17 @@ export async function searchWebEvidence(
     }
   }
   const firstResults = await runQueries(tiers.first);
-  const firstCandidates = collectCandidates(firstResults);
+  const firstCandidates =
+    plan.storyScope === "character_arc"
+      ? balanceCharacterArcCandidateBuckets(
+          firstResults.map((result, index) => ({
+            query: tiers.first[index] ?? "",
+            candidates: result.status === "fulfilled" ? result.value : [],
+          })),
+          plan,
+          question,
+        )
+      : collectCandidates(firstResults);
   const firstAssessed = await assessCandidates(firstCandidates, false, false);
   const firstRanked = dedupeAndRank(firstAssessed, plan, question);
   const localizedTermsFromChineseResults =

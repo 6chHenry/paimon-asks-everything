@@ -189,4 +189,88 @@ describe("answer quality", () => {
       "洛恩从挪德卡莱归来,并把雷泽的剑交给法尔伽。",
     );
   });
+
+  it.each([
+    "旅行者创作平台-观测枢-原神wiki旅行者创作平台-观测枢-原神wiki",
+    "婕德后来明白了真相&hellip;",
+    "Created with Sketch 首页 新闻 公告 攻略 图鉴 角色 武器 圣遗物 社区",
+  ])("rejects leaked web noise in generated text: %s", (text) => {
+    const failures = validateAnswerQuality({
+      paragraphs: [{ text, citationIds: [] }],
+      language: "zh-CN",
+      question: "婕德经历了怎样的变化？",
+      allowedSourceIds: new Set(),
+    });
+
+    expect(failures).toContain("web_noise");
+  });
+
+  it.each([
+    "任务攻略 任务流程 前置任务 后续任务 智慧筑屋,凿成七柱 流沙如泪的神殿 埋葬丰饶的沙丘",
+    "婕德：我不会再服从。旅行者：我们先离开。派蒙：出口在那边。阿萨里格：你们休想。芭别尔：抓住他们。",
+  ])(
+    "rejects a character-arc paragraph citing unusable source text: %s",
+    (sourceText) => {
+      const failures = validateAnswerQuality({
+        paragraphs: [
+          {
+            text: "婕德认清操控后选择离开，并开始决定自己的道路。",
+            citationIds: ["external-1"],
+          },
+        ],
+        language: "zh-CN",
+        question: "婕德经历了怎样的变化？",
+        allowedSourceIds: new Set(["external-1"]),
+        sourceTextById: new Map([["external-1", sourceText]]),
+      });
+
+      expect(failures).toContain("web_noise");
+    },
+  );
+
+  it("allows clean relationship evidence with a concise quoted exchange", () => {
+    const failures = validateAnswerQuality({
+      paragraphs: [
+        {
+          text: "两人的关系以持续的利益合作为主。",
+          citationIds: ["external-1"],
+        },
+      ],
+      language: "zh-CN",
+      question: "富人和博士是什么关系？",
+      intent: "relationship",
+      allowedSourceIds: new Set(["external-1"]),
+      sourceTextById: new Map([
+        [
+          "external-1",
+          "剧情概述：两人因共同目标合作。博士：研究可以继续。富人：资金会按约定提供。此后双方仍保持利益合作。",
+        ],
+      ]),
+    });
+
+    expect(failures).not.toContain("web_noise");
+  });
+
+  it("uses resolved story intent to reject a raw transcript for a generic story question", () => {
+    const failures = validateAnswerQuality({
+      paragraphs: [
+        {
+          text: "女士在冲突中走向了最终结局。",
+          citationIds: ["external-1"],
+        },
+      ],
+      language: "zh-CN",
+      question: "女士发生了什么？",
+      intent: "story",
+      allowedSourceIds: new Set(["external-1"]),
+      sourceTextById: new Map([
+        [
+          "external-1",
+          "女士：你们无法阻止我。旅行者：到此为止。派蒙：小心。雷电将军：决斗已经结束。九条裟罗：所有人退后。",
+        ],
+      ]),
+    });
+
+    expect(failures).toContain("web_noise");
+  });
 });

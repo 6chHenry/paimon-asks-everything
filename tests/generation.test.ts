@@ -4,6 +4,7 @@ import {
   generateGroundedResponse,
 } from "@/lib/generation";
 import type { Citation, KnowledgeEntry } from "@/lib/domain";
+import { ruleUnderstandQuestion } from "@/lib/question-understanding";
 
 const originalEnv = { ...process.env };
 
@@ -1122,5 +1123,360 @@ describe("grounded generation", () => {
     expect(result.answer).toContain("\u5148\u8bf4\u7ed3\u8bba");
     expect(result.answer).toContain("\u6851\u591a\u6d85");
     expect(result.answer).not.toContain("\u934f\u5806");
+  });
+
+  it("does not echo dirty external excerpts when a character-arc model call fails cold", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("cold_start_timeout");
+    }));
+
+    const dirty: Citation = {
+      id: "external-1",
+      title: "旅行者创作平台-观测枢-原神wiki",
+      url: "https://example.com/jeht",
+      sourceName: "观测枢",
+      sourceKind: "trusted_wiki",
+      credibility: "trusted_wiki",
+      factStatus: "trusted_secondary",
+      excerpt:
+        "旅行者创作平台-观测枢-原神wiki旅行者创作平台-观测枢-原神wiki；婕德：她会孤独吗&hellip;婕德：真可惜没能一起去&hellip;",
+      external: true,
+      crossLanguage: false,
+    };
+
+    const result = await generateGroundedResponse({
+      question: "婕德经历了怎么的变化？",
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [dirty],
+      understanding: ruleUnderstandQuestion("婕德经历了怎么的变化？", "zh-CN"),
+    });
+
+    expect(result.answer).toBe("派蒙暂时没找到足够可靠的资料，先不乱下结论。");
+    expect(result.answer).not.toContain("旅行者创作平台");
+    expect(result.answer).not.toContain("&hellip;");
+    expect(result.external).toEqual([]);
+    expect(
+      result.answerParagraphs?.flatMap((paragraph) => paragraph.citationIds) ?? [],
+    ).toEqual([]);
+  });
+
+  it("drops both final-live browser shell and unresolved search URL failures", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("cold_start_timeout");
+      }),
+    );
+
+    const question = "婕德经历了怎样的变化？";
+    const dirty: Citation[] = [
+      {
+        id: "live-browser-shell",
+        title: "角色条目",
+        url: "https://example.com/live-browser-shell",
+        sourceName: "Reference Wiki",
+        sourceKind: "trusted_wiki",
+        credibility: "trusted_wiki",
+        factStatus: "trusted_secondary",
+        excerpt:
+          "This site requires JavaScript enabled. Please check your browser settings... 欢迎正在阅读这个条目的旅行者协助 编辑本条目...萌娘百科祝各位旅行者在本站度过愉快的时光!",
+        external: true,
+        crossLanguage: false,
+      },
+      {
+        id: "unresolved-search-result",
+        title: "聊一聊婕德的故事(剧透警告)-原神社区-米游社",
+        url: "https://www.yahoo.com/",
+        sourceName: "yahoo.com",
+        sourceKind: "unknown_web",
+        credibility: "unknown_web",
+        factStatus: "community_analysis",
+        excerpt: "婕德失去亲人后寻找归属，最终选择自己的道路。",
+        external: true,
+        crossLanguage: false,
+      },
+    ];
+    const result = await generateGroundedResponse({
+      question,
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: dirty,
+      understanding: ruleUnderstandQuestion(question, "zh-CN"),
+    });
+
+    expect(result.answer).toBe("派蒙暂时没找到足够可靠的资料，先不乱下结论。");
+    expect(result.external).toEqual([]);
+    expect(result.citedSourceIds).toEqual([]);
+    expect(
+      result.answerParagraphs?.flatMap((paragraph) => paragraph.citationIds) ?? [],
+    ).toEqual([]);
+  });
+
+  it("sanitizes a supported external citation before returning it from a cold character-arc fallback", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("cold_start_timeout");
+    }));
+
+    const supportedRawEntity: Citation = {
+      id: "raw-entity",
+      title: "婕德&hellip;",
+      url: "https://example.com/jeht-arc",
+      sourceName: "剧情文本索引",
+      sourceKind: "game_text",
+      credibility: "official",
+      factStatus: "official_explicit",
+      excerpt: "婕德失去父亲后渴望归属，后来认清芭别尔的陷害&hellip;",
+      external: true,
+      crossLanguage: false,
+    };
+
+    const question = "婕德经历了怎样的变化？";
+    const result = await generateGroundedResponse({
+      question,
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [supportedRawEntity],
+      understanding: ruleUnderstandQuestion(question, "zh-CN"),
+    });
+
+    expect(result.answer).toBe(
+      "目前找到的资料还不足以稳妥回答“婕德”这个问题。派蒙先不把外部片段硬拼成结论，相关原文保留在下方来源里。",
+    );
+    expect(result.answer).not.toContain("&hellip;");
+    expect(result.external).toHaveLength(1);
+    expect(result.external[0]?.title).toBe("婕德…");
+    expect(result.external[0]?.excerpt).toContain("陷害…");
+    expect(
+      result.external.map((citation) => `${citation.title} ${citation.excerpt}`).join(" "),
+    ).not.toContain("&hellip;");
+    expect(result.external[0]?.url).toBe("https://example.com/jeht-arc");
+    expect(result.external[0]?.sourceName).toBe("剧情文本索引");
+  });
+
+  it("returns no external or cited evidence when a cold character-arc fallback has only a short transcript", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("cold_start_timeout");
+    }));
+
+    const question = "婕德经历了怎样的变化？";
+    const result = await generateGroundedResponse({
+      question,
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [
+        {
+          id: "short-transcript",
+          title: "婕德讨论",
+          url: "https://example.com/short-transcript",
+          sourceName: "社区讨论",
+          sourceKind: "community",
+          credibility: "community",
+          factStatus: "community_analysis",
+          excerpt: "派蒙:想念婕德和奔奔了... 冻梨:你还别说，这段剧情确实让人难忘。",
+          external: true,
+          crossLanguage: false,
+        },
+      ],
+      understanding: ruleUnderstandQuestion(question, "zh-CN"),
+    });
+
+    expect(result.answer).toBe("派蒙暂时没找到足够可靠的资料，先不乱下结论。");
+    expect(result.external).toEqual([]);
+    expect(result.citedSourceIds).toEqual([]);
+    expect(
+      result.answerParagraphs?.flatMap((paragraph) => paragraph.citationIds) ?? [],
+    ).toEqual([]);
+  });
+
+  it("returns no external or cited evidence when a cold character-arc fallback has only a promotional listing shell", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("cold_start_timeout");
+    }));
+
+    const question = "婕德经历了怎样的变化？";
+    const result = await generateGroundedResponse({
+      question,
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: [
+        {
+          id: "delivery-listing-shell",
+          title: "沙漠故事视频",
+          url: "https://example.com/delivery-listing-shell",
+          sourceName: "视频资料",
+          sourceKind: "community",
+          credibility: "community",
+          factStatus: "community_analysis",
+          excerpt:
+            "更多原神实用攻略教学,爆笑沙雕集锦,你所不知道的原神游戏知识,热门原神游戏视频7*24小时持续更新,尽在哔哩哔哩bilibili 视频播放量 241、弹幕量 0、点赞数 6、投硬币枚数 0...",
+          external: true,
+          crossLanguage: false,
+        },
+      ],
+      understanding: ruleUnderstandQuestion(question, "zh-CN"),
+    });
+
+    expect(result.answer).toBe("派蒙暂时没找到足够可靠的资料，先不乱下结论。");
+    expect(result.external).toEqual([]);
+    expect(result.citedSourceIds).toEqual([]);
+    expect(
+      result.answerParagraphs?.flatMap((paragraph) => paragraph.citationIds) ?? [],
+    ).toEqual([]);
+  });
+
+  it("keeps a coherent cited character-arc answer from clean Chinese evidence", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "api.example.test") {
+          return new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      paragraphs: [
+                        {
+                          text: "婕德在失去父亲后渴望归属。",
+                          citationIds: ["external-1"],
+                        },
+                        {
+                          text: "她因此加入塔尼特，并把芭别尔视作家人。",
+                          citationIds: ["external-1"],
+                        },
+                        {
+                          text: "认清芭别尔的陷害与操控后，她与虚假的家族决裂。",
+                          citationIds: ["external-2"],
+                        },
+                        {
+                          text: "最终她不再依附别人给出的归属，决定选择自己的道路。",
+                          citationIds: ["external-2"],
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (url.searchParams.get("prop") === "extracts") {
+          return new Response(JSON.stringify({ query: { pages: {} } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (url.pathname.includes("api.php")) {
+          return new Response(JSON.stringify({ query: { search: [] } }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response("", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    const citations: Citation[] = [
+      {
+        id: "arc-start",
+        title: "永恒的葱茏之梦",
+        url: "https://example.com/arc-start",
+        sourceName: "剧情文本索引",
+        sourceKind: "game_text",
+        credibility: "official",
+        factStatus: "official_explicit",
+        excerpt: "失去父亲后，婕德渴望新的归属，并把塔尼特和芭别尔视为家人。",
+        external: true,
+        crossLanguage: false,
+      },
+      {
+        id: "arc-end",
+        title: "因为她的罪恶滔天…",
+        url: "https://example.com/arc-end",
+        sourceName: "剧情文本索引",
+        sourceKind: "game_text",
+        credibility: "official",
+        factStatus: "official_explicit",
+        excerpt: "婕德认清芭别尔的陷害后与塔尼特决裂，决定以自己的名字选择道路。",
+        external: true,
+        crossLanguage: false,
+      },
+    ];
+
+    const question = "婕德经历了怎样的变化？";
+    const result = await generateGroundedResponse({
+      question,
+      language: "zh-CN",
+      profile: "returning",
+      entries: [],
+      external: citations,
+      understanding: ruleUnderstandQuestion(question, "zh-CN"),
+    });
+
+    expect(result.answer).toContain("失去父亲后渴望归属");
+    expect(result.answer).toContain("认清芭别尔的陷害");
+    expect(result.answer).toContain("选择自己的道路");
+    expect(result.answer).not.toContain("目前找到的资料还不足以稳妥回答");
+    expect(result.answerParagraphs).toHaveLength(4);
+    expect(
+      result.answerParagraphs?.every((paragraph) => paragraph.citationIds.length > 0),
+    ).toBe(true);
+    expect(result.answer).not.toContain("旅行者创作平台");
+    expect(result.citedSourceIds).toEqual(
+      expect.arrayContaining(["external-1", "external-2"]),
+    );
   });
 });
