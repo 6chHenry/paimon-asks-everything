@@ -3,6 +3,8 @@ import {
   generateGroundedAnswer,
   generateGroundedResponse,
 } from "@/lib/generation";
+import { factionKnowledgeEntries } from "@/data/faction-knowledge";
+import { knowledgeEntries } from "@/data/knowledge";
 import type { Citation, KnowledgeEntry } from "@/lib/domain";
 import { ruleUnderstandQuestion } from "@/lib/question-understanding";
 
@@ -1478,5 +1480,61 @@ describe("grounded generation", () => {
     expect(result.citedSourceIds).toEqual(
       expect.arrayContaining(["external-1", "external-2"]),
     );
+  });
+
+  it.each([
+    {
+      name: "Tsaritsa atomic relationship",
+      question: "冰之女皇与愚人众执行官之间是什么关系？",
+      category: "character" as const,
+      entries: factionKnowledgeEntries.filter(
+        (candidate) => candidate.language === "zh-CN",
+      ),
+    },
+    {
+      name: "Fontaine catch-up",
+      question: "我停在枫丹，现在还能看懂目标版本吗？",
+      category: "version_overview" as const,
+      entries: knowledgeEntries.filter(
+        (candidate) =>
+          candidate.conceptId === "fontaine-bridge" &&
+          candidate.language === "zh-CN",
+      ),
+    },
+    {
+      name: "generic layered puzzle hint",
+      question: "这个机械机关我卡住了，先给一点提示。",
+      category: "gameplay" as const,
+      entries: knowledgeEntries.filter(
+        (candidate) =>
+          candidate.conceptId === "mechanical-puzzle" &&
+          candidate.language === "zh-CN",
+      ),
+    },
+  ])("answers $name locally without calling an API", async (testCase) => {
+    process.env.LLM_API_KEY = "test-key";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+    const fetchMock = vi.fn(() => {
+      throw new Error("Local evidence must not call the network");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateGroundedResponse({
+      question: testCase.question,
+      language: "zh-CN",
+      profile: "returning",
+      category: testCase.category,
+      entries: testCase.entries,
+      external: [],
+      understanding: ruleUnderstandQuestion(testCase.question, "zh-CN"),
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.external).toEqual([]);
+    expect(result.answer).not.toMatch(/还没找到可靠资料|不乱下结论/u);
+    expect(result.citedSourceIds.length).toBeGreaterThan(0);
   });
 });

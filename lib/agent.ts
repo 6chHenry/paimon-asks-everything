@@ -234,6 +234,7 @@ export async function runAgent(
     profile: request.profile,
     entries,
     external: [],
+    category: eventClassification.questionCategory,
     deepStory,
     emitTrace: options.emitTrace,
     understanding: questionUnderstanding,

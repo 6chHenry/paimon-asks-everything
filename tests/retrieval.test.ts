@@ -127,9 +127,30 @@ describe("controlled retrieval", () => {
         (entry) => entry.conceptId === "tsaritsa-plan-unknown",
       ),
     ).toBe(true);
+    expect(result.entries.every((entry) => entry.language === "zh-CN")).toBe(
+      true,
+    );
+  });
+
+  it("retrieves only the same-language Tsaritsa-Harbinger atomic fact", () => {
+    const result = retrieveControlled({
+      question: "冰之女皇与愚人众执行官之间是什么关系？",
+      language: "zh-CN",
+      progress: "fontaine",
+      spoilerPreference: "low",
+      focus: ["story", "character"],
+    });
+
     expect(
-      result.entries.every((entry) => entry.language === "zh-CN"),
+      result.entries.some(
+        (entry) => entry.id === "tsaritsa-harbingers-command-zh",
+      ),
     ).toBe(true);
+    expect(
+      result.entries.some(
+        (entry) => entry.id === "tsaritsa-harbingers-command-en",
+      ),
+    ).toBe(false);
   });
 
   it("retrieves the released Nod-Krai fate of the Pyro Gnosis", () => {

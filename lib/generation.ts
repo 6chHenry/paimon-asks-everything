@@ -5,6 +5,7 @@ import type {
   KnowledgeEntry,
   Language,
   Profile,
+  QuestionCategory,
 } from "@/lib/domain";
 import {
   answerText,
@@ -36,6 +37,7 @@ import {
   type QuestionEntity,
 } from "@/lib/entity-lexicon";
 import { t } from "@/lib/i18n";
+import { assessLocalEvidenceSufficiency } from "@/lib/local-evidence";
 import {
   searchPlanFromUnderstanding,
   type QuestionUnderstanding,
@@ -979,6 +981,7 @@ export async function generateGroundedResponse(input: {
   profile: Profile;
   entries: KnowledgeEntry[];
   external: Citation[];
+  category?: QuestionCategory;
   deepStory?: boolean;
   emitTrace?: TraceEmitter;
   understanding?: QuestionUnderstanding;
@@ -1001,6 +1004,41 @@ export async function generateGroundedResponse(input: {
     status: "running",
     message: "正在整理回答",
   });
+  const localDecision = assessLocalEvidenceSufficiency({
+    question: input.question,
+    category: input.category ?? "story",
+    entries: input.entries,
+    plan: fallbackSearchPlan,
+  });
+  if (localDecision.sufficient) {
+    const selectedIds = new Set(localDecision.entryIds);
+    const answerParagraphs = input.entries.flatMap((entry, index) =>
+      selectedIds.has(entry.id)
+        ? [
+            {
+              text: entry.content,
+              citationIds: [`source-${index + 1}`],
+            },
+          ]
+        : [],
+    );
+    const answer = answerText(answerParagraphs);
+    await emitTrace(input.emitTrace, {
+      stage: "generate",
+      status: "complete",
+      message: "本地线索已经足够",
+      detail: localDecision.reason,
+    });
+    return {
+      answer,
+      answerParagraphs,
+      external: [],
+      citedSourceIds: answerParagraphs.flatMap(
+        (paragraph) => paragraph.citationIds,
+      ),
+      searchPlan: fallbackSearchPlan,
+    };
+  }
   const apiKey = process.env.LLM_API_KEY;
   if (!apiKey) {
     const searched = await searchWebEvidence(input.question, input.language, {
