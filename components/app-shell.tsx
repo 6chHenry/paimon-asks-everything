@@ -22,7 +22,6 @@ const navigation = [
   { href: "/", labelZh: "版本情报", labelEn: "Intel", icon: Sparkles },
   { href: "/preheat", labelZh: "版本预热", labelEn: "Preheat", icon: Flame },
   { href: "/ask", labelZh: "问派蒙", labelEn: "Ask", icon: MessageCircleMore },
-  { href: "/preview", labelZh: "能力预览", labelEn: "Preview", icon: TestTube2 },
   { href: "/insights", labelZh: "发行洞察", labelEn: "Insights", icon: BarChart3 },
 ];
 
@@ -149,15 +148,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="game-nav-list" aria-label="Main navigation">{renderNavigation()}</nav>
         <div className="game-nav-tools" aria-label={isZh ? "偏好设置" : "Preferences"}>
-          <a
-            className={`game-nav-about${activePath === "/about" ? " active" : ""}`}
-            href={clientPath("/about")}
-            aria-current={activePath === "/about" ? "page" : undefined}
-            title={isZh ? "关于" : "About"}
-          >
-            <BookOpenText size={14} aria-hidden="true" />
-            <span>{isZh ? "关于" : "About"}</span>
-          </a>
+          <div className="game-nav-secondary-links">
+            <a
+              className={`game-nav-about${activePath === "/about" ? " active" : ""}`}
+              href={clientPath("/about")}
+              aria-current={activePath === "/about" ? "page" : undefined}
+              title={isZh ? "关于" : "About"}
+            >
+              <BookOpenText size={14} aria-hidden="true" />
+              <span>{isZh ? "关于" : "About"}</span>
+            </a>
+            <a
+              className={`game-nav-preview${activePath === "/preview" ? " active" : ""}`}
+              href={clientPath("/preview")}
+              aria-current={activePath === "/preview" ? "page" : undefined}
+              title={isZh ? "能力预览" : "Preview"}
+            >
+              <TestTube2 size={14} aria-hidden="true" />
+              <span>{isZh ? "能力预览" : "Preview"}</span>
+            </a>
+          </div>
           <span className="game-nav-language-label">{isZh ? "语言" : "Language"}</span>
           <button
             className="language-toggle"

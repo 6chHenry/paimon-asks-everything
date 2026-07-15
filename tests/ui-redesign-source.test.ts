@@ -74,40 +74,35 @@ describe("Genshin-style shell source", () => {
     expect(css).toContain("transition-duration: .01ms !important");
   });
 
-  it("keeps the about story as a secondary bilingual easter-egg page", () => {
-    const about = source("app", "about", "page.tsx");
+  it("keeps four primary destinations and demotes preview beside about", () => {
     const shell = source("components", "app-shell.tsx");
     const css = source("app", "globals.css");
     const primaryNavigation = shell.slice(
       shell.indexOf("const navigation"),
       shell.indexOf("];", shell.indexOf("const navigation")) + 2,
     );
-    const aboutCss = css.slice(
-      css.indexOf(".about-page"),
-      css.indexOf(".eyebrow {", css.indexOf(".about-page")),
-    );
 
-    expect(about).toContain('"use client"');
-    expect(about).toContain("usePreferences");
-    expect(about).toContain("为什么需要它");
-    expect(about).toContain("Why it needs to exist");
-    expect(about).toContain("让玩家更容易进入故事，而不是替玩家经历故事");
+    for (const href of ['href: "/"', 'href: "/preheat"', 'href: "/ask"', 'href: "/insights"']) {
+      expect(primaryNavigation).toContain(href);
+    }
+    expect(primaryNavigation).not.toContain('/preview');
     expect(shell).toContain('href={clientPath("/about")}');
-    expect(shell).toContain("game-nav-about");
-    expect(primaryNavigation).not.toContain("/about");
-    expect(shell.indexOf("game-nav-about")).toBeGreaterThan(
-      shell.indexOf("game-nav-tools"),
+    expect(shell).toContain('href={clientPath("/preview")}');
+    expect(shell).toContain("game-nav-secondary-links");
+    expect(css).toContain(".game-nav-secondary-links");
+    expect(css).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(css).toContain(".game-shell.nav-collapsed .game-nav-preview");
+  });
+
+  it("uses the requested traveler reminder on the about page", () => {
+    const about = source("app", "about", "page.tsx");
+
+    expect(about).toContain(
+      "旅行者，当你重新踏上旅途之后，一定要记得旅途本身的意义。",
     );
-    expect(shell.indexOf("game-nav-about")).toBeLessThan(
-      shell.indexOf("game-nav-language-label"),
+    expect(about).not.toContain(
+      "让玩家更容易进入故事，而不是替玩家经历故事。",
     );
-    expect(css).toContain(".about-page");
-    expect(css).toContain(".game-nav-about");
-    expect(css).toContain(".about-story-grid");
-    expect(aboutCss).toContain('"Noto Sans SC"');
-    expect(aboutCss).toContain("grid-template-columns: repeat(2");
-    expect(aboutCss).not.toContain("var(--display)");
-    expect(aboutCss).not.toContain("font-size: 96px");
   });
 });
 
