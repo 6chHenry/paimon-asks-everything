@@ -131,7 +131,10 @@ export function platformForUrl(url: string): {
   }
   if (
     hostMatches(hostname, "genshin-impact.fandom.com") ||
-    hostMatches(hostname, "wiki.biligame.com")
+    hostMatches(hostname, "wiki.biligame.com") ||
+    hostMatches(hostname, "baike.baidu.com") ||
+    hostMatches(hostname, "zh.moegirl.org.cn") ||
+    hostMatches(hostname, "moegirl.org.cn")
   ) {
     return {
       platformKind: "general_web",

@@ -183,4 +183,53 @@ describe("deep story guidance", () => {
     expect(resources[0]?.authority).toBe("official");
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("does not call native supplementary search when reused citations are enough", async () => {
+    const nativeSupplementarySearch = vi.fn(async (_queries: string[]) => []);
+    const resources = await recommendStoryResources("丝柯克是谁", "zh-CN", {
+      liveSearch: true,
+      searchPlan: {
+        coreEntities: ["丝柯克"], aliases: ["Skirk"], intent: "identity", queries: ["丝柯克 身份"],
+      },
+      citations: [
+        {
+          id: "native-1", title: "丝柯克", url: "https://wiki.hoyolab.com/pc/genshin/entry/skirk",
+          sourceName: "HoYoWiki", sourceKind: "trusted_wiki", credibility: "trusted_wiki",
+          factStatus: "trusted_secondary", excerpt: "丝柯克角色资料。", external: true, crossLanguage: false,
+        },
+        {
+          id: "native-2", title: "丝柯克角色介绍", url: "https://genshin.hoyoverse.com/zh/news/detail/skirk",
+          sourceName: "原神官网", sourceKind: "official", credibility: "official",
+          factStatus: "official_explicit", excerpt: "丝柯克角色公开资料。", external: true, crossLanguage: false,
+        },
+      ],
+      nativeSupplementarySearch,
+    });
+    expect(resources).toHaveLength(2);
+    expect(nativeSupplementarySearch).not.toHaveBeenCalled();
+  });
+
+  it("calls native supplementary search at most once and skips custom web search", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const nativeSupplementarySearch = vi.fn(async (_queries: string[]) => [{
+      id: "native-extra-1", title: "丝柯克角色介绍", url: "https://genshin.hoyoverse.com/zh/news/detail/skirk",
+      sourceName: "原神官网", sourceKind: "official" as const, credibility: "official" as const,
+      factStatus: "official_explicit" as const, excerpt: "丝柯克角色公开资料。", external: true, crossLanguage: false,
+    }]);
+    const resources = await recommendStoryResources("丝柯克是谁", "zh-CN", {
+      liveSearch: true,
+      searchPlan: {
+        coreEntities: ["丝柯克"], aliases: ["Skirk"], intent: "identity", queries: ["丝柯克 身份"],
+      },
+      citations: [],
+      nativeSupplementarySearch,
+    });
+    expect(nativeSupplementarySearch).toHaveBeenCalledTimes(1);
+    expect(nativeSupplementarySearch.mock.calls[0][0]).toEqual(
+      expect.arrayContaining([expect.stringContaining("丝柯克")]),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(resources[0]?.authority).toBe("official");
+  });
 });
