@@ -6,13 +6,33 @@ import { computeReleaseDecisions } from "@/lib/release-insights";
 
 const originalEnv = { ...process.env };
 
+function buildAiRecommendations(
+  decisions: ReturnType<typeof computeReleaseDecisions>,
+) {
+  return decisions.actions.slice(0, 3).map((action, index) => ({
+    id: `ai-recommendation-${index + 1}`,
+    topicId: action.topicId,
+    title: `AI 建议 ${index + 1}：${action.titleZh}`,
+    action: `这是 AI 为第 ${index + 1} 个主题生成的具体动作。`,
+    format: action.format,
+    window: action.window,
+    targetProfiles: action.targetProfiles,
+    playerNeed: "玩家需要先拿到一句清楚结论，再决定是否继续看背景。",
+    whyNow: "站内提问、预热点击和关系图互动已经形成同向信号。",
+    caution: "不要把推测写成已确认事实，也不要把完整背景压到首屏。",
+    verification: "发布后复核玩家是否能在首屏找到结论、依据与下一步入口。",
+    reusableModules: action.reusableModules,
+    evidenceRefs: [`topic=${action.topicId}`],
+  }));
+}
+
 describe("AI insight enrichment", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     process.env = { ...originalEnv };
   });
 
-  it("uses the configured OpenAI-compatible API to generate evidence-bound briefing cards", async () => {
+  it("uses the configured OpenAI-compatible API to generate three evidence-bound release recommendations", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";
     process.env.LLM_MODEL = "deepseek-v4-flash";
@@ -60,6 +80,7 @@ describe("AI insight enrichment", () => {
                     },
                   ],
                   releaseBriefing: {
+                    recommendations: buildAiRecommendations(decisions),
                     executiveSummary: {
                       title: "先补入口页，再推主物料",
                       readout:
@@ -116,20 +137,46 @@ describe("AI insight enrichment", () => {
     const enriched = await enrichInsightsWithAi(base);
 
     expect(enriched.insightsMode).toBe("ai");
-    expect(enriched.briefingCards[0]?.titleZh).toContain("AI 发现");
-    expect(enriched.briefingCards[0]?.strategyEn).toContain("release entry page");
+    expect(enriched.briefingCards).toEqual(base.briefingCards);
     expect(enriched.releaseBriefing.mode).toBe("ai");
-    expect(enriched.releaseBriefing.executiveSummary.title).toContain("入口页");
+    expect(enriched.releaseBriefing.recommendations).toHaveLength(3);
+    expect(enriched.releaseBriefing.recommendations[0]?.action).toBe(
+      "这是 AI 为第 1 个主题生成的具体动作。",
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the release briefing in rules fallback mode when model evidence is unsupported", async () => {
+  it("returns three deterministic recommendations without calling a model when no key is configured", async () => {
+    delete process.env.LLM_API_KEY;
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const enriched = await enrichInsightsWithAi(
+      aggregateInsights(historicalEvents),
+    );
+
+    expect(enriched.insightsMode).toBe("rules_fallback");
+    expect(enriched.releaseBriefing.mode).toBe("rules_fallback");
+    expect(enriched.releaseBriefing.error).toBe("not_configured");
+    expect(enriched.releaseBriefing.recommendations).toHaveLength(3);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back atomically when one AI recommendation cites unsupported evidence", async () => {
     process.env.LLM_API_KEY = "test-key";
     process.env.LLM_BASE_URL = "https://api.example.test";
     delete process.env.https_proxy;
     delete process.env.HTTPS_PROXY;
     delete process.env.http_proxy;
     delete process.env.HTTP_PROXY;
+
+    const base = aggregateInsights(historicalEvents);
+    const decisions = computeReleaseDecisions(base);
+    const recommendations = buildAiRecommendations(decisions);
+    recommendations[0] = {
+      ...recommendations[0]!,
+      evidenceRefs: ["topic=made_up"],
+    };
 
     vi.stubGlobal(
       "fetch",
@@ -140,38 +187,9 @@ describe("AI insight enrichment", () => {
               {
                 message: {
                   content: JSON.stringify({
-                    briefingCards: [
-                      {
-                        id: "ai-fontaine",
-                        topic: "fontaine_catch_up",
-                        titleZh: "AI 发现：回归玩家需要入口页",
-                        titleEn: "AI finding: returning players need an entry page",
-                        plainSummaryZh: "回归玩家集中询问进入新版本前需要理解哪些背景。",
-                        plainSummaryEn:
-                          "Returning players repeatedly ask what context is needed.",
-                        playerNeedZh: "他们需要最小必要背景。",
-                        playerNeedEn: "They need minimum required context.",
-                        strategyZh: "制作按进度展开的版本入口页。",
-                        strategyEn: "Create a progress-aware release entry page.",
-                        affectedPlayers: "20 events · returning",
-                        priority: "high",
-                        evidenceItems: [
-                          "topic=fontaine_catch_up",
-                          "languages=zh-CN: 12 / en: 8",
-                        ],
-                      },
-                    ],
                     releaseBriefing: {
-                      executiveSummary: {
-                        title: "不应采纳",
-                        readout: "没有证据。",
-                        nextMove: "凭空安排。",
-                        evidenceRefs: ["topic=made_up"],
-                      },
-                      playerSegments: [],
-                      opportunityMatrix: [],
-                      productionActions: [],
-                      missingDataQuestions: [],
+                      recommendations,
+                      missingDataQuestions: ["站外是否也有同样信号？"],
                     },
                   }),
                 },
@@ -183,11 +201,12 @@ describe("AI insight enrichment", () => {
       ),
     );
 
-    const enriched = await enrichInsightsWithAi(aggregateInsights(historicalEvents));
+    const enriched = await enrichInsightsWithAi(base);
 
-    expect(enriched.insightsMode).toBe("ai");
+    expect(enriched.insightsMode).toBe("rules_fallback");
     expect(enriched.releaseBriefing.mode).toBe("rules_fallback");
-    expect(enriched.releaseBriefing.error).toBe("invalid_release_briefing");
+    expect(enriched.releaseBriefing.error).toBe("invalid_release_recommendations");
+    expect(enriched.releaseBriefing.recommendations).toHaveLength(3);
   });
 
   it("falls back to deterministic cards when the model cites unsupported evidence", async () => {
@@ -239,5 +258,46 @@ describe("AI insight enrichment", () => {
     expect(enriched.insightsMode).toBe("rules_fallback");
     expect(enriched.briefingCards).toEqual(base.briefingCards);
     expect(enriched.releaseBriefing.mode).toBe("rules_fallback");
+    expect(enriched.releaseBriefing.recommendations).toHaveLength(3);
+  });
+
+  it("falls back atomically when the model returns fewer than three recommendations", async () => {
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_BASE_URL = "https://api.example.test";
+    delete process.env.https_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.http_proxy;
+    delete process.env.HTTP_PROXY;
+
+    const base = aggregateInsights(historicalEvents);
+    const recommendations = buildAiRecommendations(computeReleaseDecisions(base)).slice(0, 2);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    releaseBriefing: {
+                      recommendations,
+                      missingDataQuestions: ["站外是否也有同样信号？"],
+                    },
+                  }),
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    const enriched = await enrichInsightsWithAi(base);
+
+    expect(enriched.insightsMode).toBe("rules_fallback");
+    expect(enriched.releaseBriefing.mode).toBe("rules_fallback");
+    expect(enriched.releaseBriefing.recommendations).toHaveLength(3);
   });
 });

@@ -73,6 +73,37 @@ describe("Genshin-style shell source", () => {
     expect(css).toContain("order: 5");
     expect(css).toContain("transition-duration: .01ms !important");
   });
+
+  it("keeps four primary destinations and demotes preview beside about", () => {
+    const shell = source("components", "app-shell.tsx");
+    const css = source("app", "globals.css");
+    const primaryNavigation = shell.slice(
+      shell.indexOf("const navigation"),
+      shell.indexOf("];", shell.indexOf("const navigation")) + 2,
+    );
+
+    for (const href of ['href: "/"', 'href: "/preheat"', 'href: "/ask"', 'href: "/insights"']) {
+      expect(primaryNavigation).toContain(href);
+    }
+    expect(primaryNavigation).not.toContain('/preview');
+    expect(shell).toContain('href={clientPath("/about")}');
+    expect(shell).toContain('href={clientPath("/preview")}');
+    expect(shell).toContain("game-nav-secondary-links");
+    expect(css).toContain(".game-nav-secondary-links");
+    expect(css).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(css).toContain(".game-shell.nav-collapsed .game-nav-preview");
+  });
+
+  it("uses the requested traveler reminder on the about page", () => {
+    const about = source("app", "about", "page.tsx");
+
+    expect(about).toContain(
+      "旅行者，当你重新踏上旅途之后，一定要记得旅途本身的意义。",
+    );
+    expect(about).not.toContain(
+      "让玩家更容易进入故事，而不是替玩家经历故事。",
+    );
+  });
 });
 
 describe("Genshin-style homepage source", () => {

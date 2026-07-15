@@ -1,5 +1,4 @@
 import { fetch as undiciFetch, ProxyAgent } from "undici";
-import type { InsightBriefingCard } from "@/lib/insights";
 import type { aggregateInsights } from "@/lib/insights";
 import {
   buildReleaseBriefingFallback,
@@ -43,139 +42,16 @@ function parseJsonObject(content: string) {
   }
 }
 
-function allowedEvidenceItems(base: BaseInsights) {
-  return new Set([
-    ...base.briefingCards.flatMap((card) => card.evidenceItems),
-    ...base.signals.flatMap((signal) => [
-      `signal=${signal.id}`,
-      `topic=${signal.topic}`,
-      signal.evidence,
-    ]),
-    ...base.topics.map((topic) => `topic=${topic.key}`),
-    ...base.languages.map((item) => `language=${item.key}:${item.count}`),
-    ...base.profiles.map((item) => `profile=${item.key}:${item.count}`),
-    ...base.categories.map((item) => `category=${item.key}:${item.count}`),
-  ]);
-}
-
-function isString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-function validateAiCards(
-  value: unknown,
+function fallbackInsights(
   base: BaseInsights,
-): InsightBriefingCard[] | null {
-  if (!value || typeof value !== "object") return null;
-  const cards = (value as { briefingCards?: unknown }).briefingCards;
-  if (!Array.isArray(cards) || !cards.length || cards.length > 4) return null;
-
-  const knownTopics = new Set<string>(base.topics.map((topic) => topic.key));
-  const knownLanguages = new Set<string>(base.languages.map((item) => item.key));
-  const knownProfiles = new Set<string>(base.profiles.map((item) => item.key));
-  const knownCategories = new Set<string>(
-    base.categories.map((item) => item.key),
-  );
-  const knownSignals = new Set<string>(base.signals.map((item) => item.id));
-  const allowedEvidence = allowedEvidenceItems(base);
-  const normalized: InsightBriefingCard[] = [];
-
-  const isSupportedEvidence = (item: string) => {
-    if (allowedEvidence.has(item)) return true;
-    const [prefix, rest = ""] = item.split("=");
-    const key = rest.split(/[ (:/]/u)[0];
-    if (prefix === "topic") return knownTopics.has(key);
-    if (prefix === "language") return knownLanguages.has(key);
-    if (prefix === "profile") return knownProfiles.has(key);
-    if (prefix === "category") return knownCategories.has(key);
-    if (prefix === "signal") return knownSignals.has(key);
-    return false;
-  };
-
-  for (const raw of cards) {
-    if (!raw || typeof raw !== "object") return null;
-    const card = raw as Record<string, unknown>;
-    const id = card.id;
-    const topic = card.topic;
-    const titleZh = card.titleZh;
-    const titleEn = card.titleEn;
-    const plainSummaryZh = card.plainSummaryZh;
-    const plainSummaryEn = card.plainSummaryEn;
-    const playerNeedZh = card.playerNeedZh;
-    const playerNeedEn = card.playerNeedEn;
-    const strategyZh = card.strategyZh;
-    const strategyEn = card.strategyEn;
-    const affectedPlayers = card.affectedPlayers;
-    const priority = card.priority;
-    const evidenceItems = card.evidenceItems;
-    if (
-      !isString(id) ||
-      !isString(topic) ||
-      !knownTopics.has(topic) ||
-      !isString(titleZh) ||
-      !isString(titleEn) ||
-      !isString(plainSummaryZh) ||
-      !isString(plainSummaryEn) ||
-      !isString(playerNeedZh) ||
-      !isString(playerNeedEn) ||
-      !isString(strategyZh) ||
-      !isString(strategyEn) ||
-      !isString(affectedPlayers) ||
-      (priority !== "high" && priority !== "medium") ||
-      !Array.isArray(evidenceItems) ||
-      evidenceItems.length === 0 ||
-      !evidenceItems.every(
-        (item) => typeof item === "string" && isSupportedEvidence(item),
-      ) ||
-      !evidenceItems.some(
-        (item) => typeof item === "string" && allowedEvidence.has(item),
-      )
-    ) {
-      return null;
-    }
-
-    normalized.push({
-      id,
-      topic,
-      titleZh,
-      titleEn,
-      plainSummaryZh,
-      plainSummaryEn,
-      playerNeedZh,
-      playerNeedEn,
-      strategyZh,
-      strategyEn,
-      affectedPlayers,
-      priority,
-      evidenceItems,
-    });
-  }
-
-  return normalized;
-}
-
-function buildAiInsightPrompt(base: BaseInsights) {
-  const releaseDecisions = computeReleaseDecisions(base);
+  releaseBriefing: ReleaseAiBriefing,
+  error: string,
+): EnrichedInsights {
   return {
-    total: base.total,
-    liveCount: base.liveCount,
-    lastUpdated: base.lastUpdated,
-    languages: base.languages,
-    profiles: base.profiles,
-    categories: base.categories,
-    topics: base.topics.slice(0, 8),
-    signals: base.signals,
-    releaseDecisionBriefing: buildReleaseBriefingPrompt(base, releaseDecisions),
-    consentedSamples: base.consentedSamples.map((sample) => ({
-      language: sample.language,
-      questionText: sample.questionText,
-      sourceKind: sample.sourceKind,
-    })),
-    allowedEvidenceItems: [...allowedEvidenceItems(base)],
-    instruction:
-      "Generate 1-4 globalization strategy briefing cards from the aggregate evidence only. Do not invent topics, counts, languages, or player samples. Use plain language for publishing, community, FAQ, or localization teams. Each card must cite only strings from allowedEvidenceItems.",
-    outputShape:
-      '{"briefingCards":[{"id":"ai-topic","topic":"fontaine_catch_up","titleZh":"...","titleEn":"...","plainSummaryZh":"...","plainSummaryEn":"...","playerNeedZh":"...","playerNeedEn":"...","strategyZh":"...","strategyEn":"...","affectedPlayers":"...","priority":"high|medium","evidenceItems":["topic=..."]}],"releaseBriefing":{"executiveSummary":{"title":"...","readout":"...","nextMove":"...","evidenceRefs":["topic=..."]},"playerSegments":[{"profile":"returning","label":"回归玩家","need":"...","suggestedSupport":"...","evidenceRefs":["profile=returning:5"]}],"opportunityMatrix":[{"topicId":"fontaine_catch_up","topicLabel":"枫丹回归补课","opportunity":60,"risk":40,"interpretation":"...","recommendedMove":"...","evidenceRefs":["topic=fontaine_catch_up"]}],"productionActions":[{"title":"...","owner":"剧情文案","timing":"第 1 周","action":"...","acceptanceCriteria":"...","evidenceRefs":["topic=fontaine_catch_up"]}],"missingDataQuestions":["..."]}}',
+    ...base,
+    insightsMode: "rules_fallback",
+    aiError: error,
+    releaseBriefing,
   };
 }
 
@@ -183,16 +59,16 @@ export async function enrichInsightsWithAi(
   base: BaseInsights,
 ): Promise<EnrichedInsights> {
   const releaseDecisions = computeReleaseDecisions(base);
-  const fallbackReleaseBriefing = (error?: string) =>
+  const fallbackReleaseBriefing = (error: string) =>
     buildReleaseBriefingFallback(base, releaseDecisions, error);
   const apiKey = process.env.LLM_API_KEY;
+
   if (!apiKey) {
-    return {
-      ...base,
-      insightsMode: "rules_fallback",
-      aiError: "not_configured",
-      releaseBriefing: fallbackReleaseBriefing("not_configured"),
-    };
+    return fallbackInsights(
+      base,
+      fallbackReleaseBriefing("not_configured"),
+      "not_configured",
+    );
   }
 
   try {
@@ -203,17 +79,19 @@ export async function enrichInsightsWithAi(
     const body = JSON.stringify({
       model: process.env.LLM_MODEL || "deepseek-v4-flash",
       thinking: { type: "disabled" },
-      temperature: 0.2,
-      max_tokens: 1400,
+      temperature: 0.25,
+      max_tokens: 2400,
       messages: [
         {
           role: "system",
           content:
-            "You are a release insights analyst for a Chinese game production team. Return strict JSON only. Ground every strategy in supplied aggregate evidence. All releaseBriefing text must be natural Chinese, concrete, and actionable. Avoid vague business language. Do not expose private reasoning.",
+            "你是中国游戏制作组的发行洞察分析师。只返回严格 JSON，不要解释过程。你必须基于提供的数据独立选择、排序并写出三条发行建议；规则分数只作为参考和安全边界，不能代替你的判断。文案要通俗、简短、具体，不能编造数据或引用未提供的证据。",
         },
         {
           role: "user",
-          content: JSON.stringify(buildAiInsightPrompt(base)),
+          content: JSON.stringify(
+            buildReleaseBriefingPrompt(base, releaseDecisions),
+          ),
         },
       ],
     });
@@ -231,18 +109,15 @@ export async function enrichInsightsWithAi(
           dispatcher: agent,
         })
       : await fetch(endpoint, {
-      method: "POST",
-      signal: AbortSignal.timeout(45_000),
-        headers,
-        body,
-      });
+          method: "POST",
+          signal: AbortSignal.timeout(45_000),
+          headers,
+          body,
+        });
+
     if (!response.ok) {
-      return {
-        ...base,
-        insightsMode: "rules_fallback",
-        aiError: `request_failed_${response.status}`,
-        releaseBriefing: fallbackReleaseBriefing(`request_failed_${response.status}`),
-      };
+      const error = `request_failed_${response.status}`;
+      return fallbackInsights(base, fallbackReleaseBriefing(error), error);
     }
 
     const payload = (await response.json()) as {
@@ -250,41 +125,35 @@ export async function enrichInsightsWithAi(
     };
     const content = payload.choices?.[0]?.message?.content;
     if (!content) {
-      return {
-        ...base,
-        insightsMode: "rules_fallback",
-        aiError: "empty_output",
-        releaseBriefing: fallbackReleaseBriefing("empty_output"),
-      };
+      return fallbackInsights(
+        base,
+        fallbackReleaseBriefing("empty_output"),
+        "empty_output",
+      );
     }
+
     const parsed = parseJsonObject(content);
-    const cards = validateAiCards(parsed, base);
-    if (!cards) {
-      return {
-        ...base,
-        insightsMode: "rules_fallback",
-        aiError: "invalid_or_unsupported_output",
-        releaseBriefing: fallbackReleaseBriefing("invalid_or_unsupported_output"),
-      };
+    const releaseBriefing = validateReleaseAiBriefing(
+      parsed,
+      base,
+      releaseDecisions,
+    );
+    if (!releaseBriefing) {
+      return fallbackInsights(
+        base,
+        fallbackReleaseBriefing("invalid_release_recommendations"),
+        "invalid_release_recommendations",
+      );
     }
-    const releaseBriefing =
-      validateReleaseAiBriefing(parsed, base, releaseDecisions) ??
-      fallbackReleaseBriefing("invalid_release_briefing");
 
     return {
       ...base,
-      briefingCards: cards,
       insightsMode: "ai",
       aiGeneratedAt: new Date().toISOString(),
       releaseBriefing,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
-    return {
-      ...base,
-      insightsMode: "rules_fallback",
-      aiError: message,
-      releaseBriefing: fallbackReleaseBriefing(message),
-    };
+    return fallbackInsights(base, fallbackReleaseBriefing(message), message);
   }
 }
