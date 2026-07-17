@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "@/app/globals.css";
+import "@/app/game-ui.css";
+import "@/app/snezhnaya-atlas.css";
 import { AppShell } from "@/components/app-shell";
 import { DiscoveriesProvider } from "@/components/discoveries-provider";
 import { PreferencesProvider } from "@/components/preferences-provider";

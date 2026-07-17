@@ -1,11 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
+  BookOpenText,
+  LayoutGrid,
   LoaderCircle,
+  Map as MapIcon,
+  Network,
   RotateCcw,
+  Snowflake,
   Sparkles,
 } from "lucide-react";
 import { AnswerCard } from "@/components/answer-card";
@@ -30,6 +35,8 @@ import {
   type SnezhnayaNodeStatus,
 } from "@/lib/snezhnaya-graph";
 import type { TraceEvent } from "@/lib/trace";
+
+type AtlasView = "constellation" | "seats";
 
 function nodeKindLabel(kind: SnezhnayaNode["kind"], language: "zh-CN" | "en") {
   const labels: Record<SnezhnayaNode["kind"], [string, string]> = {
@@ -146,6 +153,11 @@ export function SnezhnayaGraph({
   const [relationError, setRelationError] = useState("");
   const [detailOpen, setDetailOpen] = useState(false);
   const [highlightedId, setHighlightedId] = useState("");
+  const [atlasView, setAtlasView] = useState<AtlasView>("constellation");
+  const [relationMode, setRelationMode] = useState(false);
+  const [sealTaps, setSealTaps] = useState(0);
+  const [auroraAwake, setAuroraAwake] = useState(false);
+  const [easterMessage, setEasterMessage] = useState("");
 
   const selectedNode = graph.nodes.find((node) => node.id === selectedId);
   const relationNodes = relationIds
@@ -155,7 +167,25 @@ export function SnezhnayaGraph({
     () => new Map(graph.nodes.map((node) => [node.id, node])),
     [graph.nodes],
   );
+  const seatNodes = useMemo(
+    () =>
+      graph.nodes
+        .filter((node) => node.harbingerRank)
+        .sort((left, right) =>
+          (left.harbingerRank ?? 99) - (right.harbingerRank ?? 99),
+        ),
+    [graph.nodes],
+  );
   const discoveryCount = Math.min(discoveries.visitedNodeIds.length, 3);
+
+  useEffect(() => {
+    if (!detailOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDetailOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [detailOpen]);
 
   function selectGraphNode(node: SnezhnayaNode) {
     discoverNode(node.id);
@@ -170,6 +200,60 @@ export function SnezhnayaGraph({
     setRelationIds((current) =>
       updateRelationshipSelection(current, node.id),
     );
+  }
+
+  function openNode(node: SnezhnayaNode) {
+    if (relationMode) {
+      toggleRelationNode(node);
+      return;
+    }
+    selectGraphNode(node);
+  }
+
+  function setRelationshipMode(next: boolean) {
+    setRelationMode(next);
+    setAnswer(null);
+    setRelationError("");
+    setTraceEvents([]);
+    if (!next) setRelationIds([]);
+  }
+
+  function touchAtlasSeal() {
+    if (auroraAwake) {
+      setAuroraAwake(false);
+      setSealTaps(0);
+      setEasterMessage(
+        t(
+          language,
+          "极光已经收回档案页后。",
+          "The aurora slips back behind the archive page.",
+        ),
+      );
+      return;
+    }
+    const next = sealTaps + 1;
+    setSealTaps(next);
+    if (next >= 5) {
+      setAuroraAwake(true);
+      setSealTaps(0);
+      setEasterMessage(
+        t(
+          language,
+          "极光协议已开启。派蒙说：这页可不是我偷偷画亮的！",
+          "Aurora protocol awake. Paimon says: I definitely did not illuminate this page!",
+        ),
+      );
+      return;
+    }
+    if (next === 3) {
+      setEasterMessage(
+        t(
+          language,
+          "冰纹里传来很轻的回声……",
+          "A tiny echo answers from inside the frost seal…",
+        ),
+      );
+    }
   }
 
   async function analyzeRelationship(targetNodes = relationNodes) {
@@ -243,7 +327,73 @@ export function SnezhnayaGraph({
   }
 
   return (
-    <section className="snezhnaya-section snezhnaya-intel-section reveal">
+    <section
+      className={`snezhnaya-section snezhnaya-intel-section snezhnaya-atlas reveal${
+        auroraAwake ? " aurora-awake" : ""
+      }`}
+    >
+      <span className="snezhnaya-atlas-aurora" aria-hidden="true" />
+      <header className="snezhnaya-atlas-masthead">
+        <div className="snezhnaya-atlas-title">
+          <span>SNEZHNAYA ROYAL ATLAS · ISSUE 07</span>
+          <h2>{t(language, "至冬皇家地理志", "Royal Atlas of Snezhnaya")}</h2>
+          <p>
+            {t(
+              language,
+              "翻阅席位、命运与证据。先浏览档案；需要比较时，再进入关系推演。",
+              "Browse seats, fates, and evidence. Enter relationship analysis only when comparison is needed.",
+            )}
+          </p>
+        </div>
+        <div className="snezhnaya-atlas-actions">
+          <div className="snezhnaya-atlas-tabs" role="tablist" aria-label={t(language, "图谱视图", "Atlas view")}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={atlasView === "constellation"}
+              className={atlasView === "constellation" ? "active" : ""}
+              onClick={() => setAtlasView("constellation")}
+            >
+              <MapIcon size={16} aria-hidden="true" />
+              {t(language, "星图", "Constellation")}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={atlasView === "seats"}
+              className={atlasView === "seats" ? "active" : ""}
+              onClick={() => setAtlasView("seats")}
+            >
+              <LayoutGrid size={16} aria-hidden="true" />
+              {t(language, "席位册", "Seat archive")}
+            </button>
+          </div>
+          <button
+            type="button"
+            className={`snezhnaya-relation-mode${relationMode ? " active" : ""}`}
+            aria-pressed={relationMode}
+            onClick={() => setRelationshipMode(!relationMode)}
+          >
+            <Network size={16} aria-hidden="true" />
+            {relationMode
+              ? t(language, "退出推演", "Leave analysis")
+              : t(language, "关系推演", "Analyze relations")}
+          </button>
+          <button
+            type="button"
+            className="snezhnaya-atlas-seal"
+            aria-pressed={auroraAwake}
+            aria-label={t(language, "触碰至冬档案印记", "Touch the Snezhnaya archive seal")}
+            title={t(language, "这枚冰纹似乎会回应……", "This frost seal seems responsive…")}
+            onClick={touchAtlasSeal}
+          >
+            <Snowflake size={20} aria-hidden="true" />
+          </button>
+        </div>
+        <p className="snezhnaya-atlas-easter-message" aria-live="polite">
+          {easterMessage}
+        </p>
+      </header>
       {showVideos ? (
         <SnezhnayaVideoSlider graph={graph} language={language} />
       ) : null}
@@ -286,11 +436,16 @@ export function SnezhnayaGraph({
             </div>
             <div className="snezhnaya-discovery-progress" aria-live="polite">
               <Sparkles size={14} />
-              <span>{t(language, "巡游星图", "Constellation trail")}</span>
+              <span>
+                {discoveryCount >= 3
+                  ? t(language, "派蒙已盖章", "Stamped by Paimon")
+                  : t(language, "巡游星图", "Constellation trail")}
+              </span>
               <strong>{discoveryCount} / 3</strong>
             </div>
           </div>
-          <div className="snezhnaya-map-viewport">
+          {atlasView === "constellation" ? (
+          <div className="snezhnaya-map-viewport" role="tabpanel" aria-label={t(language, "至冬星图", "Snezhnaya constellation map")}>
             <div className="snezhnaya-map-canvas">
               <div className="snezhnaya-map-zone zone-top" aria-hidden="true">
                 {t(language, "天理 / 世界秩序", "Heavenly Principles / World Order")}
@@ -399,7 +554,9 @@ export function SnezhnayaGraph({
               </svg>
               {graph.nodes.map((node) => {
                 const position = node.graphPosition;
-                const relationIndex = relationIds.indexOf(node.id);
+                const relationIndex = relationMode
+                  ? relationIds.indexOf(node.id)
+                  : -1;
                 const relationSlot =
                   relationIndex >= 0 ? (relationIndex === 0 ? "A" : "B") : "";
                 if (!position) return null;
@@ -432,7 +589,7 @@ export function SnezhnayaGraph({
                     onMouseLeave={() => setHighlightedId("")}
                     onFocus={() => setHighlightedId(node.id)}
                     onBlur={() => setHighlightedId("")}
-                    onClick={() => toggleRelationNode(node)}
+                    onClick={() => openNode(node)}
                   >
                     {relationSlot ? (
                       <small
@@ -458,7 +615,59 @@ export function SnezhnayaGraph({
               })}
             </div>
           </div>
-          <div className="snezhnaya-relation-bar">
+          ) : (
+            <div className="snezhnaya-seat-archive" role="tabpanel" aria-label={t(language, "执行官席位册", "Harbinger seat archive")}>
+              <div className="snezhnaya-seat-archive-heading">
+                <span>{t(language, "十一席人物档案", "Eleven-seat character archive")}</span>
+                <small>{t(language, "按席位浏览；状态以文字与印记同时标注", "Browse by seat; status is shown with both text and seal")}</small>
+              </div>
+              <div className="snezhnaya-seat-grid">
+                {seatNodes.map((node) => {
+                  const relationIndex = relationMode
+                    ? relationIds.indexOf(node.id)
+                    : -1;
+                  return (
+                    <button
+                      type="button"
+                      key={node.id}
+                      className={`snezhnaya-seat-card status-${node.status ?? "unknown"}${selectedId === node.id ? " active" : ""}${relationIndex >= 0 ? " selected-for-relation" : ""}`}
+                      aria-pressed={relationIndex >= 0}
+                      onClick={() => openNode(node)}
+                    >
+                      <span className="snezhnaya-seat-number">
+                        {String(node.harbingerRank).padStart(2, "0")}
+                      </span>
+                      <span className="snezhnaya-seat-portrait">
+                        {node.imageUrl ? (
+                          <Image
+                            src={node.imageUrl}
+                            alt=""
+                            width={160}
+                            height={188}
+                            loading="lazy"
+                            unoptimized
+                          />
+                        ) : (
+                          <Snowflake size={28} aria-hidden="true" />
+                        )}
+                      </span>
+                      <span className="snezhnaya-seat-copy">
+                        <strong>{localize(node.label, language)}</strong>
+                        <small>{statusShortLabel(node.status, language)}</small>
+                      </span>
+                      {relationIndex >= 0 ? (
+                        <b className="snezhnaya-seat-relation-mark">
+                          {relationIndex === 0 ? "A" : "B"}
+                        </b>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {relationMode ? (
+          <div className="snezhnaya-relation-bar snezhnaya-relation-bar-active">
             <div>
               {relationNodes.length ? (
                 <>
@@ -519,11 +728,32 @@ export function SnezhnayaGraph({
               <RotateCcw size={15} />
             </button>
           </div>
+          ) : (
+            <div className="snezhnaya-browse-bar">
+              <BookOpenText size={16} aria-hidden="true" />
+              <span>
+                {t(
+                  language,
+                  "浏览模式：选择一份档案，右侧会展开它的身份、命运与证据。",
+                  "Browse mode: select a dossier to reveal its identity, fate, and evidence.",
+                )}
+              </span>
+              <button type="button" onClick={() => setRelationshipMode(true)}>
+                <Network size={15} aria-hidden="true" />
+                {t(language, "比较两份档案", "Compare two dossiers")}
+              </button>
+            </div>
+          )}
         </div>
 
         <aside className="snezhnaya-detail snezhnaya-intel-detail">
           {selectedNode ? (
             <>
+              <div className="snezhnaya-detail-kicker">
+                <BookOpenText size={15} aria-hidden="true" />
+                <span>{t(language, "皇家档案", "Royal dossier")}</span>
+                <small>{selectedNode.id.toUpperCase()}</small>
+              </div>
               <div
                 className={[
                   "snezhnaya-detail-heading",
@@ -562,9 +792,14 @@ export function SnezhnayaGraph({
                 </div>
               ) : null}
               <p>{localize(selectedNode.summary, language)}</p>
-              {selectedNode.detail[language].map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
+              <div className="snezhnaya-detail-quick-facts">
+                {nodeDetailFacts(selectedNode, language).slice(1, 3).map((fact) => (
+                  <div key={`${fact.label}-${fact.value}`}>
+                    <span>{fact.label}</span>
+                    <strong>{fact.value}</strong>
+                  </div>
+                ))}
+              </div>
               <button
                 type="button"
                 className="snezhnaya-detail-open"
@@ -573,23 +808,28 @@ export function SnezhnayaGraph({
                 <Sparkles size={15} />
                 {t(language, "展开详情", "Open details")}
               </button>
-              <div className="snezhnaya-clues">
-                <h3>{t(language, "Wiki 信息", "Wiki information")}</h3>
-                {selectedNode.clues.map((clue) => (
-                  <a
-                    key={clue.id}
-                    href={clue.url}
-                    target={clue.url ? "_blank" : undefined}
-                    rel={clue.url ? "noreferrer" : undefined}
-                  >
-                    <b>{clue.title}</b>
-                    <span>
-                      {sourceTypeLabel(clue.sourceType, language)}
-                    </span>
-                    <small>{localize(clue.excerpt, language)}</small>
-                  </a>
-                ))}
-              </div>
+              <details className="snezhnaya-clues-drawer">
+                <summary>
+                  <span>{t(language, "档案证据", "Archive evidence")}</span>
+                  <b>{selectedNode.clues.length}</b>
+                </summary>
+                <div className="snezhnaya-clues">
+                  {selectedNode.clues.map((clue) => (
+                    <a
+                      key={clue.id}
+                      href={clue.url}
+                      target={clue.url ? "_blank" : undefined}
+                      rel={clue.url ? "noreferrer" : undefined}
+                    >
+                      <b>{clue.title}</b>
+                      <span>
+                        {sourceTypeLabel(clue.sourceType, language)}
+                      </span>
+                      <small>{localize(clue.excerpt, language)}</small>
+                    </a>
+                  ))}
+                </div>
+              </details>
               <div className="snezhnaya-related">
                 <h3>{t(language, "相邻节点", "Related nodes")}</h3>
                 {selectedNode.relatedNodeIds.map((id) => {
@@ -599,7 +839,7 @@ export function SnezhnayaGraph({
                     <button
                       key={id}
                       type="button"
-                      onClick={() => toggleRelationNode(related)}
+                      onClick={() => openNode(related)}
                     >
                       {localize(related.label, language)}
                     </button>
@@ -617,12 +857,16 @@ export function SnezhnayaGraph({
           role="dialog"
           aria-modal="true"
           aria-labelledby="snezhnaya-detail-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setDetailOpen(false);
+          }}
         >
           <div className="snezhnaya-detail-dialog snezhnaya-intel-dialog">
             <button
               type="button"
               className="snezhnaya-detail-close"
               onClick={() => setDetailOpen(false)}
+              autoFocus
             >
               {t(language, "关闭", "Close")}
             </button>
