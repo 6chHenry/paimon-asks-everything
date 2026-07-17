@@ -9,6 +9,7 @@ import {
   MessageCircleMore,
   PanelLeftClose,
   PanelLeftOpen,
+  Snowflake,
   Sparkles,
   TestTube2,
   X,
@@ -25,11 +26,53 @@ const navigation = [
   { href: "/insights", labelZh: "发行洞察", labelEn: "Insights", icon: BarChart3 },
 ];
 
+const pageChrome = {
+  "/": {
+    code: "VERSION INTELLIGENCE · 07",
+    labelZh: "版本情报总览",
+    labelEn: "Version Intelligence",
+    icon: Sparkles,
+  },
+  "/preheat": {
+    code: "TRAVELER BRIEF · 01",
+    labelZh: "旅行者预热档案",
+    labelEn: "Traveler Preheat Brief",
+    icon: Flame,
+  },
+  "/ask": {
+    code: "PAIMON DIALOGUE · 03",
+    labelZh: "派蒙调查台",
+    labelEn: "Paimon Inquiry Desk",
+    icon: MessageCircleMore,
+  },
+  "/insights": {
+    code: "RELEASE COMMISSION · 04",
+    labelZh: "发行行动简报",
+    labelEn: "Release Commission Brief",
+    icon: BarChart3,
+  },
+  "/preview": {
+    code: "TRIAL ARCHIVE · 06",
+    labelZh: "能力验收试炼",
+    labelEn: "Capability Trial Archive",
+    icon: TestTube2,
+  },
+  "/about": {
+    code: "TRAVEL NOTES · 00",
+    labelZh: "旅行手册扉页",
+    labelEn: "Traveler Field Notes",
+    icon: BookOpenText,
+  },
+} as const;
+
 const NAV_COLLAPSED_STORAGE_KEY = "paimon-nav-collapsed";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const activePath = pathname.replace(/^.*\/proxy\/\d+/u, "") || "/";
+  const chrome = pageChrome[activePath as keyof typeof pageChrome] ?? pageChrome["/"];
+  const ChromeIcon = chrome.icon;
+  const routeSlug = activePath === "/" ? "home" : activePath.slice(1).replaceAll("/", "-");
   const { preferences, setPreferences } = usePreferences();
   const { registerPaimonTap } = useDiscoveries();
   const isZh = preferences.language === "zh-CN";
@@ -105,7 +148,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
 
   return (
-    <div className={`site-shell game-shell${navCollapsed ? " nav-collapsed" : ""}`}>
+    <div className={`site-shell game-shell route-${routeSlug}${navCollapsed ? " nav-collapsed" : ""}`}>
+      <a className="skip-link" href="#game-main-content">
+        {isZh ? "跳到主要内容" : "Skip to main content"}
+      </a>
       <aside className="game-nav-rail" aria-label="Global navigation">
         <div className="game-nav-head">
           <div className="game-nav-brand-slot">
@@ -187,7 +233,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <div className="game-frame">
-        <main className="game-content">{children}</main>
+        <div className="game-world-backdrop" aria-hidden="true">
+          <span className="game-world-orbit game-world-orbit-one" />
+          <span className="game-world-orbit game-world-orbit-two" />
+          <Snowflake className="game-world-sigil" />
+        </div>
+        <header className="game-status-bar" aria-label={isZh ? "当前位置" : "Current location"}>
+          <div className="game-status-location">
+            <span className="game-status-emblem"><ChromeIcon size={17} aria-hidden="true" /></span>
+            <span className="game-status-copy">
+              <small>{chrome.code}</small>
+              <strong>{isZh ? chrome.labelZh : chrome.labelEn}</strong>
+            </span>
+          </div>
+          <span className="game-status-rule" aria-hidden="true" />
+          <div className="game-status-archive">
+            <span className="game-status-live" aria-hidden="true" />
+            <span>{isZh ? "至冬观测档案" : "Snezhnaya Archive"}</span>
+            <b>VII</b>
+          </div>
+        </header>
+        <main className="game-content" id="game-main-content" tabIndex={-1}>{children}</main>
       </div>
       <nav className="game-bottom-nav" aria-label="Mobile navigation">{renderNavigation()}</nav>
       {easterEggOpen ? (

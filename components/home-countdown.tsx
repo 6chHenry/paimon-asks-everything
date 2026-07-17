@@ -70,17 +70,17 @@ export function HomeCountdown({ language }: { language: Language }) {
 
   return (
     <section
-      className={`${styles.countdown} reveal`}
+      className={`${styles.countdown} game-countdown reveal`}
       aria-label={t(
         language,
         "距离 2026 年 8 月 12 日北京时间零点的倒计时",
         "Countdown to August 12, 2026 at midnight Beijing time",
       )}
     >
-      <div className={styles.inner}>
-        <div className={styles.copy}>
+      <div className={`${styles.inner} game-countdown-inner`}>
+        <div className={`${styles.copy} game-countdown-copy`}>
           <div>
-            <span className={styles.eyebrow}>
+            <span className={`${styles.eyebrow} game-countdown-eyebrow`}>
               <Clock3 size={14} />
               {t(language, "至冬7.0版本更新倒计时", "Snezhnaya 7.0 update countdown")}
             </span>
@@ -94,15 +94,15 @@ export function HomeCountdown({ language }: { language: Language }) {
           </div>
         </div>
 
-        <div className={styles.flipGrid} aria-live="polite">
+        <div className={`${styles.flipGrid} game-countdown-grid`} aria-live="polite">
           {units.map((unit) => (
-            <div className={styles.unit} key={unit.key}>
-              <div className={styles.card}>
-                <span className={styles.value} key={unit.value}>
+            <div className={`${styles.unit} game-countdown-unit`} key={unit.key}>
+              <div className={`${styles.card} game-countdown-card`}>
+                <span className={`${styles.value} game-countdown-value`} key={unit.value}>
                   {unit.value}
                 </span>
               </div>
-              <span className={styles.label}>{unit.label}</span>
+              <span className={`${styles.label} game-countdown-label`}>{unit.label}</span>
             </div>
           ))}
         </div>
