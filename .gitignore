@@ -6,6 +6,8 @@ node_modules/
 coverage/
 *.log
 tsconfig.tsbuildinfo
+__pycache__/
+*.py[cod]
 .superpowers/
 
 # Local product/design materials are intentionally not published.

@@ -8,7 +8,9 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "report:release-lab": "python -m scripts.release_lab.build_reports",
+    "test:release-lab": "python -m unittest scripts.release_lab.test_release_lab -v"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

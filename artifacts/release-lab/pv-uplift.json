@@ -1,0 +1,352 @@
+{
+  "dataMode": "synthetic_randomized_experiment",
+  "disclosureZh": "本页使用固定随机种子的合成随机实验，仅验证方法与产品闭环，不代表真实业务效果。",
+  "evaluation": {
+    "controlValue": 0.3226,
+    "incrementalPolicyValuePoints": 11.79,
+    "policyValue": 0.4405,
+    "randomizedPropensity": 0.25,
+    "testSamples": 6400,
+    "trainSamples": 13600,
+    "treatmentMetrics": [
+      {
+        "auuc": 0.05523,
+        "labelZh": "剧情悬念 PV",
+        "treatmentId": "story_pv"
+      },
+      {
+        "auuc": 0.05278,
+        "labelZh": "角色情感 PV",
+        "treatmentId": "character_pv"
+      },
+      {
+        "auuc": 0.0446,
+        "labelZh": "玩法战斗 PV",
+        "treatmentId": "gameplay_pv"
+      }
+    ]
+  },
+  "methodology": {
+    "assignment": "equal-propensity randomized",
+    "confidenceInterval": "model estimate with randomized-cell 95% interval",
+    "decisionThresholdPoints": 1.0,
+    "estimand": "CATE: action versus no-contact control",
+    "featureColumns": [
+      "segment",
+      "language",
+      "progress_index",
+      "days_since_login",
+      "sessions_14d",
+      "story_affinity",
+      "character_affinity",
+      "gameplay_affinity",
+      "prior_pv_completion",
+      "negative_feedback_30d"
+    ],
+    "model": "Multi-treatment T-Learner with logistic regression"
+  },
+  "modelVersion": "synthetic-t-learner-logistic-v1",
+  "outcome": {
+    "featureWindowZh": "仅使用触达前 14 天行为",
+    "labelWindowZh": "观察触达后第 30 天是否留存",
+    "primary": "retained_d30",
+    "supporting": [
+      "retained_d7",
+      "ltv_d30"
+    ]
+  },
+  "schemaVersion": "release-lab.pv-uplift.v1",
+  "segments": [
+    {
+      "decision": "target",
+      "holdoutRate": 0.1,
+      "labelEn": "New players",
+      "labelZh": "新入坑玩家",
+      "reasonCodesZh": [
+        "尚未形成稳定内容偏好",
+        "需要尽快体验核心玩法价值"
+      ],
+      "recommendedTreatmentId": "gameplay_pv",
+      "recommendedTreatmentLabelZh": "玩法战斗 PV",
+      "recommendedUplift": {
+        "ci95High": 9.58,
+        "ci95Low": 1.51,
+        "points": 5.54
+      },
+      "segmentId": "new",
+      "testSamples": 1410,
+      "treatments": [
+        {
+          "ci95High": 0.0,
+          "ci95Low": 0.0,
+          "expectedD30Rate": 0.3429,
+          "labelZh": "不触达",
+          "treatmentId": "control",
+          "upliftPoints": 0.0
+        },
+        {
+          "ci95High": 4.69,
+          "ci95Low": -3.21,
+          "expectedD30Rate": 0.3503,
+          "labelZh": "剧情悬念 PV",
+          "treatmentId": "story_pv",
+          "upliftPoints": 0.74
+        },
+        {
+          "ci95High": 3.37,
+          "ci95Low": -4.47,
+          "expectedD30Rate": 0.3374,
+          "labelZh": "角色情感 PV",
+          "treatmentId": "character_pv",
+          "upliftPoints": -0.55
+        },
+        {
+          "ci95High": 9.58,
+          "ci95Low": 1.51,
+          "expectedD30Rate": 0.3983,
+          "labelZh": "玩法战斗 PV",
+          "treatmentId": "gameplay_pv",
+          "upliftPoints": 5.54
+        }
+      ]
+    },
+    {
+      "decision": "target",
+      "holdoutRate": 0.1,
+      "labelEn": "Returning players",
+      "labelZh": "回流玩家",
+      "reasonCodesZh": [
+        "近期登录间隔拉长",
+        "需要低门槛重新接入版本内容"
+      ],
+      "recommendedTreatmentId": "story_pv",
+      "recommendedTreatmentLabelZh": "剧情悬念 PV",
+      "recommendedUplift": {
+        "ci95High": 15.81,
+        "ci95Low": 8.26,
+        "points": 12.04
+      },
+      "segmentId": "returning",
+      "testSamples": 1439,
+      "treatments": [
+        {
+          "ci95High": 0.0,
+          "ci95Low": 0.0,
+          "expectedD30Rate": 0.2419,
+          "labelZh": "不触达",
+          "treatmentId": "control",
+          "upliftPoints": 0.0
+        },
+        {
+          "ci95High": 15.81,
+          "ci95Low": 8.26,
+          "expectedD30Rate": 0.3623,
+          "labelZh": "剧情悬念 PV",
+          "treatmentId": "story_pv",
+          "upliftPoints": 12.04
+        },
+        {
+          "ci95High": 10.33,
+          "ci95Low": 2.94,
+          "expectedD30Rate": 0.3083,
+          "labelZh": "角色情感 PV",
+          "treatmentId": "character_pv",
+          "upliftPoints": 6.64
+        },
+        {
+          "ci95High": 4.14,
+          "ci95Low": -2.96,
+          "expectedD30Rate": 0.2479,
+          "labelZh": "玩法战斗 PV",
+          "treatmentId": "gameplay_pv",
+          "upliftPoints": 0.59
+        }
+      ]
+    },
+    {
+      "decision": "target",
+      "holdoutRate": 0.1,
+      "labelEn": "Story-focused players",
+      "labelZh": "剧情考据玩家",
+      "reasonCodesZh": [
+        "剧情与关系图互动集中",
+        "对悬念和角色动机更敏感"
+      ],
+      "recommendedTreatmentId": "story_pv",
+      "recommendedTreatmentLabelZh": "剧情悬念 PV",
+      "recommendedUplift": {
+        "ci95High": 17.89,
+        "ci95Low": 10.03,
+        "points": 13.96
+      },
+      "segmentId": "story",
+      "testSamples": 1587,
+      "treatments": [
+        {
+          "ci95High": 0.0,
+          "ci95Low": 0.0,
+          "expectedD30Rate": 0.4386,
+          "labelZh": "不触达",
+          "treatmentId": "control",
+          "upliftPoints": 0.0
+        },
+        {
+          "ci95High": 17.89,
+          "ci95Low": 10.03,
+          "expectedD30Rate": 0.5782,
+          "labelZh": "剧情悬念 PV",
+          "treatmentId": "story_pv",
+          "upliftPoints": 13.96
+        },
+        {
+          "ci95High": 15.37,
+          "ci95Low": 7.55,
+          "expectedD30Rate": 0.5532,
+          "labelZh": "角色情感 PV",
+          "treatmentId": "character_pv",
+          "upliftPoints": 11.46
+        },
+        {
+          "ci95High": 3.38,
+          "ci95Low": -4.38,
+          "expectedD30Rate": 0.4336,
+          "labelZh": "玩法战斗 PV",
+          "treatmentId": "gameplay_pv",
+          "upliftPoints": -0.5
+        }
+      ]
+    },
+    {
+      "decision": "target",
+      "holdoutRate": 0.1,
+      "labelEn": "Exploration players",
+      "labelZh": "探索玩法玩家",
+      "reasonCodesZh": [
+        "地图与玩法互动集中",
+        "更关注可操作的新机制"
+      ],
+      "recommendedTreatmentId": "gameplay_pv",
+      "recommendedTreatmentLabelZh": "玩法战斗 PV",
+      "recommendedUplift": {
+        "ci95High": 16.29,
+        "ci95Low": 7.38,
+        "points": 11.83
+      },
+      "segmentId": "exploration",
+      "testSamples": 1218,
+      "treatments": [
+        {
+          "ci95High": 0.0,
+          "ci95Low": 0.0,
+          "expectedD30Rate": 0.3978,
+          "labelZh": "不触达",
+          "treatmentId": "control",
+          "upliftPoints": 0.0
+        },
+        {
+          "ci95High": 5.22,
+          "ci95Low": -3.65,
+          "expectedD30Rate": 0.4057,
+          "labelZh": "剧情悬念 PV",
+          "treatmentId": "story_pv",
+          "upliftPoints": 0.78
+        },
+        {
+          "ci95High": 5.59,
+          "ci95Low": -3.21,
+          "expectedD30Rate": 0.4097,
+          "labelZh": "角色情感 PV",
+          "treatmentId": "character_pv",
+          "upliftPoints": 1.19
+        },
+        {
+          "ci95High": 16.29,
+          "ci95Low": 7.38,
+          "expectedD30Rate": 0.5162,
+          "labelZh": "玩法战斗 PV",
+          "treatmentId": "gameplay_pv",
+          "upliftPoints": 11.83
+        }
+      ]
+    },
+    {
+      "decision": "hold",
+      "holdoutRate": 0.1,
+      "labelEn": "Casual players",
+      "labelZh": "轻度休闲玩家",
+      "reasonCodesZh": [
+        "活跃频次较低",
+        "重复触达更容易造成疲劳"
+      ],
+      "recommendedTreatmentId": "control",
+      "recommendedTreatmentLabelZh": "不触达",
+      "recommendedUplift": {
+        "ci95High": 6.9,
+        "ci95Low": -2.57,
+        "points": 0.0
+      },
+      "segmentId": "casual",
+      "testSamples": 746,
+      "treatments": [
+        {
+          "ci95High": 0.0,
+          "ci95Low": 0.0,
+          "expectedD30Rate": 0.1872,
+          "labelZh": "不触达",
+          "treatmentId": "control",
+          "upliftPoints": 0.0
+        },
+        {
+          "ci95High": 3.47,
+          "ci95Low": -5.54,
+          "expectedD30Rate": 0.1769,
+          "labelZh": "剧情悬念 PV",
+          "treatmentId": "story_pv",
+          "upliftPoints": -1.03
+        },
+        {
+          "ci95High": 6.9,
+          "ci95Low": -2.57,
+          "expectedD30Rate": 0.2088,
+          "labelZh": "角色情感 PV",
+          "treatmentId": "character_pv",
+          "upliftPoints": 2.16
+        },
+        {
+          "ci95High": 1.95,
+          "ci95Low": -6.85,
+          "expectedD30Rate": 0.1627,
+          "labelZh": "玩法战斗 PV",
+          "treatmentId": "gameplay_pv",
+          "upliftPoints": -2.45
+        }
+      ]
+    }
+  ],
+  "treatments": [
+    {
+      "creativeAngleZh": "保留自然行为作为反事实",
+      "id": "control",
+      "labelEn": "No contact",
+      "labelZh": "不触达"
+    },
+    {
+      "creativeAngleZh": "用已确认线索建立悬念，不提前揭示答案",
+      "id": "story_pv",
+      "labelEn": "Story suspense PV",
+      "labelZh": "剧情悬念 PV"
+    },
+    {
+      "creativeAngleZh": "突出角色关系、情绪冲突与共鸣时刻",
+      "id": "character_pv",
+      "labelEn": "Character emotion PV",
+      "labelZh": "角色情感 PV"
+    },
+    {
+      "creativeAngleZh": "突出战斗机制、探索反馈和可操作卖点",
+      "id": "gameplay_pv",
+      "labelEn": "Gameplay combat PV",
+      "labelZh": "玩法战斗 PV"
+    }
+  ]
+}
