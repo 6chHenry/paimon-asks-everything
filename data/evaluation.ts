@@ -183,7 +183,7 @@ export const evaluationCases: EvaluationCase[] = [
   },
   {
     id: "evidence-boundary",
-    title: "桑多涅、阿兰与玛丽安的关系",
+    title: "桑多涅与阿兰的已公开关系",
     question: "桑多涅和阿兰的关系是什么？",
     language: "zh-CN",
     profile: "story",

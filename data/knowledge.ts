@@ -49,15 +49,16 @@ const pairs: PairSeed[] = [
     zh: {
       title: "桑多涅的公开身份",
       content:
-        "桑多涅（“木偶”）是愚人众执行官之一。公开角色资料将她与机械研究、自动机关和对技术的强烈兴趣联系起来；这些信息可以用于角色主题介绍，但不能据此断言尚未公开的版本剧情。",
-      summary: "公开资料确认桑多涅是与机械研究高度相关的执行官。",
+        "桑多涅（“木偶”）是愚人众第七席执行官，也是月之八（Luna VIII）的可操作角色。她与机械研究、自动机关和对技术的强烈兴趣密切相关。",
+      summary: "桑多涅是第七席执行官与月之八可操作角色，和机械研究密切相关。",
       aliases: ["桑多涅", "木偶", "Sandrone", "Marionette", "执行官"],
     },
     en: {
       title: "Sandrone's public identity",
       content:
-        "Sandrone, also known as The Marionette, is one of the Fatui Harbingers. Public character material associates her with mechanical research and automatons; that supports a thematic introduction, not claims about an unannounced version plot.",
-      summary: "Public material identifies Sandrone as a Harbinger closely tied to machinery.",
+        "Sandrone, also known as The Marionette, is the Seventh Fatui Harbinger and a playable Luna VIII character. She is closely associated with mechanical research, automatons, and a strong interest in technology.",
+      summary:
+        "Sandrone is the Seventh Harbinger, a playable Luna VIII character, and closely tied to mechanical research.",
       aliases: ["Sandrone", "Marionette", "Harbinger", "木偶"],
     },
     tags: ["sandrone", "character", "fatui"],
@@ -295,22 +296,23 @@ const pairs: PairSeed[] = [
     zh: {
       title: "桑多涅与阿兰、玛丽安的关系",
       content:
-        "当前剧情索引资料将桑多涅描述为阿兰·吉约丹晚年制造的造物：她以阿兰已故妹妹玛丽安·吉约丹的成年形象与记忆为蓝本，并与阿兰最后的造物普隆尼亚保持联系。回答时应把这视为人物背景关系，而不是把桑多涅直接说成阿兰或玛丽安本人。",
-      summary: "桑多涅是阿兰晚年的造物，形象与记忆源自玛丽安。",
+        "阿兰·吉约丹创造了桑多涅。玛丽安·吉约丹是桑多涅的视觉原型；这说明的是创造者与视觉原型的关系，不等于桑多涅就是阿兰或玛丽安本人。她也与阿兰最后的造物普隆尼亚保持联系。",
+      summary: "桑多涅是阿兰创造的造物，玛丽安是她的视觉原型，并非与她同一身份。",
       aliases: ["桑多涅", "阿兰", "玛丽安", "关系", "造物", "普隆尼亚"],
     },
     en: {
       title: "Sandrone's relationship to Alain and Mary-Ann",
       content:
-        "Current story-index material describes Sandrone as a puppet created by Alain Guillotin in his old age. She was made in the image and memory of Alain's deceased sister, Mary-Ann Guillotin, and is associated with Pulonia, Alain's final creation. This establishes a creator-and-model relationship; it should not be phrased as Sandrone literally being Alain or Mary-Ann.",
-      summary: "Sandrone is Alain's creation, modeled after Mary-Ann's image and memory.",
+        "Alain Guillotin created Sandrone. Mary-Ann Guillotin is Sandrone's visual model; this is a creator-and-model relationship, not an assertion that Sandrone is literally Alain or Mary-Ann. Sandrone is also associated with Pulonia, Alain's final creation.",
+      summary:
+        "Alain created Sandrone, and Mary-Ann is her visual model rather than the same person.",
       aliases: ["Sandrone", "Alain", "Mary-Ann", "relationship", "creation", "Pulonia"],
     },
     tags: ["sandrone", "alain", "mary-ann", "creation", "relationship"],
     contentType: "character",
     spoilerLevel: 1,
     minimumProgress: "fontaine",
-    factStatus: "official_explicit",
+    factStatus: "trusted_secondary",
     source: {
       title: "Sandrone / Mary-Ann story index",
       url: `${wikiBase}Sandrone`,
