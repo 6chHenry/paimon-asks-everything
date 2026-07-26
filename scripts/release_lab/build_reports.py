@@ -4,6 +4,9 @@ import argparse
 import json
 from pathlib import Path
 
+from scripts.release_lab.channel_attribution import (
+    build_channel_attribution_report,
+)
 from scripts.release_lab.pv_uplift import build_pv_uplift_report
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -28,15 +31,23 @@ def main() -> None:
         action="store_true",
         help="Build only the PV uplift report",
     )
-    args = parser.parse_args()
-
-    _write_json(
-        ARTIFACT_DIRECTORY / "pv-uplift.json",
-        build_pv_uplift_report(),
+    parser.add_argument(
+        "--channel-only",
+        action="store_true",
+        help="Build only the channel attribution report",
     )
+    args = parser.parse_args()
+    if args.pv_only and args.channel_only:
+        parser.error("--pv-only and --channel-only are mutually exclusive")
+
+    if not args.channel_only:
+        pv_path = ARTIFACT_DIRECTORY / "pv-uplift.json"
+        _write_json(pv_path, build_pv_uplift_report())
+        print(f"Wrote {pv_path}")
     if not args.pv_only:
-        print("PV uplift report built; channel attribution is added in Task 2.")
-    print(f"Wrote {ARTIFACT_DIRECTORY / 'pv-uplift.json'}")
+        channel_path = ARTIFACT_DIRECTORY / "channel-attribution.json"
+        _write_json(channel_path, build_channel_attribution_report())
+        print(f"Wrote {channel_path}")
 
 
 if __name__ == "__main__":

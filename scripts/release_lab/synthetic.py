@@ -86,6 +86,33 @@ PV_TREATMENTS: tuple[dict[str, str], ...] = (
 
 TREATMENT_IDS = tuple(item["id"] for item in PV_TREATMENTS)
 
+CHANNEL_GROUPS: tuple[dict[str, object], ...] = (
+    {
+        "id": "control",
+        "labelZh": "对照组",
+        "influencer": False,
+        "expo": False,
+    },
+    {
+        "id": "influencer_only",
+        "labelZh": "仅达人",
+        "influencer": True,
+        "expo": False,
+    },
+    {
+        "id": "expo_only",
+        "labelZh": "仅展会",
+        "influencer": False,
+        "expo": True,
+    },
+    {
+        "id": "both",
+        "labelZh": "达人 × 展会",
+        "influencer": True,
+        "expo": True,
+    },
+)
+
 FEATURE_COLUMNS = (
     "segment",
     "language",
@@ -307,3 +334,109 @@ def generate_pv_experiment(
         frame[f"true_probability_{action}"] = probability.round(8)
 
     return frame
+
+
+def generate_channel_experiment(
+    seed: int = DEFAULT_SEED,
+    sample_size: int = 16_000,
+) -> pd.DataFrame:
+    """Create a deterministic randomized 2×2 influencer/expo experiment."""
+
+    rng = np.random.default_rng(seed + 41)
+    segment_ids = np.array([segment.id for segment in SEGMENTS])
+    segment_weights = np.array([segment.weight for segment in SEGMENTS])
+    segments = rng.choice(segment_ids, size=sample_size, p=segment_weights)
+
+    influencer = rng.binomial(1, 0.5, sample_size)
+    expo = rng.binomial(1, 0.5, sample_size)
+    interaction = influencer * expo
+    group_id = np.select(
+        [
+            (influencer == 0) & (expo == 0),
+            (influencer == 1) & (expo == 0),
+            (influencer == 0) & (expo == 1),
+        ],
+        ["control", "influencer_only", "expo_only"],
+        default="both",
+    )
+
+    baseline_engagement = np.clip(
+        rng.beta(2.2, 2.0, sample_size)
+        + 0.16 * _segment_mask(segments, "story")
+        + 0.14 * _segment_mask(segments, "exploration")
+        - 0.18 * _segment_mask(segments, "casual"),
+        0,
+        1,
+    )
+    prior_value = np.clip(
+        rng.gamma(shape=1.5, scale=0.28, size=sample_size)
+        + 0.18 * _segment_mask(segments, "returning"),
+        0,
+        1.5,
+    )
+
+    reservation_probability = _sigmoid(
+        -1.18
+        + 1.15 * baseline_engagement
+        + 0.34 * influencer
+        + 0.22 * expo
+        + 0.10 * interaction
+    )
+    reservation = rng.binomial(1, reservation_probability)
+
+    activation_probability = _sigmoid(
+        -0.70
+        + 0.82 * baseline_engagement
+        + 0.42 * reservation
+        + 0.25 * influencer
+        + 0.18 * expo
+        + 0.10 * interaction
+    )
+    activation = rng.binomial(1, activation_probability)
+
+    d7_conditional_probability = _sigmoid(
+        0.18
+        + 0.72 * baseline_engagement
+        + 0.22 * prior_value
+        + 0.18 * influencer
+        + 0.12 * expo
+        + 0.08 * interaction
+        - 0.28 * _segment_mask(segments, "casual")
+    )
+    retained_d7 = activation * rng.binomial(1, d7_conditional_probability)
+
+    d30_conditional_probability = _sigmoid(
+        -0.48
+        + 0.76 * baseline_engagement
+        + 0.32 * prior_value
+        + 0.22 * influencer
+        + 0.15 * expo
+        + 0.10 * interaction
+        - 0.22 * _segment_mask(segments, "casual")
+    )
+    retained_d30 = retained_d7 * rng.binomial(1, d30_conditional_probability)
+
+    ltv_d30 = np.where(
+        retained_d30 == 1,
+        rng.gamma(shape=1.9, scale=12.0 + 8.0 * prior_value),
+        rng.gamma(shape=0.65, scale=1.1),
+    )
+
+    return pd.DataFrame(
+        {
+            "anonymous_user_id": [
+                f"syn-channel-{index:05d}" for index in range(sample_size)
+            ],
+            "segment": segments,
+            "influencer_exposed": influencer,
+            "expo_exposed": expo,
+            "group_id": group_id,
+            "assignment_method": "randomized_factorial",
+            "propensity": 0.25,
+            "reservation": reservation,
+            "activation": activation,
+            "retained_d7": retained_d7,
+            "retained_d30": retained_d30,
+            "ltv_d30": ltv_d30.round(2),
+        }
+    )
