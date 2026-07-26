@@ -1,0 +1,102 @@
+{
+  "assignment": {
+    "cellPropensity": 0.25,
+    "method": "randomized_factorial",
+    "sampleSize": 16000
+  },
+  "d30Retention": {
+    "allocationDisclosureZh": "以下占比仅分配达人×展会相对对照组的联合增量，不是全部留存的来源占比。",
+    "baselineRate": 0.174,
+    "expo": {
+      "allocationShare": 0.404718,
+      "ci95High": 6.48,
+      "ci95Low": 4.03,
+      "directPoints": 1.7208,
+      "marginalWithOtherPoints": 8.7887,
+      "shapleyPoints": 5.2547
+    },
+    "influencer": {
+      "allocationShare": 0.595282,
+      "ci95High": 9.13,
+      "ci95Low": 6.44,
+      "directPoints": 4.1949,
+      "marginalWithOtherPoints": 11.2628,
+      "shapleyPoints": 7.7289
+    },
+    "interactionInterval": {
+      "ci95High": 9.55,
+      "ci95Low": 4.44
+    },
+    "interactionPoints": 7.0679,
+    "jointInterval": {
+      "ci95High": 14.84,
+      "ci95Low": 11.22
+    },
+    "jointRate": 0.3038,
+    "jointUpliftPoints": 12.9836,
+    "shareDenominator": "joint_incremental_uplift"
+  },
+  "dataMode": "synthetic_randomized_experiment",
+  "disclosureZh": "本页使用合成 2×2 随机实验演示归因方法，不代表真实达人或展会效果。",
+  "estimand": "incremental effect relative to no influencer and no expo",
+  "evidenceStrength": "randomized_demo",
+  "experimentVersion": "synthetic-factorial-2x2-v1",
+  "groups": [
+    {
+      "activationRate": 0.4768,
+      "averageLtv30": 5.66,
+      "d30RetentionRate": 0.174,
+      "d7RetentionRate": 0.312,
+      "expo": false,
+      "groupId": "control",
+      "influencer": false,
+      "labelZh": "对照组",
+      "reservationRate": 0.3737,
+      "sampleSize": 3920
+    },
+    {
+      "activationRate": 0.5442,
+      "averageLtv30": 6.84,
+      "d30RetentionRate": 0.2159,
+      "d7RetentionRate": 0.3812,
+      "expo": false,
+      "groupId": "influencer_only",
+      "influencer": true,
+      "labelZh": "仅达人",
+      "reservationRate": 0.4442,
+      "sampleSize": 4043
+    },
+    {
+      "activationRate": 0.5194,
+      "averageLtv30": 5.93,
+      "d30RetentionRate": 0.1912,
+      "d7RetentionRate": 0.3525,
+      "expo": true,
+      "groupId": "expo_only",
+      "influencer": false,
+      "labelZh": "仅展会",
+      "reservationRate": 0.4176,
+      "sampleSize": 3949
+    },
+    {
+      "activationRate": 0.6279,
+      "averageLtv30": 9.13,
+      "d30RetentionRate": 0.3038,
+      "d7RetentionRate": 0.4682,
+      "expo": true,
+      "groupId": "both",
+      "influencer": true,
+      "labelZh": "达人 × 展会",
+      "reservationRate": 0.5342,
+      "sampleSize": 4088
+    }
+  ],
+  "methodology": {
+    "allocationZh": "用 Shapley 平均边际贡献分配联合增量",
+    "confidenceInterval": "stratified bootstrap percentile interval",
+    "interactionZh": "两种动作同时出现是否超过各自单独效果之和",
+    "mainEffectZh": "分别比较有/无某动作时的平均变化",
+    "productionFallbackZh": "个人随机不可行时，使用匹配城市的 Geo-lift 或分批上线 DID。"
+  },
+  "schemaVersion": "release-lab.channel-attribution.v1"
+}

@@ -11,6 +11,7 @@ import {
   PanelLeftOpen,
   Snowflake,
   Sparkles,
+  Target,
   TestTube2,
   X,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const navigation = [
   { href: "/preheat", labelZh: "版本预热", labelEn: "Preheat", icon: Flame },
   { href: "/ask", labelZh: "问派蒙", labelEn: "Ask", icon: MessageCircleMore },
   { href: "/insights", labelZh: "发行洞察", labelEn: "Insights", icon: BarChart3 },
+  { href: "/release-lab", labelZh: "增量实验", labelEn: "Uplift", icon: Target },
 ];
 
 const pageChrome = {
