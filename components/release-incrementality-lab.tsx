@@ -74,14 +74,7 @@ export function ReleaseIncrementalityLab({
             <FlaskConical size={15} aria-hidden="true" />
             RELEASE INCREMENTALITY LAB · 发行作战档案
           </span>
-          <h1>
-            不是预测谁会留下，
-            <span>而是谁会因触达而留下。</span>
-          </h1>
-          <p>
-            把玩家信号、发行动作、随机对照与 D30
-            留存连成一个可以验证的决策闭环。
-          </p>
+          <h1>发行作战方案</h1>
         </div>
         <aside className="release-lab-disclosure">
           <Beaker size={20} aria-hidden="true" />
