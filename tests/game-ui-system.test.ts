@@ -89,5 +89,14 @@ describe("whole-site game UI system", () => {
       "color-mix(in srgb, var(--region-accent) 48%, var(--game-night-soft))",
     );
     expect(css).toContain(".region-button.is-selected > span");
+    expect(css).toContain(
+      ".preheat-progress-card .region-button.is-selected {",
+    );
+    expect(css).toContain(
+      "color-mix(in srgb, var(--region-accent) 84%, var(--game-night))",
+    );
+    expect(css).toContain(
+      "color-mix(in srgb, var(--region-accent) 62%, var(--game-night-soft))",
+    );
   });
 });
