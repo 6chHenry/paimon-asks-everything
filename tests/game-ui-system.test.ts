@@ -62,9 +62,9 @@ describe("whole-site game UI system", () => {
     expect(shell).toContain('lang={isZh ? "zh-CN" : "en"}');
     expect(css).toContain(".game-brand strong:lang(zh-CN)");
     expect(css).toContain("white-space: nowrap");
-    expect(css).toContain(
-      ".language-toggle { min-height: 44px; border-radius: 4px; }",
-    );
+    expect(css).toContain(".language-toggle {\n  min-height: 44px;");
+    expect(css).toContain("align-items: center");
+    expect(css).toContain("border-radius: 4px");
     expect(css).toContain(".language-toggle span { border-radius: 2px; }");
   });
 
