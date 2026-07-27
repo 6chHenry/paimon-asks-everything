@@ -176,7 +176,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <img src="/icon.png" alt="" aria-hidden="true" />
               </span>
               <span>
-                <strong>{isZh ? "派蒙三千问" : "Paimon Asks Everything"}</strong>
+                <strong lang={isZh ? "zh-CN" : "en"}>
+                  {isZh ? "派蒙三千问" : "Paimon Asks Everything"}
+                </strong>
                 <small>{isZh ? "版本理解 Agent" : "Version understanding agent"}</small>
               </span>
             </a>

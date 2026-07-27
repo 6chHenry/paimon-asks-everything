@@ -55,6 +55,19 @@ describe("whole-site game UI system", () => {
     }
   });
 
+  it("keeps the expanded Chinese brand on one line and uses restrained control corners", () => {
+    const shell = source("components", "app-shell.tsx");
+    const css = source("app", "game-ui.css");
+
+    expect(shell).toContain('lang={isZh ? "zh-CN" : "en"}');
+    expect(css).toContain(".game-brand strong:lang(zh-CN)");
+    expect(css).toContain("white-space: nowrap");
+    expect(css).toContain(
+      ".language-toggle { min-height: 44px; border-radius: 4px; }",
+    );
+    expect(css).toContain(".language-toggle span { border-radius: 2px; }");
+  });
+
   it("keeps both homepage carousel indicators compact and visually unified", () => {
     const css = source("app", "game-ui.css");
 
