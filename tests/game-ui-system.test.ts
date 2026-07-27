@@ -77,4 +77,17 @@ describe("whole-site game UI system", () => {
       ".snezhnaya-character-dots button { min-width: 44px; min-height: 44px;",
     );
   });
+
+  it("uses each region accent for selected region buttons", () => {
+    const css = source("app", "game-ui.css");
+
+    expect(css).toContain(".region-button.is-selected {");
+    expect(css).toContain(
+      "color-mix(in srgb, var(--region-accent) 72%, var(--game-night))",
+    );
+    expect(css).toContain(
+      "color-mix(in srgb, var(--region-accent) 48%, var(--game-night-soft))",
+    );
+    expect(css).toContain(".region-button.is-selected > span");
+  });
 });

@@ -789,13 +789,26 @@ html[data-nav-collapsed="true"] .game-shell .game-nav-collapse { width: 44px !im
 .suggestion-controls { background: rgba(255,250,238,.7); }
 .suggestion-controls button,
 .suggestion-list button { min-height: 44px; }
-.region-button.is-selected,
 .suggestion-topic-grid button.is-selected {
   border-color: var(--game-gold);
   background: linear-gradient(90deg, #244957, #1a3c48);
   color: #fff9eb;
   box-shadow: inset 4px 0 0 var(--game-gold-bright);
 }
+.region-button.is-selected {
+  border-color: color-mix(in srgb, var(--region-accent) 72%, var(--game-gold-bright));
+  background:
+    linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--region-accent) 72%, var(--game-night)),
+      color-mix(in srgb, var(--region-accent) 48%, var(--game-night-soft))
+    );
+  color: #fff9eb;
+  box-shadow:
+    inset 4px 0 0 color-mix(in srgb, var(--region-accent) 48%, #fff8ea),
+    0 7px 18px rgba(7, 24, 32, .18);
+}
+.region-button.is-selected > span { color: #fff9eb; }
 .suggestion-generate {
   border-color: rgba(234,216,167,.62) !important;
   background: linear-gradient(180deg, #244957, #142f3b) !important;
