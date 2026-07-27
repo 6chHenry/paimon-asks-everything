@@ -449,7 +449,55 @@ html[data-nav-collapsed="true"] .game-shell .game-nav-collapse { width: 44px !im
 .home-video-kicker,
 .home-video-links a { backdrop-filter: blur(8px); }
 .home-video-links a { min-height: 44px; }
-.home-video-dots button { min-width: 44px; min-height: 44px; background-clip: content-box; padding-block: 19px; }
+
+.home-video-dots,
+.snezhnaya-character-dots {
+  align-items: center;
+  gap: 4px;
+}
+
+.home-video-dots button,
+.snezhnaya-character-dots button,
+.home-video-dots button.active,
+.snezhnaya-character-dots button.active {
+  position: relative;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.home-video-dots button::before,
+.snezhnaya-character-dots button::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(234, 216, 167, .42);
+  transform: translate(-50%, -50%);
+  transition: width .2s ease, background .2s ease, box-shadow .2s ease;
+}
+
+.home-video-dots button.active::before,
+.snezhnaya-character-dots button.active::before {
+  width: 28px;
+  background: var(--frame-gold-soft);
+  box-shadow: 0 0 10px rgba(234, 216, 167, .3);
+}
+
+.home-video-dots button:focus-visible,
+.snezhnaya-character-dots button:focus-visible {
+  outline: 1px solid var(--frame-gold-soft);
+  outline-offset: -5px;
+}
 
 .snezhnaya-character-carousel {
   border-color: rgba(234, 216, 167, .62);
@@ -462,7 +510,6 @@ html[data-nav-collapsed="true"] .game-shell .game-nav-collapse { width: 44px !im
 .snezhnaya-character-actions a,
 .snezhnaya-character-nav button { min-height: 44px; }
 .snezhnaya-character-nav button { width: 44px; height: 44px; }
-.snezhnaya-character-dots button { min-width: 44px; min-height: 44px; background-clip: content-box; padding-block: 18px; }
 
 .home-hero-intel {
   position: relative;

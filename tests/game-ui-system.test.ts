@@ -54,4 +54,27 @@ describe("whole-site game UI system", () => {
       expect(css).toContain(fragment);
     }
   });
+
+  it("keeps both homepage carousel indicators compact and visually unified", () => {
+    const css = source("app", "game-ui.css");
+
+    for (const fragment of [
+      ".home-video-dots,\n.snezhnaya-character-dots",
+      ".home-video-dots button.active,\n.snezhnaya-character-dots button.active",
+      ".home-video-dots button::before,\n.snezhnaya-character-dots button::before",
+      ".home-video-dots button.active::before,\n.snezhnaya-character-dots button.active::before",
+      "background: transparent",
+      "width: 18px",
+      "width: 28px",
+    ]) {
+      expect(css).toContain(fragment);
+    }
+
+    expect(css).not.toContain(
+      ".home-video-dots button { min-width: 44px; min-height: 44px;",
+    );
+    expect(css).not.toContain(
+      ".snezhnaya-character-dots button { min-width: 44px; min-height: 44px;",
+    );
+  });
 });
